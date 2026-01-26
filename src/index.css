@@ -1,0 +1,585 @@
+:root {
+  /* Dashboard Palette */
+  --dashboard-bg: #f8f9fa;
+  --card-bg: #ffffff;
+  --primary: #2563eb;
+  --text-main: #1f2937;
+  --text-label: #6b7280;
+  --border: #e5e7eb;
+
+  /* Invoice Paper Palette (Print) */
+  --paper-bg: #ffffff;
+  --paper-text: #000000;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--dashboard-bg);
+  color: var(--text-main);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* --- Layout Structure --- */
+.app-container {
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  /* Editor | Preview (Future/Hidden) */
+  gap: 40px;
+  max-width: 1200px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    max-width: 700px;
+    /* Focus mode */
+  }
+}
+
+/* --- Editor Card Styles --- */
+.editor-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.editor-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* --- Form Sections --- */
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-section h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-label);
+}
+
+.form-input {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-row.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+/* --- Items Table --- */
+.items-editor-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+
+.items-editor-table th {
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--text-label);
+  padding: 0 8px;
+}
+
+.items-editor-table input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 8px;
+  font-size: 1.2rem;
+}
+
+.add-btn {
+  background: white;
+  border: 1px dashed var(--border);
+  color: var(--text-main);
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.add-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #eff6ff;
+}
+
+/* --- Totals Display --- */
+.editor-totals {
+  background: #f9fafb;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  color: #4b5563;
+}
+
+.total-row.grand-total {
+  font-weight: 700;
+  color: #111827;
+  font-size: 1.1rem;
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+/* --- Main Action Button --- */
+.primary-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.primary-btn:hover {
+  background: #1d4ed8;
+}
+
+/* --- Hidden Paper for Print --- */
+.hidden-print-container {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  /* Ensure it renders fully for html2canvas */
+  width: 210mm;
+}
+
+
+/* --- Action Bar (Floating Glass Header) --- */
+.actions-bar {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  padding: 16px 24px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-lg);
+  position: sticky;
+  top: 20px;
+  z-index: 50;
+}
+
+.actions-bar h3 {
+  color: var(--primary);
+  font-size: 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Make it look like a real logo/icon next to text optionally */
+.actions-bar h3::before {
+  content: '';
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.btn {
+  padding: 10px 20px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* --- Invoice Paper (The A4 Sheet) --- */
+.invoice-paper {
+  background: var(--bg-paper);
+  width: 210mm;
+  min-height: 297mm;
+  /* A4 */
+  padding: 20mm;
+  box-sizing: border-box;
+  box-shadow: var(--shadow-paper);
+  position: relative;
+  /* Clean sharp look */
+  color: #000;
+  /* Always pure black text on paper */
+}
+
+/* --- Invoice Header --- */
+.header-row {
+  display: flex;
+  justify-content: flex-end;
+  /* Company info top right as original */
+  margin-bottom: 3rem;
+}
+
+.company-block {
+  text-align: left;
+  min-width: 250px;
+}
+
+.company-block h1 {
+  font-size: 1.25rem;
+  color: #000;
+  margin-bottom: 0.5rem;
+}
+
+.company-block p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #333;
+  margin: 0;
+}
+
+/* Sender Line (Small line above recipient) */
+.sender-line {
+  font-size: 0.65rem;
+  color: #555;
+  text-decoration: underline;
+  margin-bottom: 1rem;
+  margin-top: 2rem;
+  /* Visual balancing */
+  /* Position absolute in original CSS, let's keep it relative or absolute based on flow? 
+     Original had absolute top/left. Let's make it more flow-based if possible, 
+     but keeping absolute to strictly match window envelope standards is safer for invoices.
+  */
+  left: 20mm;
+}
+
+/* Recipient Block (New) - Styled to match Company Info */
+.recipient-block {
+  position: absolute;
+  top: 65mm;
+  /* Below sender line */
+  left: 20mm;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recipient-input,
+.recipient-textarea {
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: inherit;
+  color: #000;
+  width: 100%;
+  padding: 2px;
+  transition: all 0.2s;
+  resize: none;
+}
+
+.recipient-input.bold {
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.recipient-textarea {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.recipient-input:hover,
+.recipient-textarea:hover,
+.date-picker-modern:hover {
+  background: #f8fafc;
+}
+
+.recipient-input:focus,
+.recipient-textarea:focus,
+.date-picker-modern:focus {
+  background: #f1f5f9;
+  border: 1px solid var(--accent);
+  outline: none;
+  border-radius: 4px;
+}
+
+/* Date Picker Modernization */
+.date-picker-modern {
+  font-family: 'Inter', sans-serif;
+  color: inherit;
+}
+
+/* --- Meta Data Grid --- */
+.meta-section {
+  margin-top: 10mm;
+  /* Reduced from 60mm to pull it up */
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  font-size: 0.9rem;
+  align-items: center;
+}
+
+.meta-grid label {
+  font-weight: 600;
+  color: #000;
+}
+
+/* Seamless Inputs */
+.meta-grid input,
+.invoice-table input {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.meta-grid input {
+  width: 180px;
+  text-align: right;
+}
+
+.meta-grid input:hover,
+.invoice-table input:hover {
+  background: #f8fafc;
+}
+
+.meta-grid input:focus,
+.invoice-table input:focus {
+  background: #f1f5f9;
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* --- Table Styles --- */
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 2rem;
+  font-size: 0.9rem;
+  /* Add bottom border to close the Excel-like grid */
+  border-bottom: 1px solid #9ca3af;
+}
+
+.invoice-table th {
+  text-align: left;
+  font-weight: 600;
+  color: #000;
+  border-bottom: 2px solid #000;
+  padding: 12px 8px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  /* Excel-like style */
+  background-color: #e0e0e0;
+  border: 1px solid #9ca3af;
+  /* Grey border like Excel grid */
+}
+
+.invoice-table td {
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  /* Grid lines for cells too? user only marked header but 'excel like' usually implies grid. keeping light border for now */
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: top;
+}
+
+/* --- Totals Section --- */
+.totals-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2rem;
+}
+
+.totals-box {
+  width: 300px;
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 0.9rem;
+}
+
+.totals-row.divider {
+  border-bottom: 1px solid #ccc;
+}
+
+.totals-row.final {
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+  /* Double line style often looks professional */
+  margin-top: 8px;
+  padding: 12px 0;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+/* --- Footer --- */
+.invoice-footer {
+  margin-top: 4rem;
+  font-size: 0.75rem;
+  color: #444;
+  line-height: 1.6;
+  border-top: 1px solid var(--border-light);
+  padding-top: 1rem;
+}
+
+.invoice-footer strong {
+  color: #000;
+}
+
+/* --- Print Overrides --- */
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
+  body {
+    background: white;
+    margin: 0;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .container {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .actions-bar {
+    display: none !important;
+  }
+
+  .invoice-paper {
+    box-shadow: none;
+    margin: 0;
+    width: 100%;
+    height: auto;
+    /* Let it flow */
+    min-height: 100vh;
+    border: none;
+  }
+
+  /* Keep Excel header background in print */
+  .invoice-table th {
+    background-color: #e0e0e0 !important;
+    border: 1px solid #9ca3af !important;
+    color: #000 !important;
+  }
+}
+
+/* Utilities for PDF Generation */
+.printing-mode input,
+.printing-mode textarea {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  resize: none;
+}
+
+.printing-mode ::placeholder {
+  color: transparent !important;
+}
