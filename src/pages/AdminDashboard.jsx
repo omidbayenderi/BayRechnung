@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { usePanel } from '../context/PanelContext';
-import { useNavigate } from 'react-router-dom';
+import { useInvoice } from '../context/InvoiceContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     LayoutDashboard,
     Settings as SettingsIcon,
@@ -19,28 +20,54 @@ import {
     ShoppingCart,
     Globe,
     Shield,
-    CreditCard
+    CreditCard,
+    FileText,
+    Map,
+    Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePlanGuard } from '../hooks/usePlanGuard';
 
 // Import Panels
-// Import Panels
 import SystemOverview from './admin/SystemOverview';
+import SiteManagement from './admin/SiteManagement';
 import Settings from './Settings';
 import UserManagement from './UserManagement';
 import MessagesCenter from './MessagesCenter';
+import AdminMessagingView from '../components/admin/AdminMessagingView';
 import SubscriptionManagement from './admin/SubscriptionManagement';
 import IntegrationSettings from './admin/IntegrationSettings';
+import Reports from './admin/Reports';
 import Dashboard from './Dashboard';
 
 const AdminDashboard = () => {
     const { t } = useLanguage();
     const { logout, currentUser } = useAuth();
     const { modules, switchPanel } = usePanel();
-    const [activeTab, setActiveTab] = useState('overview');
+    const { companyProfile } = useInvoice();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { isPremium } = usePlanGuard();
+
+    // Initialize tab from URL or default to 'overview'
+    const initialTab = searchParams.get('tab') || 'overview';
+    const [activeTab, setActiveTabState] = useState(initialTab);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [showPanelSwitcher, setShowPanelSwitcher] = useState(false);
     const navigate = useNavigate();
+
+    // Sync state with URL
+    const setActiveTab = (tabId) => {
+        setActiveTabState(tabId);
+        setSearchParams({ tab: tabId });
+    };
+
+    // Ensure state updates if URL changes externally (e.g. back button)
+    React.useEffect(() => {
+        const currentTab = searchParams.get('tab') || 'overview';
+        if (currentTab !== activeTab) {
+            setActiveTabState(currentTab);
+        }
+    }, [searchParams]);
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -49,20 +76,31 @@ const AdminDashboard = () => {
             case 'overview': return <SystemOverview />;
             case 'subscription': return <SubscriptionManagement />;
             case 'integrations': return <IntegrationSettings />;
-            case 'users': return <UserManagement />;
-            case 'messages': return <MessagesCenter />;
+            case 'reports': return <Reports />;
+            case 'sites':
+                // Security check: Only render if industry is Construction AND plan is Premium
+                return (companyProfile?.industry === 'Construction' && isPremium()) ? <SiteManagement /> : <SystemOverview />;
+            case 'users':
+                return isPremium() ? <UserManagement /> : <SystemOverview />;
+            case 'messages': return <AdminMessagingView />;
             case 'settings': return <Settings />;
             default: return <SystemOverview />;
         }
     };
 
     const sidebarItems = [
-        { id: 'overview', label: t('dashboard') || 'Dashboard', icon: LayoutDashboard },
-        { id: 'subscription', label: t('subscription_management') || 'Abonelik & Ödeme', icon: CreditCard },
-        { id: 'integrations', label: t('integration_hub') || 'Entegrasyonlar', icon: Globe },
-        { id: 'users', label: t('users') || 'Team Management', icon: Users },
-        { id: 'messages', label: t('messages') || 'Message Center', icon: MessageSquare },
-        { id: 'settings', label: t('settings') || 'System Settings', icon: SettingsIcon },
+        { id: 'overview', label: t('dashboard'), icon: LayoutDashboard },
+        // Conditional Sidebar Item for Site Management (Premium + Construction)
+        ...(companyProfile?.industry === 'Construction' && isPremium() ? [{ id: 'sites', label: t('site_management'), icon: Map }] : []),
+        { id: 'subscription', label: t('subscription_management'), icon: CreditCard },
+        // Premium Only Sections
+        ...(isPremium() ? [
+            { id: 'integrations', label: t('integration_hub'), icon: Globe },
+            { id: 'reports', label: t('reports'), icon: FileText },
+            { id: 'users', label: t('users'), icon: Users },
+        ] : []),
+        { id: 'messages', label: t('messages'), icon: MessageSquare },
+        { id: 'settings', label: t('settings'), icon: SettingsIcon },
     ];
 
     return (
@@ -106,10 +144,10 @@ const AdminDashboard = () => {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                     <span style={{ fontWeight: '800', fontSize: '1.1rem', color: 'white', letterSpacing: '0.5px' }}>
-                                        {t('admin_panel_title') || 'Admin Panel'}
+                                        {t('admin_panel_title')}
                                     </span>
                                     <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                        {t('system_control') || 'System Control'}
+                                        {t('system_control')}
                                     </span>
                                 </div>
                             </div>
@@ -140,7 +178,7 @@ const AdminDashboard = () => {
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Grid size={16} color="#94a3b8" />
-                                        <span>{t('switch_to_app') || 'Switch to App'}</span>
+                                        <span>{t('switch_to_app')}</span>
                                     </div>
                                     {showPanelSwitcher ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                                 </button>
@@ -153,31 +191,79 @@ const AdminDashboard = () => {
                                             exit={{ height: 0, opacity: 0 }}
                                             style={{ overflow: 'hidden', marginTop: '8px', display: 'grid', gap: '8px' }}
                                         >
-                                            {modules.filter(m => m.id !== 'admin').map(mod => (
-                                                <button
-                                                    key={mod.id}
-                                                    onClick={() => switchPanel(mod.id)}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '10px',
-                                                        padding: '10px',
-                                                        background: 'transparent',
-                                                        border: 'none',
-                                                        color: '#cbd5e1',
-                                                        cursor: 'pointer',
-                                                        borderRadius: '6px',
-                                                        textAlign: 'left',
-                                                        transition: 'background 0.2s',
-                                                        fontSize: '0.85rem'
-                                                    }}
-                                                    onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.05)'}
-                                                    onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                                                >
-                                                    <div style={{ color: mod.color }}>{mod.icon({ size: 16 })}</div>
-                                                    <span>{mod.name}</span>
-                                                </button>
-                                            ))}
+                                            {modules.filter(m => m.id !== 'admin').map(mod => {
+                                                const isLocked = mod.premium && currentUser?.plan !== 'premium';
+                                                return (
+                                                    <button
+                                                        key={mod.id}
+                                                        onClick={() => {
+                                                            if (isLocked) {
+                                                                // If locked, go to subscription management
+                                                                setActiveTab('subscription');
+                                                                setShowPanelSwitcher(false);
+                                                                return;
+                                                            }
+                                                            switchPanel(mod.id);
+                                                        }}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '10px',
+                                                            padding: '10px',
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            color: isLocked ? '#64748b' : '#cbd5e1',
+                                                            cursor: 'pointer',
+                                                            borderRadius: '6px',
+                                                            textAlign: 'left',
+                                                            transition: 'background 0.2s',
+                                                            fontSize: '0.85rem',
+                                                            opacity: isLocked ? 0.7 : 1,
+                                                            filter: isLocked ? 'grayscale(0.5)' : 'none'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            if (!isLocked) e.target.style.background = 'rgba(255,255,255,0.05)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (!isLocked) e.target.style.background = 'transparent';
+                                                        }}
+                                                    >
+                                                        <div style={{ color: mod.color, position: 'relative' }}>
+                                                            {mod.icon({ size: 16 })}
+                                                            {isLocked && (
+                                                                <div style={{
+                                                                    position: 'absolute',
+                                                                    top: '-6px',
+                                                                    right: '-6px',
+                                                                    background: '#1e293b',
+                                                                    color: 'white',
+                                                                    borderRadius: '50%',
+                                                                    padding: '2px',
+                                                                    border: '1px solid #334155'
+                                                                }}>
+                                                                    <Lock size={8} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span>{mod.name}</span>
+                                                            {isLocked && (
+                                                                <span style={{
+                                                                    fontSize: '0.6rem',
+                                                                    background: '#fef3c7',
+                                                                    color: '#92400e',
+                                                                    padding: '1px 4px',
+                                                                    borderRadius: '4px',
+                                                                    fontWeight: 'bold',
+                                                                    textTransform: 'uppercase'
+                                                                }}>
+                                                                    Pro
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
@@ -186,7 +272,7 @@ const AdminDashboard = () => {
                             {/* Main Navigation */}
                             <div style={{ padding: '0 4px' }}>
                                 <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 'bold', marginBottom: '12px', letterSpacing: '0.5px' }}>
-                                    {t('management_section') || 'Management'}
+                                    {t('management_section')}
                                 </div>
                                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                     {sidebarItems.map(item => (
@@ -250,7 +336,7 @@ const AdminDashboard = () => {
                                     transition: 'all 0.2s'
                                 }}
                             >
-                                <LogOut size={14} /> {t('logout') || 'Logout'}
+                                <LogOut size={14} /> {t('logout')}
                             </button>
                         </div>
                     </motion.aside>

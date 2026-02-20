@@ -2,16 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInvoice } from '../context/InvoiceContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Eye, Trash2, Edit } from 'lucide-react';
+import { Eye, Trash2, Edit, Wand2, Download } from 'lucide-react';
 import { getIndustryFields } from '../config/industryFields';
 import ConfirmDialog from '../components/ConfirmDialog';
+import MagicImportModal from '../components/MagicImportModal';
 import '../index.css';
 
 const Archive = () => {
-    const { invoices, deleteInvoice, STATUSES, companyProfile } = useInvoice();
+    const { invoices, deleteInvoice, updateInvoiceStatus, STATUSES, companyProfile, importInvoices, exportToDATEV } = useInvoice();
     const { t, appLanguage } = useLanguage();
     const navigate = useNavigate();
     const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [isMagicImportOpen, setIsMagicImportOpen] = useState(false);
 
     // Get industry-specific configuration
     const industryConfig = getIndustryFields(companyProfile.industry || 'general');
@@ -55,6 +57,22 @@ const Archive = () => {
                             {industryConfig.icon} {appLanguage === 'tr' ? industryConfig.sectionTitleTR : industryConfig.sectionTitle}
                         </p>
                     </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                            className="secondary-btn"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}
+                            onClick={() => setIsMagicImportOpen(true)}
+                        >
+                            <Wand2 size={18} /> Magic Import
+                        </button>
+                        <button
+                            className="secondary-btn"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            onClick={() => exportToDATEV(invoices)}
+                        >
+                            <Download size={18} /> DATEV Export
+                        </button>
+                    </div>
                 </header>
 
                 <div className="card">
@@ -88,16 +106,31 @@ const Archive = () => {
                                         {new Intl.NumberFormat('de-DE', { style: 'currency', currency: inv.currency || 'EUR' }).format(inv.total)}
                                     </td>
                                     <td>
-                                        <span className="badge" style={{
-                                            backgroundColor: (STATUSES[inv.status] || STATUSES.draft).color + '20',
-                                            color: (STATUSES[inv.status] || STATUSES.draft).color,
-                                            padding: '4px 8px',
-                                            borderRadius: '6px',
-                                            fontSize: '12px',
-                                            fontWeight: '600'
-                                        }}>
-                                            {t(inv.status || 'draft')}
-                                        </span>
+                                        <select
+                                            className="status-select"
+                                            value={inv.status || 'draft'}
+                                            onChange={(e) => updateInvoiceStatus(inv.id, e.target.value)}
+                                            style={{
+                                                backgroundColor: (STATUSES[inv.status || 'draft'] || STATUSES.draft).color + '20',
+                                                color: (STATUSES[inv.status || 'draft'] || STATUSES.draft).color,
+                                                borderColor: 'transparent',
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                fontSize: '12px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                appearance: 'none',
+                                                WebkitAppearance: 'none',
+                                                textAlign: 'center',
+                                                minWidth: '80px'
+                                            }}
+                                        >
+                                            <option value="draft">{t('draft')}</option>
+                                            <option value="sent">{t('sent')}</option>
+                                            <option value="paid">{t('paid')}</option>
+                                            <option value="partial">{t('partial')}</option>
+                                            <option value="overdue">{t('overdue')}</option>
+                                        </select>
                                     </td>
                                     <td>
                                         <div className="table-actions">
@@ -142,6 +175,13 @@ const Archive = () => {
                 confirmText={appLanguage === 'tr' ? 'Sil' : 'Löschen'}
                 cancelText={appLanguage === 'tr' ? 'İptal' : 'Abbrechen'}
                 type="danger"
+            />
+
+            <MagicImportModal
+                isOpen={isMagicImportOpen}
+                onClose={() => setIsMagicImportOpen(false)}
+                onImport={(data) => importInvoices(data)}
+                t={t}
             />
         </>
     );

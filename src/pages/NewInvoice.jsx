@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useInvoice } from '../context/InvoiceContext';
 import InvoicePaper from '../components/InvoicePaper';
 import { Save, Printer, Plus, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getIndustryFields } from '../config/industryFields';
 import html2canvas from 'html2canvas';
@@ -12,14 +12,16 @@ const NewInvoice = () => {
     const { companyProfile, saveInvoice } = useInvoice();
     const { t, appLanguage } = useLanguage();
     const navigate = useNavigate();
+    const location = useLocation();
     const invoiceRef = useRef();
+    const prefillData = location.state?.prefill || {};
 
     // Get industry-specific fields configuration
     const industryConfig = getIndustryFields(companyProfile.industry || 'general');
 
     // Local state - industryData stores dynamic fields based on selected industry
     const [invoiceData, setInvoiceData] = useState({
-        recipientName: '',
+        recipientName: prefillData.recipientName || '',
         recipientStreet: '',
         recipientHouseNum: '',
         recipientZip: '',
@@ -29,7 +31,7 @@ const NewInvoice = () => {
         currency: companyProfile.defaultCurrency || 'EUR',
         taxRate: companyProfile.defaultTaxRate || 19,
         status: 'draft',
-        items: [{ description: '', quantity: 1, price: 0 }],
+        items: prefillData.items || [{ description: '', quantity: 1, price: 0 }],
         footerNote: 'Vielen Dank für den Auftrag!',
         industryData: {} // Dynamic fields based on industry
     });
@@ -100,7 +102,9 @@ const NewInvoice = () => {
     // Calculate totals for UI
     const calculateTotals = () => {
         const subtotal = invoiceData.items.reduce((sum, item) => sum + (parseFloat(item.quantity || 0) * parseFloat(item.price || 0)), 0);
-        const tax = subtotal * (parseFloat(invoiceData.taxRate || 0) / 100);
+        // If taxExempt is true, tax is always 0
+        const effectiveTaxRate = companyProfile.taxExempt ? 0 : parseFloat(invoiceData.taxRate || 0);
+        const tax = subtotal * (effectiveTaxRate / 100);
         const total = subtotal + tax;
         return { subtotal, tax, total };
     };
@@ -131,20 +135,49 @@ const NewInvoice = () => {
         }
     };
 
-    const handleSaveAndPrint = async () => {
-        // 1. Save to Archive
-        saveInvoice({
-            ...invoiceData,
-            ...totals, // Save the calculated totals too
-            senderSnapshot: companyProfile // Optional: snapshot sender info at time of invoice
-        });
+    const handleSaveDraft = async () => {
+        try {
+            const savedInvoice = await saveInvoice({
+                ...invoiceData,
+                status: 'draft',
+                ...totals,
+                senderSnapshot: companyProfile
+            });
 
-        // 2. Open Print Preview (browser's native print dialog)
-        window.print();
-
-        // 3. Ask to go back
-        if (window.confirm('Rechnung wurde gespeichert. Möchtest du zum Archiv zurückkehren?')) {
+            // Check if successful
+            alert(t('draftSaved') || 'Taslak kaydedildi!');
             navigate('/archive');
+        } catch (error) {
+            console.error("Error saving draft:", error);
+            alert("Fehler beim Speichern des Entwurfs.");
+        }
+    };
+
+    const handleSaveAndPrint = async () => {
+        try {
+            // 1. Save to Archive (capture new invoice object to get ID)
+            const newInvoice = await saveInvoice({
+                ...invoiceData,
+                status: 'sent', // Mark as sent when printed
+                clientId: invoiceData.recipientId, // Future proofing
+                ...totals,
+                senderSnapshot: companyProfile
+            });
+
+            // 2. Navigate to Invoice Details View with autoprint flag
+            // Check for ID, if available navigate, otherwise fallback to archive
+            if (newInvoice && newInvoice.id) {
+                alert(t('saveSuccessful') || 'Başarıyla kaydedildi!');
+                navigate(`/invoice/${newInvoice.id}?autoprint=true`);
+            } else {
+                // If ID is missing (e.g. offline sync pending), we can't open details immediately
+                // but it's saved in the queue.
+                console.warn('Invoice saved but ID not returned immediately (offline?). Redirecting to archive.');
+                navigate('/archive');
+            }
+        } catch (error) {
+            console.error("Error saving invoice:", error);
+            alert(t('error_saving') || "Hata oluştu / Error saving");
         }
     };
 
@@ -153,6 +186,10 @@ const NewInvoice = () => {
             <header className="page-header">
                 <h1>{t('newInvoice')}</h1>
                 <div className="actions">
+                    <button className="secondary-btn" onClick={handleSaveDraft}>
+                        <Save size={20} />
+                        {t('saveDraft') || 'Taslak Olarak Kaydet'}
+                    </button>
                     <button className="primary-btn" onClick={handleSaveAndPrint}>
                         <Printer size={20} />
                         {t('saveAndPrint')}

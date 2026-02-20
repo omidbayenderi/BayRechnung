@@ -6,17 +6,18 @@ import { Save, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { getIndustryFields } from '../config/industryFields';
 
-const InvoiceEdit = () => {
+const InvoiceEdit = ({ type = 'invoice' }) => {
     const { id } = useParams();
-    const navigate = useNavigate();
-    const { invoices, companyProfile, updateInvoice } = useInvoice();
+    const navigate = useNavigate(); // Added navigate to imports above if missing? No, it's there.
+    const { invoices, quotes, companyProfile, updateInvoice, updateQuote } = useInvoice();
     const { t, appLanguage } = useLanguage();
     const invoiceRef = useRef();
 
     // Get industry-specific fields configuration from current settings
     const industryConfig = getIndustryFields(companyProfile.industry || 'general');
 
-    const existingInvoice = invoices.find(inv => inv.id === Number(id) || inv.id === id);
+    const list = type === 'quote' ? quotes : invoices;
+    const existingInvoice = list.find(inv => inv.id === Number(id) || inv.id === id);
 
     const [invoiceData, setInvoiceData] = useState({
         recipientName: '',
@@ -48,18 +49,20 @@ const InvoiceEdit = () => {
                 taxRate: existingInvoice.taxRate || 19,
                 status: existingInvoice.status || 'draft',
                 items: existingInvoice.items || [{ description: '', quantity: 1, price: 0 }],
-                footerNote: existingInvoice.footerNote || 'Vielen Dank für den Auftrag!',
+                footerNote: existingInvoice.footerNote || (type === 'quote' ? t('default_quote_footer') : t('default_invoice_footer')),
                 industryData: existingInvoice.industryData || {}
             });
         }
-    }, [existingInvoice]);
+    }, [existingInvoice, type]);
 
     if (!existingInvoice) {
         return (
             <div className="page-container">
                 <div className="empty-state">
-                    <h2>{t('invoiceNotFound')}</h2>
-                    <button className="primary-btn" onClick={() => navigate('/archive')}>{t('backToArchive')}</button>
+                    <h2>{type === 'quote' ? t('quoteNotFound') : t('invoiceNotFound')}</h2>
+                    <button className="primary-btn" onClick={() => navigate(type === 'quote' ? '/quotes' : '/archive')}>
+                        {type === 'quote' ? t('backToQuotes') : t('backToArchive')}
+                    </button>
                 </div>
             </div>
         );
@@ -107,13 +110,14 @@ const InvoiceEdit = () => {
     const totals = calculateTotals();
 
     const handleSave = () => {
-        updateInvoice(existingInvoice.id, {
+        const updateFunc = type === 'quote' ? updateQuote : updateInvoice;
+        updateFunc(existingInvoice.id, {
             ...invoiceData,
             ...totals,
             senderSnapshot: companyProfile
         });
-        alert('Rechnung wurde aktualisiert!');
-        navigate('/archive');
+        alert(type === 'quote' ? t('quote_updated') : t('invoice_updated'));
+        navigate(type === 'quote' ? '/quotes' : '/archive');
     };
 
     const fullData = {
@@ -147,7 +151,7 @@ const InvoiceEdit = () => {
                         <ArrowLeft />
                     </button>
                     <div>
-                        <h1>{t('editInvoice') || 'Rechnung bearbeiten'}</h1>
+                        <h1>{type === 'quote' ? t('editQuote') : t('editInvoice')}</h1>
                         <p>{invoiceData.invoiceNumber}</p>
                     </div>
                 </div>
@@ -286,9 +290,9 @@ const InvoiceEdit = () => {
                         </button>
 
                         <div className="mini-totals">
-                            <div className="row"><span>{t('subtotal')}:</span> <span>{totals.subtotal.toFixed(2)} €</span></div>
-                            <div className="row"><span>{t('tax')} ({invoiceData.taxRate}%):</span> <span>{totals.tax.toFixed(2)} €</span></div>
-                            <div className="row total"><span>{t('total')}:</span> <span>{totals.total.toFixed(2)} €</span></div>
+                            <div className="row"><span>{t('subtotal')}:</span> <span>{totals.subtotal.toFixed(2)} {invoiceData.currency === 'TRY' ? '₺' : invoiceData.currency === 'USD' ? '$' : invoiceData.currency === 'GBP' ? '£' : '€'}</span></div>
+                            <div className="row"><span>{t('tax')} ({invoiceData.taxRate}%):</span> <span>{totals.tax.toFixed(2)} {invoiceData.currency === 'TRY' ? '₺' : invoiceData.currency === 'USD' ? '$' : invoiceData.currency === 'GBP' ? '£' : '€'}</span></div>
+                            <div className="row total"><span>{t('total')}:</span> <span>{totals.total.toFixed(2)} {invoiceData.currency === 'TRY' ? '₺' : invoiceData.currency === 'USD' ? '$' : invoiceData.currency === 'GBP' ? '£' : '€'}</span></div>
                         </div>
                     </div>
                 </div>

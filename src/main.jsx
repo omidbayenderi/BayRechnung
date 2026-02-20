@@ -4,9 +4,12 @@ import { BrowserRouter } from 'react-router-dom';
 import { InvoiceProvider } from './context/InvoiceContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
+import { AppointmentProvider } from './context/AppointmentContext.jsx';
+import { FeatureFlagProvider } from './context/FeatureFlagContext.jsx';
 import './index.css';
 import App from './App.jsx';
 
+// Handle legacy path redirect (if needed) or just start
 console.log('🚀 BayRechnung starting with basename /BayRechnung...');
 
 const rootElement = document.getElementById('root');
@@ -18,9 +21,13 @@ if (!rootElement) {
       <BrowserRouter basename="/BayRechnung">
         <LanguageProvider>
           <AuthProvider>
-            <InvoiceProvider>
-              <App />
-            </InvoiceProvider>
+            <FeatureFlagProvider>
+              <InvoiceProvider>
+                <AppointmentProvider>
+                  <App />
+                </AppointmentProvider>
+              </InvoiceProvider>
+            </FeatureFlagProvider>
           </AuthProvider>
         </LanguageProvider>
       </BrowserRouter>

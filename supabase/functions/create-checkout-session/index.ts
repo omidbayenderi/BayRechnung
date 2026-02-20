@@ -1,3 +1,4 @@
+// @ts-nocheck
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 
 const corsHeaders = {
@@ -12,7 +13,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const { priceId, successUrl, cancelUrl } = await req.json();
+        const { priceId, successUrl, cancelUrl, trial } = await req.json();
 
         if (!priceId) {
             throw new Error('Price ID is required');
@@ -28,22 +29,30 @@ Deno.serve(async (req) => {
             httpClient: Stripe.createFetchHttpClient(),
         });
 
-        console.log('Creating checkout session for price:', priceId);
+        console.log('Creating checkout session for price:', priceId, 'Trial:', trial);
 
         const origin = req.headers.get('origin') || 'http://localhost:5173';
 
-        const session = await stripe.checkout.sessions.create({
+        const sessionConfig = {
             line_items: [
                 {
                     price: priceId,
                     quantity: 1,
                 },
             ],
-            mode: 'subscription', // Change to 'payment' if this is a one-time purchase
+            mode: 'subscription',
             success_url: successUrl || `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: cancelUrl || origin,
             allow_promotion_codes: true,
-        });
+        };
+
+        if (trial) {
+            sessionConfig.subscription_data = {
+                trial_period_days: 14
+            };
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionConfig);
 
         console.log('Session created:', session.id);
 

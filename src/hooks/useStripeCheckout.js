@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 
 export const useStripeCheckout = () => {
-    const redirectToCheckout = async (priceId) => {
+    const redirectToCheckout = async (priceId, trial = false) => {
         try {
             if (!priceId || priceId.startsWith('price_xxx') || priceId.startsWith('price_test')) {
                 alert('⚠️ Stripe not configured yet!\n\nPlease create products in Stripe Dashboard and update .env file with actual Price IDs.');
@@ -12,6 +12,7 @@ export const useStripeCheckout = () => {
             const { data, error } = await supabase.functions.invoke('create-checkout-session', {
                 body: {
                     priceId,
+                    trial, // Pass trial flag
                     successUrl: import.meta.env.VITE_SUCCESS_URL || window.location.origin + '/BayRechnung/success',
                     cancelUrl: import.meta.env.VITE_CANCEL_URL || window.location.origin + '/BayRechnung/',
                 },

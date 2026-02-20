@@ -12,44 +12,44 @@ const IntegrationSettings = () => {
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
-        alert('Kopyalandı!');
+        alert(t('copied') || 'Kopyalandı!');
     };
 
     const integrations = [
         {
             id: 'stripe',
             name: 'Stripe Payments',
-            desc: 'Kredi kartı ödemelerini al.',
+            desc: t('stripe_desc'),
             status: 'active',
             icon: CreditCard,
             color: '#635bff',
             fields: [
-                { label: 'Publishable Key', value: 'pk_test_51M...' },
-                { label: 'Secret Key', value: 'sk_test_51M...', secured: true }
+                { label: t('publishable_key'), value: 'pk_test_51M...' },
+                { label: t('secret_key'), value: 'sk_test_51M...', secured: true }
             ]
         },
         {
             id: 'paypal',
             name: 'PayPal Business',
-            desc: 'PayPal ile ödeme kabul et.',
+            desc: t('paypal_desc'),
             status: 'inactive',
             icon: Globe,
             color: '#003087',
             fields: [
-                { label: 'Client ID', value: '' },
-                { label: 'Secret', value: '', secured: true }
+                { label: t('client_id'), value: '' },
+                { label: t('client_secret'), value: '', secured: true }
             ]
         },
         {
             id: 'whatsapp',
             name: 'WhatsApp Business API',
-            desc: 'Otomatik bildirimler gönder.',
+            desc: t('whatsapp_desc'),
             status: 'setup_required',
             icon: Smartphone,
             color: '#25D366',
             fields: [
-                { label: 'Phone Number ID', value: '' },
-                { label: 'Access Token', value: '', secured: true }
+                { label: t('phone_id'), value: '' },
+                { label: t('access_token'), value: '', secured: true }
             ]
         }
     ];
@@ -58,10 +58,10 @@ const IntegrationSettings = () => {
         <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ marginBottom: '32px' }}>
                 <h1 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '8px' }}>
-                    {t('integration_hub') || 'Entegrasyon Merkezi'}
+                    {t('integration_hub')}
                 </h1>
                 <p style={{ color: '#64748b' }}>
-                    {t('integration_desc') || '3. parti uygulamaları ve API anahtarlarını yönetin.'}
+                    {t('integration_desc')}
                 </p>
             </div>
 
@@ -91,10 +91,10 @@ const IntegrationSettings = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>{integration.name}</h3>
                                         {integration.status === 'active' && (
-                                            <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>AKTİF</span>
+                                            <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>{t('active_badge')}</span>
                                         )}
                                         {integration.status === 'inactive' && (
-                                            <span style={{ fontSize: '0.7rem', background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>PASİF</span>
+                                            <span style={{ fontSize: '0.7rem', background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>{t('passive_badge')}</span>
                                         )}
                                     </div>
                                     <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.9rem' }}>{integration.desc}</p>

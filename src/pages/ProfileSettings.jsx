@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { ArrowLeft, Camera, User, Mail, Shield, Key, Save, Check, Globe, CreditCard } from 'lucide-react';
+import { ArrowLeft, Camera, User, Mail, Shield, Key, Save, Check, Globe, CreditCard, AlertCircle } from 'lucide-react';
 
 const ProfileSettings = () => {
     const navigate = useNavigate();
@@ -41,6 +41,12 @@ const ProfileSettings = () => {
     });
     const [saved, setSaved] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -78,15 +84,42 @@ const ProfileSettings = () => {
 
             if (result.success) {
                 setSaved(true);
+                showToast(t('saveSuccessful') || 'Başarıyla güncellendi!', 'success');
                 setTimeout(() => setSaved(false), 2000);
             } else {
-                alert(result.error || 'Update failed');
+                showToast(result.error || 'Update failed', 'error');
             }
         }
     };
 
     return (
-        <div className="page-container">
+        <div className="page-container" style={{ position: 'relative' }}>
+            {/* Custom Toast Notification */}
+            {toast && (
+                <div style={{
+                    position: 'fixed',
+                    top: '24px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: toast.type === 'error' ? '#fee2e2' : '#dcfce7',
+                    color: toast.type === 'error' ? '#b91c1c' : '#15803d',
+                    padding: '12px 24px',
+                    borderRadius: '50px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                    zIndex: 9999,
+                    animation: 'slideDown 0.3s ease-out forwards',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    border: `1px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`
+                }}>
+                    {toast.type === 'error' ? <AlertCircle size={20} /> : <Check size={20} />}
+                    {toast.message}
+                </div>
+            )}
+
             <header className="page-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <button className="icon-btn" onClick={() => navigate('/settings')}>
@@ -290,83 +323,7 @@ const ProfileSettings = () => {
                         </p>
                     </div>
 
-                    <div className="form-group" style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                        <h4 style={{ margin: '0 0 16px 0', fontSize: '1rem', color: 'var(--text-main)' }}>
-                            {appLanguage === 'tr' ? 'Hizmet Dilleri (Panel Bazlı)' : 'Service-Sprachen (Panel-basiert)'}
-                        </h4>
 
-                        {/* Invoicing Panel */}
-                        <div style={{ marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                <label style={{ fontSize: '0.9rem' }}>Fatura & Muhasebe (Rechnung)</label>
-                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: '#e0f2fe', color: '#0369a1', borderRadius: '12px' }}>Varsayılan: DE</span>
-                            </div>
-                            <select
-                                className="form-input"
-                                value={serviceLanguages?.invoicing || 'de'}
-                                onChange={(e) => setServiceLanguage('invoicing', e.target.value)}
-                            >
-                                {renderLanguageOptions()}
-                            </select>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                {appLanguage === 'tr' ? 'Müşteriye kesilen fatura ve teklif dili.' : 'Sprache für Rechnungen und Angebote an Kunden.'}
-                            </p>
-                        </div>
-
-                        {/* Appointment Panel */}
-                        <div style={{ marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                <label style={{ fontSize: '0.9rem' }}>Randevu Sistemi</label>
-                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: '#fef3c7', color: '#b45309', borderRadius: '12px' }}>Varsayılan: TR</span>
-                            </div>
-                            <select
-                                className="form-input"
-                                value={serviceLanguages?.appointments || 'tr'}
-                                onChange={(e) => setServiceLanguage('appointments', e.target.value)}
-                            >
-                                {renderLanguageOptions()}
-                            </select>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                {appLanguage === 'tr' ? 'Müşteriye gönderilen SMS ve bildirim dili.' : 'Sprache für SMS und Benachrichtigungen an Kunden.'}
-                            </p>
-                        </div>
-
-                        {/* Stock Panel */}
-                        <div style={{ marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                <label style={{ fontSize: '0.9rem' }}>Stok & Satış Yönetimi</label>
-                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: '#dcfce7', color: '#166534', borderRadius: '12px' }}>Varsayılan: EN</span>
-                            </div>
-                            <select
-                                className="form-input"
-                                value={serviceLanguages?.stock || 'en'}
-                                onChange={(e) => setServiceLanguage('stock', e.target.value)}
-                            >
-                                {renderLanguageOptions()}
-                            </select>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                {appLanguage === 'tr' ? 'Ürün etiketleri ve mağaza dili.' : 'Sprache für Produktetiketten und Shop.'}
-                            </p>
-                        </div>
-
-                        {/* Website Panel */}
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                <label style={{ fontSize: '0.9rem' }}>Website & CMS</label>
-                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: '#f3e8ff', color: '#6b21a8', borderRadius: '12px' }}>Varsayılan: EN</span>
-                            </div>
-                            <select
-                                className="form-input"
-                                value={serviceLanguages?.website || 'en'}
-                                onChange={(e) => setServiceLanguage('website', e.target.value)}
-                            >
-                                {renderLanguageOptions()}
-                            </select>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                {appLanguage === 'tr' ? 'Web sitenizin varsayılan ziyaretçi dili.' : 'Standardsprache für Besucher Ihrer Website.'}
-                            </p>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
