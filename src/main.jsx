@@ -18,7 +18,7 @@ if (!rootElement) {
 } else {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
-      <BrowserRouter basename="/BayRechnung">
+      <BrowserRouter>
         <LanguageProvider>
           <AuthProvider>
             <FeatureFlagProvider>
