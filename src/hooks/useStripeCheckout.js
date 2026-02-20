@@ -2,9 +2,29 @@ import { supabase } from '../lib/supabase';
 
 export const useStripeCheckout = () => {
     const redirectToCheckout = async (priceId, trial = false) => {
+        const handleDemoUnlock = async () => {
+            alert('🚀 MVP / Demo Mode Active!\n\nStripe payments are not fully configured yet. We are unlocking Premium Power for your account automatically for testing purposes. Please wait a moment...');
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { error } = await supabase.from('subscriptions').update({
+                    plan_type: 'premium',
+                    status: 'active'
+                }).eq('user_id', user.id);
+
+                if (error) {
+                    console.error('Failed to update subscription:', error);
+                    alert('Hata: Premium yapma işlemi başarısız oldu.');
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert('You must be logged in to test the demo.');
+            }
+        };
+
         try {
             if (!priceId || priceId.startsWith('price_xxx') || priceId.startsWith('price_test')) {
-                alert('⚠️ Stripe not configured yet!\n\nPlease create products in Stripe Dashboard and update .env file with actual Price IDs.');
+                await handleDemoUnlock();
                 return;
             }
 
@@ -22,8 +42,8 @@ export const useStripeCheckout = () => {
                 console.error('Checkout session creation error:', error);
 
                 // Fallback for missing edge function during development/MVP
-                if (error.message.includes('Failed to send a request') || error.message.includes('not found')) {
-                    alert('⚠️ Payment Gateway Not Fully Configured!\n\nStripe Edge Function is not deployed to your Supabase project yet.\n\nFor this MVP/Demo, please imagine you are redirected to a secure Stripe Checkout page to complete your subscription.');
+                if (error.message.includes('Failed to send a request') || error.message.includes('not found') || error.message.includes('FetchError')) {
+                    await handleDemoUnlock();
                     return;
                 }
 
@@ -39,7 +59,12 @@ export const useStripeCheckout = () => {
             }
         } catch (err) {
             console.error('Stripe checkout error:', err);
-            alert('❌ Failed to initialize payment: ' + err.message);
+            // Catch-all fallback
+            if (err.message.includes('Failed to fetch') || err.message.includes('Network Error')) {
+                await handleDemoUnlock();
+            } else {
+                alert('❌ Failed to initialize payment: ' + err.message);
+            }
         }
     };
 
