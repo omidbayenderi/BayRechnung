@@ -310,7 +310,11 @@ export const AuthProvider = ({ children }) => {
                     data: {
                         full_name: name,
                         company_name: companyName,
-                        industry: industry || 'general'
+                        industry: industry || 'general',
+                        phone: metadata?.phone || '',
+                        street: metadata?.address?.street || '',
+                        city: metadata?.address?.city || '',
+                        zip: metadata?.address?.zip || ''
                     }
                 }
             });
@@ -331,13 +335,13 @@ export const AuthProvider = ({ children }) => {
                     }
                 }
 
-                const { error: companyError } = await supabase.from('company_settings').insert({
+                const { error: companyError } = await supabase.from('company_settings').upsert({
                     user_id: data.user.id,
                     company_name: companyName,
                     industry: industry || 'general',
                     logo_url: logoUrl
-                });
-                if (companyError) console.error('Error creating company settings:', companyError);
+                }, { onConflict: 'user_id' });
+                if (companyError) console.error('Error creating/updating company settings:', companyError);
             }
 
             return { success: true, data };
