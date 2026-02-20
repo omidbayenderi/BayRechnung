@@ -42,7 +42,7 @@ export const useStripeCheckout = () => {
                 console.error('Checkout session creation error:', error);
 
                 // Fallback for missing edge function during development/MVP
-                if (error.message.includes('Failed to send a request') || error.message.includes('not found') || error.message.includes('FetchError')) {
+                if (error.message.includes('Failed to send a request') || error.message.includes('not found') || error.message.includes('FetchError') || error.message.includes('non-2xx status code')) {
                     await handleDemoUnlock();
                     return;
                 }
