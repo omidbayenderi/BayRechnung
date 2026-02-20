@@ -64,11 +64,11 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
                             'BCD', '002', '1', 'SCT', cleanBic, beneficiary, cleanIban, amountValue, '', '', reference, ''
                         ];
                         const epcString = epcLines.join('\n');
-                        const qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(epcString)}&size=300&ecLevel=M`;
+                        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(epcString)}`;
 
                         return (
                             <div className="qr-box">
-                                <img src={qrUrl} alt="GiroCode" onError={(e) => { e.target.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(epcString)}`; }} />
+                                <img src={qrUrl} alt="GiroCode" />
                                 <span>GiroCode</span>
                             </div>
                         );

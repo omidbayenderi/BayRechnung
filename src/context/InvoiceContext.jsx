@@ -232,7 +232,21 @@ export const InvoiceProvider = ({ children }) => {
                 if (!expRes.error && expRes.data) setExpenses(expRes.data);
 
                 if (settingsRes.data) {
-                    setCompanyProfile(prev => ({ ...prev, ...settingsRes.data }));
+                    setCompanyProfile(prev => ({
+                        ...prev,
+                        ...settingsRes.data,
+                        companyName: settingsRes.data.company_name || prev.companyName,
+                        taxId: settingsRes.data.tax_id || prev.taxId,
+                        vatId: settingsRes.data.vat_id || prev.vatId,
+                        bankName: settingsRes.data.bank_name || prev.bankName,
+                        street: settingsRes.data.address || prev.street,
+                        zip: settingsRes.data.postal_code || prev.zip,
+                        logoDisplayMode: settingsRes.data.logo_display_mode || prev.logoDisplayMode || 'both',
+                        stripeApiKey: settingsRes.data.stripe_api_key || prev.stripeApiKey,
+                        stripeWebhookSecret: settingsRes.data.stripe_webhook_secret || prev.stripeWebhookSecret,
+                        paypalClientId: settingsRes.data.paypal_client_id || prev.paypalClientId,
+                        paypalSecret: settingsRes.data.paypal_secret || prev.paypalSecret
+                    }));
                 }
 
                 if (msgRes.data) setMessages(msgRes.data.map(normalizeMessage));
