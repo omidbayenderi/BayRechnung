@@ -1,0 +1,15 @@
+-- Add missing fields to company_settings
+ALTER TABLE company_settings
+ADD COLUMN IF NOT EXISTS owner TEXT,
+ADD COLUMN IF NOT EXISTS bic TEXT,
+ADD COLUMN IF NOT EXISTS payment_terms TEXT,
+ADD COLUMN IF NOT EXISTS default_currency TEXT DEFAULT 'EUR',
+ADD COLUMN IF NOT EXISTS default_tax_rate DECIMAL(5,2) DEFAULT 19.00,
+ADD COLUMN IF NOT EXISTS tax_exempt BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS paypal_me TEXT,
+ADD COLUMN IF NOT EXISTS stripe_link TEXT,
+ADD COLUMN IF NOT EXISTS stripe_api_key TEXT,
+ADD COLUMN IF NOT EXISTS stripe_webhook_secret TEXT,
+ADD COLUMN IF NOT EXISTS paypal_client_id TEXT,
+ADD COLUMN IF NOT EXISTS paypal_secret TEXT,
+ADD COLUMN IF NOT EXISTS logo_display_mode TEXT DEFAULT 'both';

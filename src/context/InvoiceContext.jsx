@@ -232,6 +232,17 @@ export const InvoiceProvider = ({ children }) => {
                 if (!expRes.error && expRes.data) setExpenses(expRes.data);
 
                 if (settingsRes.data) {
+                    // Primitive address parsing to separate street and houseNum (if last token is a number/letter mix)
+                    let streetStr = settingsRes.data.address || prev.street || '';
+                    let houseNumStr = prev.houseNum || '';
+                    if (settingsRes.data.address && !prev.houseNum) {
+                        const match = settingsRes.data.address.match(/^(.*?)\s+(\d+[a-zA-Z]?)$/);
+                        if (match) {
+                            streetStr = match[1];
+                            houseNumStr = match[2];
+                        }
+                    }
+
                     setCompanyProfile(prev => ({
                         ...prev,
                         ...settingsRes.data,
@@ -239,8 +250,18 @@ export const InvoiceProvider = ({ children }) => {
                         taxId: settingsRes.data.tax_id || prev.taxId,
                         vatId: settingsRes.data.vat_id || prev.vatId,
                         bankName: settingsRes.data.bank_name || prev.bankName,
-                        street: settingsRes.data.address || prev.street,
+                        street: streetStr,
+                        houseNum: houseNumStr,
                         zip: settingsRes.data.postal_code || prev.zip,
+                        industry: settingsRes.data.industry || prev.industry || 'general',
+                        owner: settingsRes.data.owner || prev.owner,
+                        bic: settingsRes.data.bic || prev.bic,
+                        paymentTerms: settingsRes.data.payment_terms || prev.paymentTerms,
+                        defaultCurrency: settingsRes.data.default_currency || prev.defaultCurrency || 'EUR',
+                        defaultTaxRate: settingsRes.data.default_tax_rate !== undefined ? settingsRes.data.default_tax_rate : prev.defaultTaxRate,
+                        taxExempt: settingsRes.data.tax_exempt !== undefined ? settingsRes.data.tax_exempt : prev.taxExempt,
+                        paypalMe: settingsRes.data.paypal_me || prev.paypalMe,
+                        stripeLink: settingsRes.data.stripe_link || prev.stripeLink,
                         logoDisplayMode: settingsRes.data.logo_display_mode || prev.logoDisplayMode || 'both',
                         stripeApiKey: settingsRes.data.stripe_api_key || prev.stripeApiKey,
                         stripeWebhookSecret: settingsRes.data.stripe_webhook_secret || prev.stripeWebhookSecret,
@@ -526,16 +547,30 @@ export const InvoiceProvider = ({ children }) => {
                 company_name: newData.companyName || companyProfile.companyName,
                 email: newData.email || companyProfile.email,
                 phone: newData.phone || companyProfile.phone,
-                address: newData.address || companyProfile.address,
+                address: newData.address !== undefined ? newData.address : `${newData.street || companyProfile.street || ''} ${newData.houseNum || companyProfile.houseNum || ''}`.trim(),
                 city: newData.city || companyProfile.city,
                 postal_code: newData.zip || companyProfile.zip,
                 tax_id: newData.taxId || companyProfile.taxId,
                 vat_id: newData.vatId || companyProfile.vatId,
                 bank_name: newData.bankName || companyProfile.bankName,
                 iban: newData.iban || companyProfile.iban,
-                logo_url: logoUrl
+                logo_url: logoUrl,
+                industry: newData.industry || companyProfile.industry,
+                owner: newData.owner || companyProfile.owner,
+                bic: newData.bic || companyProfile.bic,
+                payment_terms: newData.paymentTerms || companyProfile.paymentTerms,
+                default_currency: newData.defaultCurrency || companyProfile.defaultCurrency,
+                default_tax_rate: newData.defaultTaxRate || companyProfile.defaultTaxRate,
+                tax_exempt: newData.taxExempt !== undefined ? newData.taxExempt : companyProfile.taxExempt,
+                paypal_me: newData.paypalMe || companyProfile.paypalMe,
+                stripe_link: newData.stripeLink || companyProfile.stripeLink,
+                stripe_api_key: newData.stripeApiKey || companyProfile.stripeApiKey,
+                stripe_webhook_secret: newData.stripeWebhookSecret || companyProfile.stripeWebhookSecret,
+                paypal_client_id: newData.paypalClientId || companyProfile.paypalClientId,
+                paypal_secret: newData.paypalSecret || companyProfile.paypalSecret,
+                logo_display_mode: newData.logoDisplayMode || companyProfile.logoDisplayMode
             };
-            const { error } = await supabase.from('company_settings').upsert(dbData);
+            const { error } = await supabase.from('company_settings').upsert(dbData, { onConflict: 'user_id' });
             if (error) syncService.enqueue('company_settings', 'insert', dbData);
         }
     };
