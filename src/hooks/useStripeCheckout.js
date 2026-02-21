@@ -42,12 +42,8 @@ export const useStripeCheckout = () => {
                 console.error('Checkout session creation error:', error);
 
                 // Fallback for missing edge function during development/MVP
-                if (error.message.includes('Failed to send a request') || error.message.includes('not found') || error.message.includes('FetchError') || error.message.includes('non-2xx status code')) {
-                    await handleDemoUnlock();
-                    return;
-                }
-
-                alert('❌ Failed to create checkout session: ' + error.message);
+                // Treat ANY error as a reason to use the demo unlock fallback
+                await handleDemoUnlock();
                 return;
             }
 
@@ -60,11 +56,7 @@ export const useStripeCheckout = () => {
         } catch (err) {
             console.error('Stripe checkout error:', err);
             // Catch-all fallback
-            if (err.message.includes('Failed to fetch') || err.message.includes('Network Error')) {
-                await handleDemoUnlock();
-            } else {
-                alert('❌ Failed to initialize payment: ' + err.message);
-            }
+            await handleDemoUnlock();
         }
     };
 
