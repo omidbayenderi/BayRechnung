@@ -246,6 +246,7 @@ export const InvoiceProvider = ({ children }) => {
                     setCompanyProfile(prev => ({
                         ...prev,
                         ...settingsRes.data,
+                        id: settingsRes.data.id || prev.id,
                         companyName: settingsRes.data.company_name || prev.companyName,
                         taxId: settingsRes.data.tax_id || prev.taxId,
                         vatId: settingsRes.data.vat_id || prev.vatId,
@@ -543,6 +544,7 @@ export const InvoiceProvider = ({ children }) => {
 
         if (currentUser?.id) {
             const dbData = {
+                id: companyProfile.id || undefined,
                 user_id: currentUser.id,
                 company_name: newData.companyName || companyProfile.companyName,
                 email: newData.email || companyProfile.email,
