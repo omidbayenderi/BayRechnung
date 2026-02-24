@@ -6,6 +6,57 @@ import { useAuth } from './AuthContext';
 
 const InvoiceContext = createContext();
 
+// Helper: Normalize company profile from snake_case database format
+const normalizeProfile = (data, existing = INITIAL_COMPANY_PROFILE) => {
+    if (!data) return existing;
+
+    // Separate street and houseNum from address string if present
+    let streetStr = data.address || existing.street || '';
+    let houseNumStr = data.houseNum || existing.houseNum || '';
+
+    if (data.address && !data.street) {
+        // Primitive parsing: look for number at the end
+        const match = data.address.match(/^(.*?)\s+(\d+[a-zA-Z]?)$/);
+        if (match) {
+            streetStr = match[1];
+            houseNumStr = match[2];
+        }
+    }
+
+    return {
+        ...existing,
+        ...data,
+        id: data.id || existing.id,
+        companyName: data.company_name || data.companyName || existing.companyName,
+        email: data.email || existing.email,
+        phone: data.phone || existing.phone,
+        owner: data.owner || existing.owner,
+        street: streetStr,
+        houseNum: houseNumStr,
+        zip: data.postal_code || data.zip || existing.zip,
+        city: data.city || existing.city,
+        taxId: data.tax_id || data.taxId || existing.taxId,
+        vatId: data.vat_id || data.vatId || existing.vatId,
+        bankName: data.bank_name || data.bankName || existing.bankName,
+        iban: data.iban || existing.iban,
+        bic: data.bic || existing.bic,
+        paymentTerms: data.payment_terms || data.paymentTerms || existing.paymentTerms,
+        logo: data.logo_url || data.logo || existing.logo,
+        industry: data.industry || existing.industry,
+        defaultCurrency: data.default_currency || data.defaultCurrency || existing.defaultCurrency,
+        defaultTaxRate: data.default_tax_rate !== undefined ? data.default_tax_rate : (data.defaultTaxRate !== undefined ? data.defaultTaxRate : existing.defaultTaxRate),
+        taxExempt: data.tax_exempt !== undefined ? data.tax_exempt : (data.taxExempt !== undefined ? data.taxExempt : existing.taxExempt),
+        paypalMe: data.paypal_me || data.paypalMe || existing.paypalMe,
+        stripeLink: data.stripe_link || data.stripeLink || existing.stripeLink,
+        logoDisplayMode: data.logo_display_mode || data.logoDisplayMode || existing.logoDisplayMode,
+        stripeApiKey: data.stripe_api_key || data.stripeApiKey || existing.stripeApiKey,
+        stripeWebhookSecret: data.stripe_webhook_secret || data.stripeWebhookSecret || existing.stripeWebhookSecret,
+        paypalClientId: data.paypal_client_id || data.paypalClientId || existing.paypalClientId,
+        paypalSecret: data.paypal_secret || data.paypalSecret || existing.paypalSecret,
+        plan: data.plan || existing.plan
+    };
+};
+
 const INITIAL_COMPANY_PROFILE = {
     logo: null,
     companyName: '',
@@ -30,7 +81,7 @@ const INITIAL_COMPANY_PROFILE = {
 
     // Premium Configuration
     plan: 'standard', // 'standard' or 'premium'
-    industry: 'general', // Default to general
+    industry: 'general', // Standardized lowercase
     logoDisplayMode: 'both', // 'logoOnly', 'nameOnly', 'both'
     stripeApiKey: '',
     stripeWebhookSecret: '',
@@ -94,7 +145,8 @@ export const InvoiceProvider = ({ children }) => {
             createdAt: inv.created_at || inv.createdAt,
             items: inv.items || [],
             footerNote: inv.notes || inv.footerNote,
-            industryData: inv.vehicle_info || inv.industryData || {},
+            industryData: inv.industry_data || inv.industryData || {},
+            vehicleInfo: inv.vehicle_info || inv.industry_data?.vehicle || null,
             senderSnapshot: inv.senderSnapshot || {}
         };
     };
@@ -102,11 +154,12 @@ export const InvoiceProvider = ({ children }) => {
     // Helper: Map camelCase (Frontend) back to snake_case (DB)
     const denormalizeInvoice = (inv) => {
         if (!inv) return null;
-        return {
+        const out = {
+            id: inv.id,
             invoice_number: inv.invoiceNumber,
             customer_name: inv.recipientName,
             customer_email: inv.recipientEmail || null,
-            customer_address: inv.recipientStreet + ' ' + (inv.recipientHouseNum || ''),
+            customer_address: `${inv.recipientStreet || ''} ${inv.recipientHouseNum || ''}`.trim(),
             customer_city: inv.recipientCity,
             customer_postal_code: inv.recipientZip,
             items: inv.items,
@@ -118,10 +171,19 @@ export const InvoiceProvider = ({ children }) => {
             due_date: inv.dueDate || null,
             issue_date: inv.date,
             notes: inv.footerNote,
-            vehicle_info: inv.industryData || {},
-            user_id: inv.user_id,
-            sender_snapshot: inv.senderSnapshot
+            user_id: inv.user_id
         };
+
+        // Only add industry_data and sender_snapshot if they have data
+        // to avoid issues with missing columns in old database schemas
+        if (inv.industryData && Object.keys(inv.industryData).length > 0) {
+            out.industry_data = inv.industryData;
+        }
+        if (inv.senderSnapshot && Object.keys(inv.senderSnapshot).length > 0) {
+            out.sender_snapshot = inv.senderSnapshot;
+        }
+
+        return out;
     };
 
     // Helper: Normalize messages
@@ -143,13 +205,13 @@ export const InvoiceProvider = ({ children }) => {
 
     // Initial Data Fetch from Supabase
     // Helper: Merge remote data with local offline changes
-    const mergeWithLocalQueue = (remoteData, tableName) => {
-        // If remote is empty, but we have a queue, we use queue.
-        // If remote is null (error), return [];
+    const mergeWithLocalQueue = (remoteData, tableName, normalizer = (x) => x) => {
         const safeRemote = remoteData || [];
-
         let merged = [...safeRemote];
-        const queue = syncService.queue.filter(q => q.table === tableName);
+
+        // Use syncService.queue directly if initialized, otherwise check localStorage fallback
+        const queue = (syncService.queue || JSON.parse(localStorage.getItem('bay_sync_queue') || '[]'))
+            .filter(q => q.table === tableName);
 
         // 1. Apply Deletes
         const deleteIds = queue.filter(q => q.action === 'delete').map(q => String(q.targetId));
@@ -167,12 +229,13 @@ export const InvoiceProvider = ({ children }) => {
         // 3. Apply Inserts
         const inserts = queue.filter(q => q.action === 'insert').map(q => q.data);
         inserts.forEach(ins => {
-            // Only add if not already present (avoid duplicates)
-            const exists = merged.find(m => String(m.id) === String(ins.id));
-            if (!exists) merged.unshift(ins);
+            const existsById = merged.find(m => String(m.id) === String(ins.id));
+            if (!existsById) {
+                merged.unshift(ins);
+            }
         });
 
-        return merged.map(normalizeInvoice);
+        return merged.map(normalizer);
     };
 
     // Initial Data Fetch: LocalStorage (Instant) -> Supabase (Async Merge)
@@ -190,16 +253,36 @@ export const InvoiceProvider = ({ children }) => {
                 const localExpenses = localStorage.getItem(`bay_expenses_${currentUser.id}`);
                 const localProfile = localStorage.getItem(`bay_profile_${currentUser.id}`);
 
-                if (localInvoices) setInvoices(JSON.parse(localInvoices).map(normalizeInvoice));
-                if (localQuotes) setQuotes(JSON.parse(localQuotes).map(normalizeInvoice));
+                // Data in localStorage is already normalized to state format, so just parse and set
+                if (localInvoices) setInvoices(JSON.parse(localInvoices));
+                if (localQuotes) setQuotes(JSON.parse(localQuotes));
                 if (localExpenses) setExpenses(JSON.parse(localExpenses));
                 if (localProfile) setCompanyProfile(prev => ({ ...prev, ...JSON.parse(localProfile) }));
+
+                // CRITICAL: Set loading to false as soon as local cache is ready.
+                // This makes the app "instant" for the user.
+                setLoading(false);
             } catch (e) {
                 console.error("Error loading from localStorage:", e);
+                setLoading(false); // Still stop loading even if local fail
             }
 
-            // 2. Fetch from Supabase and Merge
+            // 2. Background Fetch from Supabase and Merge
             try {
+                // 2.1. If it's a mock user (demo), STOP HERE. 
+                // DB sync will fail anyway due to foreign key constraints.
+                if (currentUser.authMode === 'mock' || currentUser.id.startsWith('0000')) {
+                    console.log('[Invoice] Mock session detected, skipping Supabase sync');
+                    setLoading(false);
+                    return;
+                }
+
+                // 2.0. WAIT for full profile to avoid RLS race conditions
+                if (currentUser.isSkeleton) {
+                    console.log('[Invoice] Skeleton user detected, waiting for full profile...');
+                    return;
+                }
+
                 const [invRes, quoteRes, expRes, settingsRes, msgRes, staffRes, recurringRes, customRes, reportRes] = await Promise.all([
                     supabase.from('invoices').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
                     supabase.from('quotes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
@@ -214,78 +297,63 @@ export const InvoiceProvider = ({ children }) => {
 
                 // Safety check: If remote returns error, DO NOT overwrite local data
                 if (!invRes.error && invRes.data) {
-                    setInvoices(mergeWithLocalQueue(invRes.data, 'invoices'));
+                    setInvoices(mergeWithLocalQueue(invRes.data, 'invoices', normalizeInvoice));
                 }
 
                 if (!quoteRes.error && quoteRes.data) {
-                    setQuotes(quoteRes.data.map(q => ({
+                    const normalizeQuote = (q) => ({
                         ...q,
                         quoteNumber: q.quote_number,
                         recipientName: q.customer_name,
                         recipientEmail: q.customer_email,
-                        recipientStreet: q.customer_address?.split(' ')[0] || '', // Fallback simplification
+                        recipientStreet: q.customer_address?.split(' ')[0] || '',
                         recipientHouseNum: q.customer_address?.split(' ')[1] || '',
                         date: q.created_at?.split('T')[0]
-                    })));
+                    });
+                    setQuotes(mergeWithLocalQueue(quoteRes.data, 'quotes', normalizeQuote));
                 }
 
-                if (!expRes.error && expRes.data) setExpenses(expRes.data);
+                if (!expRes.error && expRes.data) {
+                    setExpenses(mergeWithLocalQueue(expRes.data, 'expenses'));
+                }
 
-                if (settingsRes.data) {
-                    // Primitive address parsing to separate street and houseNum (if last token is a number/letter mix)
-                    let streetStr = settingsRes.data.address || prev.street || '';
-                    let houseNumStr = prev.houseNum || '';
-                    if (settingsRes.data.address && !prev.houseNum) {
-                        const match = settingsRes.data.address.match(/^(.*?)\s+(\d+[a-zA-Z]?)$/);
-                        if (match) {
-                            streetStr = match[1];
-                            houseNumStr = match[2];
-                        }
-                    }
+                // Merge with pending sync queue for immediate consistency after refresh
+                const syncQueue = JSON.parse(localStorage.getItem('bay_sync_queue') || '[]');
 
-                    setCompanyProfile(prev => ({
-                        ...prev,
-                        ...settingsRes.data,
-                        id: settingsRes.data.id || prev.id,
-                        companyName: settingsRes.data.company_name || prev.companyName,
-                        taxId: settingsRes.data.tax_id || prev.taxId,
-                        vatId: settingsRes.data.vat_id || prev.vatId,
-                        bankName: settingsRes.data.bank_name || prev.bankName,
-                        street: streetStr,
-                        houseNum: houseNumStr,
-                        zip: settingsRes.data.postal_code || prev.zip,
-                        industry: settingsRes.data.industry || prev.industry || 'general',
-                        owner: settingsRes.data.owner || prev.owner,
-                        bic: settingsRes.data.bic || prev.bic,
-                        paymentTerms: settingsRes.data.payment_terms || prev.paymentTerms,
-                        defaultCurrency: settingsRes.data.default_currency || prev.defaultCurrency || 'EUR',
-                        defaultTaxRate: settingsRes.data.default_tax_rate !== undefined ? settingsRes.data.default_tax_rate : prev.defaultTaxRate,
-                        taxExempt: settingsRes.data.tax_exempt !== undefined ? settingsRes.data.tax_exempt : prev.taxExempt,
-                        paypalMe: settingsRes.data.paypal_me || prev.paypalMe,
-                        stripeLink: settingsRes.data.stripe_link || prev.stripeLink,
-                        logoDisplayMode: settingsRes.data.logo_display_mode || prev.logoDisplayMode || 'both',
-                        stripeApiKey: settingsRes.data.stripe_api_key || prev.stripeApiKey,
-                        stripeWebhookSecret: settingsRes.data.stripe_webhook_secret || prev.stripeWebhookSecret,
-                        paypalClientId: settingsRes.data.paypal_client_id || prev.paypalClientId,
-                        paypalSecret: settingsRes.data.paypal_secret || prev.paypalSecret
-                    }));
+                if (pendingProfile) {
+                    setCompanyProfile(prev => normalizeProfile(pendingProfile.data, prev));
+                } else if (settingsRes.data) {
+                    setCompanyProfile(prev => normalizeProfile(settingsRes.data, prev));
                 }
 
                 if (msgRes.data) setMessages(msgRes.data.map(normalizeMessage));
                 if (staffRes.data) setEmployees(staffRes.data);
                 if (recurringRes.data) setRecurringTemplates(recurringRes.data);
-                if (customRes.data) setInvoiceCustomization(prev => ({ ...prev, ...customRes.data }));
+                const pendingCustom = syncQueue
+                    .filter(item => item.table === 'invoice_customization' && (item.action === 'insert' || item.action === 'update'))
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
+                if (pendingCustom) {
+                    setInvoiceCustomization(prev => ({ ...prev, ...pendingCustom.data }));
+                } else if (customRes.data) {
+                    setInvoiceCustomization(prev => ({
+                        ...prev,
+                        ...customRes.data,
+                        brandPalette: customRes.data.brand_palette || []
+                    }));
+                }
+
                 if (reportRes.data) setDailyReports(reportRes.data);
 
             } catch (err) {
                 console.error('Error loading Supabase data:', err);
             } finally {
-                setLoading(false);
+                // setLoading(false); // Already false
             }
         };
 
         loadData();
-    }, [currentUser?.id]);
+    }, [currentUser?.id, currentUser?.isSkeleton]);
 
     // Real-time listener for messages
     useEffect(() => {
@@ -350,17 +418,35 @@ export const InvoiceProvider = ({ children }) => {
     }, [currentUser?.id]);
 
     // For development, we keep localStorage as a temporary cache
-    // LocalStorage Persistence
+    // LocalStorage Persistence - Granular syncing to prevent regression
     useEffect(() => {
-        if (currentUser?.id) {
-            const profileStr = JSON.stringify(companyProfile);
-            localStorage.setItem(`bay_profile_${currentUser.id}`, profileStr);
-            localStorage.setItem('bay_profile', profileStr); // Sync to master key for website preview
+        if (currentUser?.id && !loading) {
+            // Prevent wiping localStorage with empty initial state if we already have data
+            const isPopulated = companyProfile.companyName || companyProfile.email || companyProfile.street || companyProfile.bankName;
+            if (isPopulated) {
+                localStorage.setItem(`bay_profile_${currentUser.id}`, JSON.stringify(companyProfile));
+                localStorage.setItem('bay_profile', JSON.stringify(companyProfile));
+            }
+        }
+    }, [companyProfile, currentUser?.id, loading]);
+
+    useEffect(() => {
+        if (currentUser?.id && !loading) {
             localStorage.setItem(`bay_invoices_${currentUser.id}`, JSON.stringify(invoices));
+        }
+    }, [invoices, currentUser?.id, loading]);
+
+    useEffect(() => {
+        if (currentUser?.id && !loading) {
             localStorage.setItem(`bay_quotes_${currentUser.id}`, JSON.stringify(quotes));
+        }
+    }, [quotes, currentUser?.id, loading]);
+
+    useEffect(() => {
+        if (currentUser?.id && !loading) {
             localStorage.setItem(`bay_expenses_${currentUser.id}`, JSON.stringify(expenses));
         }
-    }, [companyProfile, invoices, quotes, expenses, currentUser]);
+    }, [expenses, currentUser?.id, loading]);
 
     const addExpenseCategory = (newCategory) => {
         if (!newCategory) return;
@@ -378,50 +464,26 @@ export const InvoiceProvider = ({ children }) => {
     const saveInvoice = async (invoiceData) => {
         if (!currentUser?.id) return null;
 
-        const id = invoiceData.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : uuidv4());
+        const id = invoiceData.id || uuidv4();
+        const denormalized = denormalizeInvoice({ ...invoiceData, user_id: currentUser.id, id });
 
-        // Ensure user_id is explicitly correctly set
-        const denormalized = denormalizeInvoice({ ...invoiceData, user_id: currentUser.id });
+        const normalized = normalizeInvoice(denormalized);
 
-        // Double check user_id presence
-        if (!denormalized.user_id) denormalized.user_id = currentUser.id;
-
-        const newInvoice = {
-            ...denormalized,
-            id: id,
-            created_at: new Date().toISOString()
-        };
-
-        // UI state update (Optimistic Update)
+        // Optimistic UI state update
         setInvoices(prev => {
-            const normalized = normalizeInvoice(newInvoice);
-            // Replace if exists, else add
-            const exists = prev.find(i => i.id === id);
-            if (exists) return prev.map(i => i.id === id ? normalized : i);
+            const exists = prev.find(i => String(i.id) === String(id));
+            if (exists) return prev.map(i => String(i.id) === String(id) ? normalized : i);
             return [normalized, ...prev];
         });
 
-        // Sync to Supabase
-        const { data, error } = await supabase.from('invoices').upsert(newInvoice).select().single();
-
-        if (error) {
-            console.error('Error saving invoice to Supabase:', error);
-            // Add to offline queue
-            syncService.enqueue('invoices', 'insert', newInvoice);
-            // Return optimistic data
-            return normalizeInvoice(newInvoice);
-        }
-
-        return normalizeInvoice(data);
+        // Reliable enqueue
+        syncService.enqueue('invoices', 'insert', denormalized, id);
+        return normalized;
     };
 
     const deleteInvoice = (id) => {
-        const idStr = String(id);
-        setInvoices(prev => prev.filter(inv => String(inv.id) !== idStr));
-
-        // Enqueue sync - assuming the record in DB has the same id (Date.now())
+        setInvoices(prev => prev.filter(inv => String(inv.id) !== String(id)));
         syncService.enqueue('invoices', 'delete', null, id);
-
         return true;
     };
 
@@ -429,12 +491,13 @@ export const InvoiceProvider = ({ children }) => {
         if (!currentUser?.id) return null;
 
         const id = quoteData.id || uuidv4();
-        const newQuote = {
+        const dbQuote = {
+            id,
             user_id: currentUser.id,
             quote_number: quoteData.quoteNumber,
             customer_name: quoteData.recipientName,
             customer_email: quoteData.recipientEmail,
-            customer_address: `${quoteData.recipientStreet} ${quoteData.recipientHouseNum}`,
+            customer_address: `${quoteData.recipientStreet || ''} ${quoteData.recipientHouseNum || ''}`.trim(),
             items: quoteData.items,
             subtotal: quoteData.subtotal,
             tax: quoteData.tax,
@@ -446,41 +509,43 @@ export const InvoiceProvider = ({ children }) => {
             valid_until: quoteData.validUntil
         };
 
+        const normalizedQuote = {
+            ...quoteData,
+            id,
+            recipientStreet: quoteData.recipientStreet,
+            recipientHouseNum: quoteData.recipientHouseNum
+        };
+
         // UI Update
         setQuotes(prev => {
-            const exists = prev.find(q => q.id === id);
-            if (exists) return prev.map(q => q.id === id ? { ...q, ...quoteData } : q);
-            return [{ ...quoteData, id }, ...prev];
+            const exists = prev.find(q => String(q.id) === String(id));
+            if (exists) return prev.map(q => String(q.id) === String(id) ? normalizedQuote : q);
+            return [normalizedQuote, ...prev];
         });
 
-        // Sync
-        const { data, error } = await supabase.from('quotes').upsert({ ...newQuote, id }).select().single();
-        if (error) {
-            console.error('Error saving quote:', error);
-            syncService.enqueue('quotes', 'insert', { ...newQuote, id });
-        }
-        return data;
+        syncService.enqueue('quotes', 'insert', dbQuote, id);
+        return normalizedQuote;
     };
 
     const deleteQuote = async (id) => {
-        setQuotes(prev => prev.filter(q => q.id !== id));
-        const { error } = await supabase.from('quotes').delete().eq('id', id);
-        if (error) syncService.enqueue('quotes', 'delete', null, id);
+        setQuotes(prev => prev.filter(q => String(q.id) !== String(id)));
+        syncService.enqueue('quotes', 'delete', null, id);
         return true;
     };
 
     const updateQuote = async (id, newData) => {
-        setQuotes(prev => prev.map(q => q.id === id ? { ...q, ...newData } : q));
-        const { error } = await supabase.from('quotes').update(newData).eq('id', id);
-        if (error) syncService.enqueue('quotes', 'update', newData, id);
+        setQuotes(prev => prev.map(q => String(q.id) === String(id) ? { ...q, ...newData } : q));
+        syncService.enqueue('quotes', 'update', newData, id);
     };
 
     const saveExpense = async (expenseData) => {
         if (!currentUser?.id) return;
 
+        const id = expenseData.id || uuidv4();
         const newExpense = {
+            id,
             user_id: currentUser.id,
-            date: new Date().toISOString().split('T')[0],
+            date: expenseData.date || new Date().toISOString().split('T')[0],
             title: expenseData.title,
             amount: expenseData.amount,
             category: expenseData.category,
@@ -488,25 +553,26 @@ export const InvoiceProvider = ({ children }) => {
             receipt_image: expenseData.receiptImage
         };
 
-        const { data, error } = await supabase.from('expenses').insert(newExpense).select().single();
+        // Optimistic update
+        setExpenses(prev => {
+            const exists = prev.find(e => String(e.id) === String(id));
+            if (exists) return prev.map(e => String(e.id) === String(id) ? newExpense : e);
+            return [newExpense, ...prev];
+        });
 
-        if (error) {
-            console.error('Error saving expense:', error);
-            syncService.enqueue('expenses', 'insert', newExpense);
-            return;
-        }
-
-        setExpenses(prev => [data, ...prev]);
+        syncService.enqueue('expenses', 'insert', newExpense, id);
     };
 
-    const deleteExpense = (id) => {
-        setExpenses(prev => prev.filter(exp => exp.id !== id));
+    const deleteExpense = async (id) => {
+        setExpenses(prev => prev.filter(exp => String(exp.id) !== String(id)));
+        syncService.enqueue('expenses', 'delete', null, id);
     };
 
     const saveRecurringTemplate = async (templateData) => {
         if (!currentUser?.id) return;
         const id = templateData.id || uuidv4();
         const dbTemplate = {
+            id,
             user_id: currentUser.id,
             template_name: templateData.templateName,
             customer_name: templateData.customerName,
@@ -518,15 +584,18 @@ export const InvoiceProvider = ({ children }) => {
             status: templateData.status || 'active'
         };
 
-        setRecurringTemplates(prev => [{ ...templateData, id }, ...prev]);
-        const { error } = await supabase.from('recurring_templates').upsert({ ...dbTemplate, id });
-        if (error) syncService.enqueue('recurring_templates', 'insert', { ...dbTemplate, id });
+        setRecurringTemplates(prev => {
+            const exists = prev.find(t => String(t.id) === String(id));
+            if (exists) return prev.map(t => String(t.id) === String(id) ? { ...templateData, id } : t);
+            return [{ ...templateData, id }, ...prev];
+        });
+
+        syncService.enqueue('recurring_templates', 'insert', dbTemplate, id);
     };
 
     const deleteRecurringTemplate = async (id) => {
-        setRecurringTemplates(prev => prev.filter(t => t.id !== id));
-        const { error } = await supabase.from('recurring_templates').delete().eq('id', id);
-        if (error) syncService.enqueue('recurring_templates', 'delete', null, id);
+        setRecurringTemplates(prev => prev.filter(t => String(t.id) !== String(id)));
+        syncService.enqueue('recurring_templates', 'delete', null, id);
     };
 
     const updateProfile = async (newData, logoFile = null) => {
@@ -544,141 +613,107 @@ export const InvoiceProvider = ({ children }) => {
 
         if (currentUser?.id) {
             const dbData = {
-                id: companyProfile.id || undefined,
                 user_id: currentUser.id,
-                company_name: newData.companyName || companyProfile.companyName,
-                email: newData.email || companyProfile.email,
-                phone: newData.phone || companyProfile.phone,
-                address: newData.address !== undefined ? newData.address : `${newData.street || companyProfile.street || ''} ${newData.houseNum || companyProfile.houseNum || ''}`.trim(),
-                city: newData.city || companyProfile.city,
-                postal_code: newData.zip || companyProfile.zip,
-                tax_id: newData.taxId || companyProfile.taxId,
-                vat_id: newData.vatId || companyProfile.vatId,
-                bank_name: newData.bankName || companyProfile.bankName,
-                iban: newData.iban || companyProfile.iban,
+                company_name: updatedProfile.companyName,
+                email: updatedProfile.email,
+                phone: updatedProfile.phone,
+                address: `${updatedProfile.street || ''} ${updatedProfile.houseNum || ''}`.trim(),
+                city: updatedProfile.city,
+                postal_code: updatedProfile.zip,
+                tax_id: updatedProfile.taxId,
+                vat_id: updatedProfile.vatId,
+                bank_name: updatedProfile.bankName,
+                iban: updatedProfile.iban,
                 logo_url: logoUrl,
-                industry: newData.industry || companyProfile.industry,
-                owner: newData.owner || companyProfile.owner,
-                bic: newData.bic || companyProfile.bic,
-                payment_terms: newData.paymentTerms || companyProfile.paymentTerms,
-                default_currency: newData.defaultCurrency || companyProfile.defaultCurrency,
-                default_tax_rate: newData.defaultTaxRate || companyProfile.defaultTaxRate,
-                tax_exempt: newData.taxExempt !== undefined ? newData.taxExempt : companyProfile.taxExempt,
-                paypal_me: newData.paypalMe || companyProfile.paypalMe,
-                stripe_link: newData.stripeLink || companyProfile.stripeLink,
-                stripe_api_key: newData.stripeApiKey || companyProfile.stripeApiKey,
-                stripe_webhook_secret: newData.stripeWebhookSecret || companyProfile.stripeWebhookSecret,
-                paypal_client_id: newData.paypalClientId || companyProfile.paypalClientId,
-                paypal_secret: newData.paypalSecret || companyProfile.paypalSecret,
-                logo_display_mode: newData.logoDisplayMode || companyProfile.logoDisplayMode
+                industry: updatedProfile.industry,
+                owner: updatedProfile.owner,
+                bic: updatedProfile.bic,
+                payment_terms: updatedProfile.paymentTerms,
+                default_currency: updatedProfile.defaultCurrency,
+                default_tax_rate: updatedProfile.defaultTaxRate,
+                tax_exempt: updatedProfile.taxExempt,
+                paypal_me: updatedProfile.paypalMe,
+                stripe_link: updatedProfile.stripeLink,
+                stripe_api_key: updatedProfile.stripeApiKey,
+                stripe_webhook_secret: updatedProfile.stripeWebhookSecret,
+                paypal_client_id: updatedProfile.paypalClientId,
+                paypal_secret: updatedProfile.paypalSecret,
+                logo_display_mode: updatedProfile.logoDisplayMode
             };
-            const { error } = await supabase.from('company_settings').upsert(dbData, { onConflict: 'user_id' });
-            if (error) syncService.enqueue('company_settings', 'insert', dbData);
+
+            syncService.enqueue('company_settings', 'update', dbData);
         }
     };
 
     const generatePortalLink = async (entityType, entityId) => {
         if (!currentUser?.id) return null;
+        const { data: existing } = await supabase.from('public_tokens').select('token').eq('entity_id', entityId).maybeSingle();
+        if (existing) return `${window.location.origin}/portal/${existing.token}`;
 
-        // Check if token already exists
-        const { data: existing } = await supabase
-            .from('public_tokens')
-            .select('token')
-            .eq('entity_id', entityId)
-            .maybeSingle();
-
-        if (existing) {
-            return `${window.location.origin}/portal/${existing.token}`;
-        }
-
-        // Generate new token
-        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
+        const token = uuidv4().replace(/-/g, '');
         const { error } = await supabase.from('public_tokens').insert({
             user_id: currentUser.id,
             entity_type: entityType,
             entity_id: entityId,
             token: token
         });
-
-        if (error) {
-            console.error('Error generating portal link:', error);
-            return null;
-        }
-
+        if (error) return null;
         return `${window.location.origin}/portal/${token}`;
     };
 
     const updateInvoiceStatus = async (id, newStatus) => {
         setInvoices(prev => prev.map(inv =>
-            String(inv.id) === String(id) || inv.id === id ? { ...inv, status: newStatus } : inv
+            String(inv.id) === String(id) ? { ...inv, status: newStatus } : inv
         ));
 
         if (currentUser?.id) {
-            const { error } = await supabase
-                .from('invoices')
-                .update({ status: newStatus })
-                .eq('id', id);
-
-            if (error) {
-                console.error('Error updating invoice status in Supabase:', error);
-                syncService.enqueue('invoices', 'update', { status: newStatus }, id);
-            }
+            syncService.enqueue('invoices', 'update', { status: newStatus }, id);
         }
     };
 
     const updateInvoice = async (id, newData) => {
-        setInvoices(prev => prev.map(inv => {
-            if (String(inv.id) === String(id)) {
-                return { ...inv, ...newData };
-            }
-            return inv;
-        }));
+        setInvoices(prev => prev.map(inv => String(inv.id) === String(id) ? { ...inv, ...newData } : inv));
 
         if (currentUser?.id) {
             const denormalized = denormalizeInvoice(newData);
-            // Remove user_id if present to avoid update issues
             delete denormalized.user_id;
+            delete denormalized.id; // Don't include in payload if it's the target
 
-            const { error } = await supabase
-                .from('invoices')
-                .update(denormalized)
-                .eq('id', id);
-
-            if (error) {
-                console.error('Error updating invoice:', error);
-                syncService.enqueue('invoices', 'update', denormalized, id);
-            }
+            syncService.enqueue('invoices', 'update', denormalized, id);
         }
     };
 
     const importInvoices = (newInvoices) => {
         const processed = newInvoices.map(inv => ({
-            id: Date.now() + Math.random(),
-            createdAt: new Date().toISOString(),
-            status: 'paid', // default for imported
-            ...inv
+            ...inv,
+            id: inv.id || uuidv4(),
+            createdAt: inv.createdAt || new Date().toISOString(),
+            status: inv.status || 'paid'
         }));
         setInvoices(prev => [...processed, ...prev]);
 
-        // Background sync for all imported items
-        processed.forEach(inv => syncService.enqueue('invoices', 'insert', inv));
+        processed.forEach(inv => {
+            const denorm = denormalizeInvoice({ ...inv, user_id: currentUser.id });
+            syncService.enqueue('invoices', 'insert', denorm, denorm.id);
+        });
     };
 
     // Customization Management
     const updateCustomization = async (newData) => {
-        setInvoiceCustomization(prev => ({ ...prev, ...newData }));
+        const merged = { ...invoiceCustomization, ...newData };
+        setInvoiceCustomization(merged);
+
         if (currentUser?.id) {
             const dbData = {
                 user_id: currentUser.id,
-                primary_color: newData.primaryColor,
-                accent_color: newData.accentColor,
-                signature_url: newData.signatureUrl,
-                footer_text: newData.footerText,
-                quote_validity_days: newData.quoteValidityDays
+                primary_color: merged.primaryColor,
+                accent_color: merged.accentColor,
+                signature_url: merged.signatureUrl,
+                footer_text: merged.footerText,
+                quote_validity_days: merged.quoteValidityDays,
+                brand_palette: merged.brandPalette || []
             };
-            const { error } = await supabase.from('invoice_customization').upsert(dbData);
-            if (error) syncService.enqueue('invoice_customization', 'insert', dbData);
+            syncService.enqueue('invoice_customization', 'update', dbData);
         }
     };
 
@@ -702,34 +737,38 @@ export const InvoiceProvider = ({ children }) => {
         if (!currentUser?.id) return;
         const id = empData.id || uuidv4();
         const dbEmp = {
+            id,
             user_id: currentUser.id,
             name: empData.name,
             role: empData.role,
             color: empData.color || '#3b82f6'
         };
 
-        setEmployees(prev => [{ ...empData, id }, ...prev]);
-        const { error } = await supabase.from('staff').upsert({ ...dbEmp, id });
-        if (error) syncService.enqueue('staff', 'insert', { ...dbEmp, id });
+        setEmployees(prev => {
+            const exists = prev.find(e => String(e.id) === String(id));
+            if (exists) return prev.map(e => String(e.id) === String(id) ? { ...empData, id } : e);
+            return [{ ...empData, id }, ...prev];
+        });
+
+        syncService.enqueue('staff', 'insert', dbEmp, id);
     };
 
     const deleteEmployee = async (id) => {
-        setEmployees(prev => prev.filter(e => e.id !== id));
-        const { error } = await supabase.from('staff').delete().eq('id', id);
-        if (error) syncService.enqueue('staff', 'delete', null, id);
+        setEmployees(prev => prev.filter(e => String(e.id) !== String(id)));
+        syncService.enqueue('staff', 'delete', null, id);
     };
 
     const updateEmployee = async (id, newData) => {
-        setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...newData } : e));
-        const { error } = await supabase.from('staff').update(newData).eq('id', id);
-        if (error) syncService.enqueue('staff', 'update', newData, id);
+        setEmployees(prev => prev.map(e => String(e.id) === String(id) ? { ...e, ...newData } : e));
+        syncService.enqueue('staff', 'update', newData, id);
     };
 
     // Message Management
     const sendMessage = async (msgData) => {
         if (!currentUser?.id) return;
-
+        const id = uuidv4();
         const newMessage = {
+            id,
             sender_id: currentUser.id,
             receiver_id: msgData.receiverId || null,
             content: msgData.message,
@@ -741,51 +780,32 @@ export const InvoiceProvider = ({ children }) => {
             created_at: new Date().toISOString()
         };
 
-        // Optimistic UI Update
-        const tempId = Date.now();
-        setMessages(prev => [normalizeMessage({ ...newMessage, id: tempId }), ...prev]);
-
-        // Persist to Supabase
-        const { data, error } = await supabase.from('messages').insert(newMessage).select().single();
-
-        if (error) {
-            console.error('Error sending message:', error);
-            return null;
-        }
-
-        // Replace temp ID with real ID
-        setMessages(prev => prev.map(m => m.id === tempId ? normalizeMessage(data) : m));
-        return data;
+        setMessages(prev => [normalizeMessage(newMessage), ...prev]);
+        syncService.enqueue('messages', 'insert', newMessage, id);
+        return newMessage;
     };
 
     const sendBroadcastMessage = async (broadcastData) => {
-        // Broadly similar to sendMessage but can target specific roles if needed via metadata
         return sendMessage({
             ...broadcastData,
-            receiverId: null // NULL receiver_id indicates broadcast
+            receiverId: null
         });
     };
 
     const markMessageAsRead = async (id) => {
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, is_read: true } : m));
-        await supabase.from('messages').update({ is_read: true }).eq('id', id);
+        setMessages(prev => prev.map(m => String(m.id) === String(id) ? { ...m, is_read: true } : m));
+        syncService.enqueue('messages', 'update', { is_read: true }, id);
     };
 
     const deleteMessage = async (id) => {
-        setMessages(prev => prev.filter(m => m.id !== id));
-        await supabase.from('messages').delete().eq('id', id);
+        setMessages(prev => prev.filter(m => String(m.id) !== String(id)));
+        syncService.enqueue('messages', 'delete', null, id);
     };
 
     const fetchDailyReports = async () => {
         if (!currentUser?.id) return;
-        const { data, error } = await supabase
-            .from('daily_reports')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (!error && data) {
-            setDailyReports(data);
-        }
+        const { data, error } = await supabase.from('daily_reports').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+        if (!error && data) setDailyReports(data);
         return data;
     };
 

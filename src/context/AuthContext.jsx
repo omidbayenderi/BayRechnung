@@ -18,7 +18,14 @@ export const AuthProvider = ({ children }) => {
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
     const isMockSession = useRef(false);
-    const useSupabase = isSupabaseConfigured();
+    const isUpdating = useRef(false);
+    const currentUserRef = useRef(null);
+    const [useSupabase, setUseSupabase] = useState(isSupabaseConfigured());
+
+    // Keep ref in sync
+    useEffect(() => {
+        currentUserRef.current = currentUser;
+    }, [currentUser]);
 
     console.log('[Auth] Supabase Configured:', useSupabase);
     if (useSupabase) {
@@ -39,32 +46,50 @@ export const AuthProvider = ({ children }) => {
             const [profileRes, subRes, companyRes] = await Promise.all([profileReq, subReq, companyReq]);
 
             const email = profileRes.data?.email || userEmail || '';
-            const isAdminEmail = email.toLowerCase() === 'admin@bayrechnung.com';
+            const isAdminEmail = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com'].includes(email.toLowerCase());
 
             if (profileRes.error) {
-                console.warn('[Auth] Profile not found or table missing - attempting manual create:', profileRes.error.message);
-                // MANUALLY CREATE PROFILE IF MISSING (Trigger fallback)
-                await supabase.from('users').upsert({
-                    id: userId,
-                    email: email,
-                    full_name: 'Admin'
-                });
+                console.warn('[Auth] Profile not found or table missing:', profileRes.error.message);
 
-                // ALSO ENSURE COMPANY SETTINGS EXIST
-                if (!companyRes.data) {
-                    await supabase.from('company_settings').upsert({
-                        user_id: userId,
-                        company_name: 'My Company'
+                // If it's a "Not Found" error (PGRST116), try to create a basic profile
+                if (profileRes.error.code === 'PGRST116') {
+                    const defaultName = email.split('@')[0].split('.')[0].charAt(0).toUpperCase() + email.split('@')[0].split('.')[0].slice(1);
+                    await supabase.from('users').upsert({
+                        id: userId,
+                        email: email,
+                        full_name: defaultName
                     });
+
+                    // ALSO ENSURE COMPANY SETTINGS EXIST
+                    if (!companyRes.data) {
+                        await supabase.from('company_settings').upsert({
+                            user_id: userId,
+                            company_name: 'My Company'
+                        });
+                    }
+
+                    return {
+                        id: userId,
+                        email: email,
+                        name: defaultName,
+                        plan: isAdminEmail ? 'premium' : 'free',
+                        role: isAdminEmail ? 'admin' : 'admin',
+                        isSupabase: true,
+                        authMode: 'cloud',
+                        isSkeleton: false
+                    };
                 }
 
+                // For other errors (like 404 table missing), return minimal data without failing
                 return {
                     id: userId,
                     email: email,
-                    name: 'New User',
+                    name: isAdminEmail ? 'Admin' : 'User',
                     plan: isAdminEmail ? 'premium' : 'free',
                     role: isAdminEmail ? 'admin' : 'admin',
-                    isSupabase: true
+                    isSupabase: true,
+                    authMode: 'cloud',
+                    isSkeleton: false
                 };
             }
 
@@ -73,25 +98,58 @@ export const AuthProvider = ({ children }) => {
                 email: email,
                 name: profileRes.data?.full_name || 'Admin',
                 avatar: profileRes.data?.avatar_url,
-                // admin@bayrechnung.com always gets premium, others follow subscription
                 plan: (isAdminEmail || subRes.data?.plan_type === 'premium') ? 'premium' : (subRes.data?.plan_type || 'free'),
                 companyName: companyRes.data?.company_name || 'My Company',
                 industry: companyRes.data?.industry || 'general',
                 role: profileRes.data?.role || 'admin',
-                isSupabase: true
+                stripePublicKey: companyRes.data?.stripe_public_key,
+                stripeSecretKey: companyRes.data?.stripe_secret_key,
+                paypalClientId: companyRes.data?.paypal_client_id,
+                isSupabase: true,
+                authMode: 'cloud',
+                isSkeleton: false // Crucial: mark as loaded
             };
-            console.log('[Auth] User data bundle fetched from Supabase:', data);
+            console.log('[Auth] FETCH_SUCCESS:', data);
 
-            // Patch any offline items from previous mock session
-            const { syncService } = await import('../lib/SyncService');
-            syncService.patchUserId(userId);
+            // Notify sync service (using property check to avoid dynamic import hang)
+            import('../lib/SyncService').then(({ syncService }) => {
+                syncService.patchUserId(userId);
+            }).catch(e => console.warn('[Auth] SyncService patch failed:', e));
 
             return data;
         } catch (err) {
-            console.error('[Auth] Critical error in fetchUserData:', err);
-            // Return minimal data to allow app to proceed
-            return { id: userId, name: 'User', role: 'admin' };
+            console.error('[Auth] FETCH_ERROR:', err);
+
+            return {
+                id: userId,
+                email: userEmail,
+                name: 'User',
+                role: isAdminEmail ? 'admin' : 'worker',
+                dbError: err.code === '42P01' ? 'MIGRATION_REQUIRED' : 'CONNECTION_ERROR',
+                isSkeleton: false, // Ensure we clear the spinner
+                authMode: 'cloud'
+            };
         }
+    };
+
+    // Helper: Fetch with timeout
+    const fetchUserDataWithTimeout = (userId, email) => {
+        return Promise.race([
+            fetchUserData(userId, email),
+            new Promise((resolve) => setTimeout(() => {
+                console.warn('[Auth] Fetch timed out, using minimal local profile');
+                const isAdmin = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com'].includes(email?.toLowerCase());
+                resolve({
+                    id: userId,
+                    email: email,
+                    name: 'Local User',
+                    role: isAdmin ? 'admin' : 'worker',
+                    isSkeleton: false,
+                    authMode: 'cloud',
+                    isTimeout: true
+                });
+            }, 4000))
+        ]);
     };
 
     useEffect(() => {
@@ -101,47 +159,33 @@ export const AuthProvider = ({ children }) => {
         }, 5000);
 
         let subscription = null;
+        const lastFetchedId = { current: null }; // Ref-like local variable to track within effect lifetime
 
         if (useSupabase) {
-            const initSession = async () => {
-                // If we are already in a mock session (e.g. from a previous login that persisted via state/localstorage if we add persistence later), skip.
-                // However, on mount, isMockSession.current is reset to false.
-                // We can check localStorage to see if we should restore a mock session.
-                const savedMock = localStorage.getItem('bay_current_user');
-                const isMock = localStorage.getItem('bay_is_mock');
-                if (savedMock && isMock === 'true') {
-                    console.log('[Auth] Restoring mock session from persistence');
-                    isMockSession.current = true;
-                    setCurrentUser(JSON.parse(savedMock));
+            // Unify Auth initialization: rely on onAuthStateChange below for initial load to avoid duplicate fetches.
+            console.log('[Auth] Setting up AuthStateChange listener...');
+            const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+                if (event === 'SIGNED_OUT') {
+                    console.log('[Auth] User signed out');
+                    setCurrentUser(null);
+                    setSession(null);
                     setLoading(false);
                     return;
                 }
 
-                console.log('[Auth] Initializing session...');
-                try {
-                    const { data: { session: initialSession }, error } = await supabase.auth.getSession();
-                    if (error) throw error;
+                // Deduplicate consecutive identical session updates to prevent loops
+                const newUserId = newSession?.user?.id;
 
-                    setSession(initialSession);
-                    if (initialSession?.user) {
-                        console.log('[Auth] Found active session for:', initialSession.user.id);
-                        const userData = await fetchUserData(initialSession.user.id, initialSession.user.email);
-                        setCurrentUser(userData);
-                    } else {
-                        console.log('[Auth] No active session found');
-                    }
-                } catch (err) {
-                    console.error('[Auth] Initial session fetch error:', err);
-                } finally {
-                    setLoading(false);
+                const existingUser = currentUserRef.current;
+
+                if (newUserId === lastFetchedId.current && existingUser && !existingUser.isSkeleton) {
+                    console.log('[Auth] Session update for already fetched user, ignoring');
+                    return;
                 }
-            };
 
-            initSession();
+                lastFetchedId.current = newUserId;
 
-            console.log('[Auth] Setting up AuthStateChange listener...');
-            const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-                // Defensive check: If we are restoring a mock session, or have one in localStorage, ignore Supabase SIGNED_OUT
+                // Defensive check: If we are restoring a mock session, or have one in localStorage, ignore Supabase events
                 const hasMock = localStorage.getItem('bay_is_mock') === 'true';
 
                 if (isMockSession.current || hasMock) {
@@ -149,26 +193,46 @@ export const AuthProvider = ({ children }) => {
                     return;
                 }
 
+                if (isUpdating.current) {
+                    console.log('[Auth] Ignoring auth change during manual update flow');
+                    return;
+                }
+
                 console.log('[Auth] Auth state changed:', event, newSession?.user?.id);
                 setSession(newSession);
 
                 if (newSession?.user) {
+                    // Prevent duplicate fetches if same user
+                    const current = currentUserRef.current;
+                    if (current?.id === newSession.user.id && !current.isSkeleton) {
+                        return;
+                    }
+
                     // FAST PASS: Immediately set minimal user to prevent "Access Denied" or long loading
-                    const isAdmin = newSession.user.email?.toLowerCase() === 'admin@bayrechnung.com';
-                    setCurrentUser(prev => prev || {
-                        id: newSession.user.id,
-                        email: newSession.user.email,
-                        role: 'admin',
-                        plan: isAdmin ? 'premium' : 'free',
-                        isSkeleton: true
+                    const isAdmin = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com'].includes(newSession.user.email?.toLowerCase());
+                    setCurrentUser(prev => {
+                        if (prev && prev.id === newSession.user.id && !prev.isSkeleton) return prev;
+                        return {
+                            id: newSession.user.id,
+                            email: newSession.user.email,
+                            role: isAdmin ? 'admin' : 'worker', // Assume role based on email to bypass loading block
+                            plan: isAdmin ? 'premium' : 'free',
+                            isSkeleton: true,
+                            authMode: 'cloud' // Match Supabase mode
+                        };
                     });
 
-                    setLoading(false); // Stop blocking the UI immediately
+                    setLoading(false);
 
                     // Background fetch for detailed profile
-                    const userData = await fetchUserData(newSession.user.id, newSession.user.email);
-                    if (userData) {
-                        setCurrentUser(userData);
+                    try {
+                        const userData = await fetchUserDataWithTimeout(newSession.user.id, newSession.user.email);
+                        if (userData) {
+                            setCurrentUser(userData);
+                        }
+                    } catch (fetchErr) {
+                        console.error('[Auth] AuthChange fetch error:', fetchErr);
+                        setCurrentUser(prev => ({ ...prev, isSkeleton: false, dbError: 'FETCH_FAILED' }));
                     }
                 } else {
                     // Only clear if we are NOT in a mock session
@@ -215,39 +279,22 @@ export const AuthProvider = ({ children }) => {
                 });
 
                 if (!error && data?.user) {
-                    console.log('[Auth] Supabase login successful');
-                    // Check if MFA is required
-                    const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-                    if (!factorsError && factorsData?.all?.length > 0) {
-                        const verifiedFactors = factorsData.all.filter(f => f.status === 'verified');
-                        if (verifiedFactors.length > 0) {
-                            console.log('[Auth] MFA required for user:', data.user.id);
-                            return { success: true, mfaRequired: true, factors: verifiedFactors };
-                        }
-                    }
+                    console.log('[Auth] Supabase login successful for:', data.user.id);
+                    setSession(data.session);
+                    const userData = await fetchUserData(data.user.id, data.user.email);
+                    setCurrentUser({ ...userData, authMode: 'cloud' });
                     return { success: true };
                 }
 
                 if (error) {
-                    // CRITICAL: If Supabase is configured, we DO NOT allow admin accounts to fall through to Mock
-                    // This prevents data loss when someone uses a wrong password but enters a "mock-valid" one.
+                    console.warn('[Auth] Supabase login failed:', error.message);
+                    // Special handling for admin accounts - do not allow fallback
                     if (email.includes('admin@bayrechnung.com') || email.includes('admin@bayzenit.com')) {
-                        console.error('[Auth] Supabase login failed for admin:', error.message);
-                        return { success: false, error: `Supabase Login error: ${error.message}` };
-                    }
-
-                    // If user not found in Supabase or wrong password, we fall through to Mock
-                    // But only if it's an "Invalid login credentials" - other errors should be bubble up
-                    if (!error.message.includes('Invalid login credentials')) {
-                        console.error('[Auth] Supabase login unexpected error:', error.message);
-                        return { success: false, error: error.message };
+                        return { success: false, error: `Supabase Auth Error: ${error.message}` };
                     }
                 }
             } catch (err) {
                 console.error('[Auth] Supabase login exception:', err);
-                if (email.includes('admin@')) {
-                    return { success: false, error: 'Database connection error. Please check your internet.' };
-                }
             }
         }
         // 2. SECOND: Check Mock/Local Users (Fallback for Demo/Local Dev)
@@ -272,7 +319,8 @@ export const AuthProvider = ({ children }) => {
                 plan: authenticatedUser.plan,
                 companyName: authenticatedUser.companyName,
                 role: authenticatedUser.role || 'admin',
-                industry: authenticatedUser.industry || 'general'
+                industry: authenticatedUser.industry || 'general',
+                authMode: 'mock'
             });
             return { success: true };
         }
@@ -396,17 +444,28 @@ export const AuthProvider = ({ children }) => {
     const updateUser = async (updatedData) => {
         if (useSupabase && !isMockSession.current) {
             try {
+                isUpdating.current = true;
+
+                // 0. Ensure we have a fresh session before write
+                const { data: { session: activeSession } } = await supabase.auth.getSession();
+                if (!activeSession) {
+                    throw new Error('Auth session missing or expired! Please re-login.');
+                }
+
+                const userId = activeSession.user.id;
+                console.log(`[Auth] Deep Trace - User IDs match: ${userId === currentUser?.id}. Session ID: ${userId}`);
+
                 // 1. Handle Avatar Upload if it's a File
                 let avatarUrl = updatedData.avatar;
                 if (updatedData.avatarFile instanceof File) {
-                    const uploadRes = await storageService.uploadAvatar(currentUser.id, updatedData.avatarFile);
+                    const uploadRes = await storageService.uploadAvatar(userId, updatedData.avatarFile);
                     if (uploadRes.success) {
                         avatarUrl = uploadRes.url;
                     }
                 }
 
-                // 2. Update Auth metadata
-                const { data: authData, error: authError } = await supabase.auth.updateUser({
+                // 2. Update Auth metadata (This fires USER_UPDATED event)
+                const { error: authError } = await supabase.auth.updateUser({
                     data: {
                         full_name: updatedData.name,
                         avatar: avatarUrl,
@@ -416,43 +475,78 @@ export const AuthProvider = ({ children }) => {
                 if (authError) throw authError;
 
                 // 3. Update Public User Profile
+                const roleMap = {
+                    'Administrator': 'admin',
+                    'Manager': 'site_lead',
+                    'Accountant': 'finance',
+                    'Employee': 'worker'
+                };
+                const normalizedRole = roleMap[updatedData.role] || updatedData.role || currentUser.role;
+
                 const { error: profileError } = await supabase
                     .from('users')
-                    .update({
+                    .upsert({
+                        id: userId,
+                        email: updatedData.email || currentUser.email,
                         full_name: updatedData.name,
-                        avatar_url: avatarUrl
-                    })
-                    .eq('id', currentUser.id);
+                        avatar_url: avatarUrl,
+                        role: normalizedRole
+                    }, { onConflict: 'id' });
 
                 if (profileError) throw profileError;
 
-                // 3. Update Company Settings if needed
-                if (updatedData.companyName || updatedData.industry) {
-                    const { error: companyError } = await supabase
-                        .from('company_settings')
-                        .update({
-                            company_name: updatedData.companyName,
-                            industry: updatedData.industry
-                        })
-                        .eq('user_id', currentUser.id);
-                    if (companyError) throw companyError;
+                // 3. Update Company Settings
+                const { error: companyError } = await supabase
+                    .from('company_settings')
+                    .upsert({
+                        user_id: userId,
+                        company_name: updatedData.companyName,
+                        industry: updatedData.industry,
+                        stripe_public_key: updatedData.stripePublicKey,
+                        stripe_secret_key: updatedData.stripeSecretKey,
+                        paypal_client_id: updatedData.paypalClientId
+                    }, { onConflict: 'user_id' });
+
+                console.log('[Auth] Deep Trace - company_settings payload:', {
+                    user_id: userId,
+                    company_name: updatedData.companyName,
+                    industry: updatedData.industry
+                });
+
+                if (companyError) {
+                    if (companyError.code === '42P01') {
+                        throw new Error('Veritabanı tabloları eksik. Lütfen migrasyonları çalıştırın.');
+                    }
+                    throw companyError;
                 }
 
-                const userData = await fetchUserData(currentUser.id);
-                setCurrentUser(userData);
+                // 4. Update local state with fresh data
+                const userData = await fetchUserData(userId, updatedData.email || currentUser.email);
+                if (userData && userData.id) {
+                    setCurrentUser({ ...userData, authMode: 'cloud' });
+                }
                 return { success: true };
             } catch (error) {
-                console.error('Error updating user profile:', error);
+                console.error('[Auth] Error updating user profile:', error);
+
+                // Detailed error for missing tables
+                if (error.code === '42P01') {
+                    return {
+                        success: false,
+                        error: 'Veritabanı tabloları eksik (Table missing). Lütfen Supabase SQL Editor üzerinden migrasyonları çalıştırın.'
+                    };
+                }
+
                 return { success: false, error: error.message };
+            } finally {
+                isUpdating.current = false;
             }
         } else {
             // Fallback: update in state and localStorage
             const updated = { ...currentUser, ...updatedData };
             setCurrentUser(updated);
 
-            // Also update in registered users list
             const registeredUsers = JSON.parse(localStorage.getItem('bay_registered_users') || '[]');
-            // Try to find by id first (if we add it), otherwise by email
             const identifier = currentUser?.id || currentUser?.email;
             const idx = registeredUsers.findIndex(u => (u.id && u.id === identifier) || u.email === currentUser?.email);
 

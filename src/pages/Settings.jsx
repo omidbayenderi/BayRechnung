@@ -25,6 +25,13 @@ const Settings = () => {
         'premium': 2
     };
 
+    // Fix: Sync local state when remote data loads
+    useEffect(() => {
+        if (companyProfile) {
+            setFormData(companyProfile);
+        }
+    }, [companyProfile]);
+
     useEffect(() => {
         if (formData.logo && (!customizationData.brandPalette || customizationData.brandPalette.length === 0)) {
             extractColors(formData.logo).then(palette => {
@@ -71,12 +78,28 @@ const Settings = () => {
                     colorMap[rgb] = (colorMap[rgb] || 0) + 1;
                 }
 
-                const sortedColors = Object.entries(colorMap)
+                let sortedColors = Object.entries(colorMap)
                     .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
+                    .slice(0, 8) // More options
                     .map(c => c[0]);
 
+                // If no colors found (maybe all filtered out), try again without strict filters
+                if (sortedColors.length < 2) {
+                    const fallbackMap = {};
+                    for (let i = 0; i < imageData.length; i += 4) {
+                        const r = imageData[i], g = imageData[i + 1], b = imageData[i + 2], a = imageData[i + 3];
+                        if (a < 128 || (r > 250 && g > 250 && b > 250)) continue;
+                        const rgb = `rgb(${Math.round(r / 10) * 10},${Math.round(g / 10) * 10},${Math.round(b / 10) * 10})`;
+                        fallbackMap[rgb] = (fallbackMap[rgb] || 0) + 1;
+                    }
+                    sortedColors = Object.entries(fallbackMap)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 8)
+                        .map(c => c[0]);
+                }
+
                 resolve(sortedColors);
+
             };
             img.src = imageSrc;
         });
@@ -281,7 +304,7 @@ const Settings = () => {
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white' }}
                     >
                         <User size={18} />
-                        {appLanguage === 'tr' ? 'Profil' : 'Profil'}
+                        {t('profileText') || 'Profile'}
                     </button>
                     <button
                         className="secondary-btn"
@@ -289,7 +312,7 @@ const Settings = () => {
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', border: '1px solid #10b981' }}
                     >
                         <Shield size={18} color="#10b981" />
-                        <span style={{ color: '#10b981', fontWeight: 600 }}>{appLanguage === 'tr' ? 'Güvenlik' : 'Sicherheit'}</span>
+                        <span style={{ color: '#10b981', fontWeight: 600 }}>{t('securityText') || 'Security'}</span>
                     </button>
                     <button className="primary-btn" onClick={handleSave} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Save size={18} />
@@ -302,7 +325,7 @@ const Settings = () => {
                 <div className="settings-card card">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
                         <Camera size={22} color="var(--primary)" />
-                        <h3 style={{ margin: 0 }}>{appLanguage === 'tr' ? 'Logo ve İmza' : 'Logo & Signatur'}</h3>
+                        <h3 style={{ margin: 0 }}>{t('logoAndSignature') || 'Logo & Signature'}</h3>
                     </div>
 
                     <div style={{ display: 'flex', gap: '20px', marginBottom: '1.5rem' }}>
@@ -336,7 +359,7 @@ const Settings = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                         <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <Palette size={14} />
-                                            {appLanguage === 'tr' ? 'Logodan Renkler' : 'Farben aus Logo'}
+                                            {t('colorsFromLogo') || 'Colors from Logo'}
                                         </span>
                                         <button
                                             type="button"
@@ -353,7 +376,7 @@ const Settings = () => {
                                             }}
                                         >
                                             <RotateCcw size={12} />
-                                            {appLanguage === 'tr' ? 'Sıfırla' : 'Zurücksetzen'}
+                                            {t('resetText') || 'Reset'}
                                         </button>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAppointments } from '../../context/AppointmentContext';
 import { useStock } from '../../context/StockContext';
@@ -23,9 +24,14 @@ import {
     Zap,
     Check,
     ShieldCheck,
-    X
+    X,
+    TrendingDown,
+    Receipt,
+    Sparkles
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
+import { useBayVision } from '../../context/BayVisionContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import PremiumUpgradeModal from '../../components/admin/PremiumUpgradeModal';
 
@@ -37,7 +43,9 @@ const SystemOverview = () => {
     const { sales, products } = useStock();
     const { siteConfig } = useWebsite();
     const { switchPanel } = usePanel();
+    const { intelligence, isAnalyzing } = useBayVision(); // CEO Intelligence
 
+    const navigate = useNavigate();
     const { currentUser } = useAuth();
     const { companyProfile } = useInvoice(); // Need this for active plan
     const [timeRange, setTimeRange] = useState('month'); // week, month, year
@@ -53,6 +61,7 @@ const SystemOverview = () => {
     const stockRevenue = sales.reduce((sum, sale) => sum + (sale.total || 0), 0);
     const totalRevenue = invoiceRevenue + stockRevenue;
     const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+    const totalUnpaid = invoices.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0);
     const netProfit = totalRevenue - totalExpenses;
 
     // 2. Operational
@@ -80,26 +89,26 @@ const SystemOverview = () => {
     // Website Status
     const isWebsiteLive = siteConfig?.isPublished;
 
-    // --- Chart Data Preparation (Mock Simulated History based on current totals) ---
+    // --- Chart Data Preparation (Connecting to real totals instead of mock) ---
     const generateChartData = () => {
-        // In a real app, we would group actual dated records.
-        // For visual demo, we'll distribute the totals over a curve.
+        // Distribute the totals evenly or dynamically based on true history if available
+        // Currently, using simple distribution of real current totals without Math.random()
         const data = [];
         const points = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 12;
         const labels = timeRange === 'week' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] :
             timeRange === 'year' ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] :
                 Array.from({ length: 30 }, (_, i) => i + 1);
 
-        let currentRevenue = totalRevenue * 0.4; // Start lower
-        let currentExpense = totalExpenses * 0.4;
+        let currentRevenue = 0;
+        let currentExpense = 0;
 
         for (let i = 0; i < points; i++) {
-            // Add some randomness and trend up
-            const revStep = (totalRevenue * 0.6) / points;
-            const expStep = (totalExpenses * 0.6) / points;
+            // Distribute steadily over points
+            const revStep = totalRevenue / points;
+            const expStep = totalExpenses / points;
 
-            currentRevenue += revStep * (0.8 + Math.random() * 0.4);
-            currentExpense += expStep * (0.8 + Math.random() * 0.4);
+            currentRevenue += revStep;
+            currentExpense += expStep;
 
             data.push({
                 name: labels[i % labels.length],
@@ -268,14 +277,93 @@ const SystemOverview = () => {
     return (
         <div style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
 
-            <header style={{ marginBottom: '32px' }}>
-                <h1 style={{ fontSize: '2rem', fontWeight: '800', color: '#1e293b', marginBottom: '8px' }}>
-                    {t('system_overview') || 'System Overview'}
-                </h1>
-                <p style={{ color: '#64748b', fontSize: '1rem' }}>
-                    {t('real_time_monitoring') || 'Real-time monitoring of all business modules.'}
-                </p>
+            <header style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                    <h1 style={{ fontSize: '2rem', fontWeight: '800', color: '#1e293b', marginBottom: '8px' }}>
+                        {t('system_overview') || 'System Overview'}
+                    </h1>
+                    <p style={{ color: '#64748b', fontSize: '1rem' }}>
+                        {t('real_time_monitoring') || 'Real-time monitoring of all business modules.'}
+                    </p>
+                </div>
+                {/* BayVision Status Indicator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'white', padding: '8px 16px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
+                    <div style={{
+                        width: '10px', height: '10px', borderRadius: '50%',
+                        background: isAnalyzing ? '#f59e0b' : '#10b981',
+                        boxShadow: isAnalyzing ? '0 0 10px #f59e0b' : 'none'
+                    }}></div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>BayVision: {isAnalyzing ? 'Analiz Ediliyor...' : 'Aktif'}</span>
+                </div>
             </header>
+
+            {/* AI Intelligence Row */}
+            <div style={{ marginBottom: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+                {/* Alerts Section */}
+                <div style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)', border: '1px solid #fee2e2', borderRadius: '16px', padding: '24px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1 }}><AlertTriangle size={80} /></div>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '800', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Zap size={18} fill="#991b1b" /> Karar Destek Alarmları ({intelligence.alerts.length})
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {intelligence.alerts.length > 0 ? intelligence.alerts.map(alert => (
+                            <div key={alert.id} style={{ background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', borderLeft: '4px solid #ef4444' }}>
+                                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1e293b' }}>{alert.title}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{alert.message}</div>
+                                <button
+                                    onClick={() => {
+                                        if (alert.id === 'unpaid-invoices') {
+                                            switchPanel('accounting');
+                                            setTimeout(() => navigate('/archive'), 100);
+                                        } else if (alert.id === 'low-stock') {
+                                            switchPanel('stock');
+                                            setTimeout(() => navigate('/stock/products'), 100);
+                                        }
+                                    }}
+                                    style={{ marginTop: '8px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                                >
+                                    {t('take_action', 'Harekete Geç')}
+                                </button>
+                                <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '4px', fontWeight: '600' }}>Kaynak: {alert.agent}</div>
+                            </div>
+                        )) : (
+                            <div style={{ color: '#059669', fontSize: '0.9rem', fontStyle: 'italic' }}>Tebrikler! Şu an için kritik bir risk tespit edilmedi.</div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Opportunities Section */}
+                <div style={{ background: 'linear-gradient(135deg, #f0f9ff 0%, #fff 100%)', border: '1px solid #e0f2fe', borderRadius: '16px', padding: '24px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1 }}><TrendingUp size={80} /></div>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '800', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Sparkles size={18} fill="#0369a1" /> Büyüme Fırsatları ({intelligence.opportunities.length})
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {intelligence.opportunities.length > 0 ? intelligence.opportunities.map(opp => (
+                            <div key={opp.id} style={{ background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', borderLeft: '4px solid #3b82f6' }}>
+                                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1e293b' }}>{opp.title}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{opp.message}</div>
+                                <button
+                                    onClick={() => {
+                                        if (opp.id === 'logo-gen') {
+                                            switchPanel('website');
+                                            setTimeout(() => navigate('/website/editor'), 100);
+                                        } else if (opp.id === 'ads-opportunity') {
+                                            switchPanel('website');
+                                            setTimeout(() => navigate('/website/settings'), 100);
+                                        }
+                                    }}
+                                    style={{ marginTop: '8px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #3b82f6', background: 'transparent', color: '#3b82f6', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                                >
+                                    {t('take_action', 'Harekete Geç')}
+                                </button>
+                            </div>
+                        )) : (
+                            <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Yeni fırsatlar için veri toplanıyor...</div>
+                        )}
+                    </div>
+                </div>
+            </div>
 
             {/* Top Metrics Grid */}
             <div style={{
@@ -308,12 +396,61 @@ const SystemOverview = () => {
                     color="#8b5cf6"
                 />
                 <MetricCard
-                    title={t('system_health') || 'System Health'}
-                    value="98%"
-                    subtext={t('all_modules_operational') || "All modules operational"}
-                    icon={CheckCircle}
-                    color="#f59e0b"
+                    title={t('debts') || 'Borçlar (Açık)'}
+                    value={`€${totalUnpaid.toLocaleString()}`}
+                    subtext={t('unpaid_invoices') || "Ödenmemiş faturalar"}
+                    icon={TrendingDown}
+                    color="#ef4444"
                 />
+            </div>
+
+            {/* Financial Performance Chart */}
+            <div style={{ background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9', marginBottom: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700' }}>{t('financial_performance')}</h3>
+                    <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                        {['week', 'month', 'year'].map(range => (
+                            <button
+                                key={range}
+                                onClick={() => setTimeRange(range)}
+                                style={{
+                                    padding: '6px 12px', border: 'none', borderRadius: '6px',
+                                    background: timeRange === range ? 'white' : 'transparent',
+                                    color: timeRange === range ? '#0f172a' : '#64748b',
+                                    fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer',
+                                    boxShadow: timeRange === range ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                                }}
+                            >
+                                {t(range)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div style={{ height: '350px', width: '100%' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                            <defs>
+                                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `€${val}`} />
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                formatter={(value) => [`€${value.toLocaleString()}`, '']}
+                            />
+                            <Area type="monotone" dataKey="revenue" name={t('income')} stroke="#3b82f6" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
+                            <Area type="monotone" dataKey="expenses" name={t('expense')} stroke="#ef4444" fillOpacity={1} fill="url(#colorExp)" strokeWidth={3} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '32px' }}>
