@@ -17,6 +17,9 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
         return new Intl.NumberFormat('de-DE', { style: 'currency', currency: currency }).format(amount);
     };
 
+    const qrUrl = (encodedData) => `https://quickchart.io/qr?size=150&text=${encodeURIComponent(encodedData)}&margin=1`;
+    const fallbackUrl = (encodedData) => `https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=1&data=${encodeURIComponent(encodedData)}`;
+
     // --- Pagination Logic ---
     const items = data.items || [];
     const ITEMS_FIRST_PAGE = 7;
@@ -42,7 +45,9 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
             <div className="invoice-bottom-footer-block">
                 <div className="footer-content-left">
                     <h4>{tInvoice('paymentTermsAndBank')}</h4>
-                    <p className="small-text">{data.paymentTerms || 'Bitte überweisen Sie den Gesamtbetrag innerhalb von 14 Tagen auf unser Bankkonto.'}</p>
+                    <p className="small-text" style={{ whiteSpace: 'pre-line' }}>
+                        {data.paymentTerms || data.footerPayment || 'Bitte überweisen Sie den Gesamtbetrag innerhalb von 14 Tagen auf unser Bankkonto.'}
+                    </p>
                     <div className="footer-bank-details">
                         <p><strong>{tInvoice('bankLabel')}</strong> {data.senderBank}</p>
                         <p><strong>{tInvoice('ibanLabel')}</strong> {data.senderIban}</p>
@@ -53,35 +58,80 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
 
                 <div className="footer-qr-section">
                     {data.senderIban && (() => {
-                        const cleanIban = (data.senderIban || '').replace(/\s+/g, '').toUpperCase();
-                        const cleanBic = (data.senderBic || '').replace(/\s+/g, '').toUpperCase();
-                        const amountValue = total > 0 ? `EUR${total.toFixed(2)}` : '';
-                        const sanitize = (str) => (str || '').replace(/[\r\n]+/g, ' ').trim();
+                        const cleanIban = (data.senderIban || '').replace(/[\s\W]/g, '').toUpperCase();
+                        const cleanBic = (data.senderBic || '').replace(/[\s\W]/g, '').toUpperCase();
+                        const sanitize = (text) => (text || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x00-\x7F]/g, "").trim();
+                        const beneficiary = sanitize(data.senderCompany || data.senderName).substring(0, 70);
+                        const amountValue = total > 0 ? `EUR${total.toFixed(2)}` : ''; // Important: must use decimal dot!
                         const reference = sanitize(`Rechnung ${data.invoiceNumber || ''}`).substring(0, 140);
-                        const beneficiary = sanitize(data.senderCompany).substring(0, 70);
 
+                        // Strict EPC (GiroCode) Structure
                         const epcLines = [
-                            'BCD', '002', '1', 'SCT', cleanBic, beneficiary, cleanIban, amountValue, '', '', reference, ''
+                            'BCD',          // Service Tag
+                            '002',          // Version
+                            '1',            // Character Set (1 = UTF-8)
+                            'SCT',          // Identification (SEPA Credit Transfer)
+                            cleanBic,       // BIC
+                            beneficiary,    // Beneficiary Name
+                            cleanIban,      // IBAN
+                            amountValue,    // Amount (e.g., EUR150.00)
+                            '',             // Purpose String (empty)
+                            '',             // Remittance Information (Structured, empty)
+                            reference,      // Remittance Information (Unstructured)
+                            ''              // Beneficiary to Originator Information (empty)
                         ];
                         const epcString = epcLines.join('\n');
-                        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(epcString)}`;
 
                         return (
                             <div className="qr-box">
-                                <img src={qrUrl} alt="GiroCode" />
+                                <img
+                                    src={qrUrl(epcString)}
+                                    alt="GiroCode"
+                                    crossOrigin="anonymous"
+                                    loading="eager"
+                                    style={{ width: '60px', height: '60px', objectFit: 'contain' }}
+                                    onError={(e) => {
+                                        if (!e.target.src.includes('qrserver')) {
+                                            e.target.src = fallbackUrl(epcString);
+                                        }
+                                    }}
+                                />
                                 <span>GiroCode</span>
                             </div>
                         );
                     })()}
                     {data.paypalMe && (
                         <div className="qr-box">
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(data.paypalMe)}`} alt="PayPal" />
+                            <img
+                                src={qrUrl(data.paypalMe.includes('http') ? data.paypalMe : `https://paypal.me/${data.paypalMe}`)}
+                                alt="PayPal"
+                                crossOrigin="anonymous"
+                                loading="eager"
+                                style={{ width: '60px', height: '60px', objectFit: 'contain' }}
+                                onError={(e) => {
+                                    const fullP = data.paypalMe.includes('http') ? data.paypalMe : `https://paypal.me/${data.paypalMe}`;
+                                    if (!e.target.src.includes('qrserver')) {
+                                        e.target.src = fallbackUrl(fullP);
+                                    }
+                                }}
+                            />
                             <span>PayPal</span>
                         </div>
                     )}
                     {data.stripeLink && (
                         <div className="qr-box">
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(data.stripeLink)}`} alt="Stripe" />
+                            <img
+                                src={qrUrl(data.stripeLink)}
+                                alt="Stripe"
+                                crossOrigin="anonymous"
+                                loading="eager"
+                                style={{ width: '60px', height: '60px', objectFit: 'contain' }}
+                                onError={(e) => {
+                                    if (!e.target.src.includes('qrserver')) {
+                                        e.target.src = fallbackUrl(data.stripeLink);
+                                    }
+                                }}
+                            />
                             <span>Stripe</span>
                         </div>
                     )}
@@ -114,7 +164,7 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
                             <div className="sender-meta-column">
                                 {(data.logoDisplayMode === 'logoOnly' || data.logoDisplayMode === 'both') && (data.logo || data.logoUrl) && (
                                     <div className="header-logo">
-                                        <img src={data.logo || data.logoUrl} alt="Logo" />
+                                        <img src={data.logo || data.logoUrl} alt="Logo" crossOrigin="anonymous" />
                                     </div>
                                 )}
                                 {(data.logoDisplayMode === 'nameOnly' || data.logoDisplayMode === 'both' || !data.logoDisplayMode) && (
@@ -200,7 +250,7 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
                         <div className="invoice-summary-section">
                             <div className="invoice-signature-block">
                                 {signatureUrl ? (
-                                    <img src={signatureUrl} alt="Signature" className="signature-image" />
+                                    <img src={signatureUrl} alt="Signature" className="signature-image" crossOrigin="anonymous" />
                                 ) : (
                                     <div className="signature-placeholder"></div>
                                 )}

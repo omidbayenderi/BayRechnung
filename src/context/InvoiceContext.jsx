@@ -319,6 +319,9 @@ export const InvoiceProvider = ({ children }) => {
 
                 // Merge with pending sync queue for immediate consistency after refresh
                 const syncQueue = JSON.parse(localStorage.getItem('bay_sync_queue') || '[]');
+                const pendingProfile = syncQueue
+                    .filter(item => item.table === 'company_settings' && (item.action === 'insert' || item.action === 'update'))
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
                 if (pendingProfile) {
                     setCompanyProfile(prev => normalizeProfile(pendingProfile.data, prev));
