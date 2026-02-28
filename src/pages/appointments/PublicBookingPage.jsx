@@ -660,7 +660,7 @@ const PublicBookingPage = () => {
                                             border: paymentMethod === 'onsite' ? `2px solid ${DS.primary}` : `1px solid ${DS.border}`,
                                             background: paymentMethod === 'onsite' ? '#f8fafc' : 'white',
                                             borderRadius: '12px', padding: '16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px',
-                                            opacity: services.find(s => s.id === bookingData.serviceId)?.name.toLowerCase().includes('online') ? 0.5 : 1,
+                                            opacity: services.find(s => s.id === bookingData.serviceId)?.name?.toLowerCase()?.includes('online') ? 0.5 : 1,
                                             transition: 'all 0.2s'
                                         }}
                                     >

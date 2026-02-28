@@ -29,9 +29,11 @@ const BookingsList = () => {
     };
 
     const filteredAppointments = appointments.filter(a => {
-        const matchesSearch = a.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            a.customerPhone.includes(searchQuery) ||
-            a.notes.toLowerCase().includes(searchQuery.toLowerCase());
+        const nameMatch = (a.customerName || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const phoneMatch = (a.customerPhone || '').includes(searchQuery);
+        const notesMatch = (a.notes || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesSearch = nameMatch || phoneMatch || notesMatch;
         const matchesStatus = filterStatus === 'all' || a.status === filterStatus;
         return matchesSearch && matchesStatus;
     });
