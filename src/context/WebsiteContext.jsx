@@ -98,14 +98,23 @@ export const WebsiteProvider = ({ children }) => {
         }
     }, [siteConfig, sections, currentUser, loading]);
 
-    // Save to Supabase via SyncService
     const saveToSupabase = (newConfig, newSections) => {
         if (!currentUser?.id) return;
+
+        const slugify = (text) => {
+            if (!text) return '';
+            return text.toString().toLowerCase().trim()
+                .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/[^a-z0-9]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+        };
 
         const syncData = {
             user_id: currentUser.id,
             config: { siteConfig: newConfig, sections: newSections },
             domain: newConfig.domain || '',
+            slug: newConfig.slug || slugify(newConfig.domain || '') || slugify(currentUser.id.substring(0, 8)),
             is_published: !!newConfig.isPublished,
             updated_at: new Date().toISOString()
         };

@@ -73,13 +73,20 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             const { data: profiles } = await supabase.from('company_settings').select('user_id, company_name');
             if (profiles) {
                 const cleanEffective = slugify(effectiveSlug);
+                console.warn('🔍 [Public] Fallback search profiles:', profiles.length);
+
                 const match = profiles.find(p => {
                     const s = slugify(p.company_name);
-                    return s === cleanEffective || s === effectiveSlug.toLowerCase();
+                    const isMatch = s === cleanEffective || s === effectiveSlug.toLowerCase() || p.company_name.toLowerCase() === effectiveSlug.toLowerCase();
+                    if (isMatch) console.warn('✅ [Public] Match found in profiles:', p.company_name, 'ID:', p.user_id);
+                    return isMatch;
                 });
+
                 if (match) {
                     userId = match.user_id;
                     console.warn('🎯 [Public] Found via company_settings matching:', userId);
+                } else {
+                    console.error('🛑 [Public] No match in profiles for slug:', cleanEffective);
                 }
             }
         }
