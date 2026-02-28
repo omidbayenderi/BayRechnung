@@ -40,25 +40,35 @@ const fetchPublicSiteData = async (domainOrSlug) => {
                 .replace(/^-|-$/g, '');
         };
 
-        let userId = null;
 
         // 2. Direct Search by Domain or Exact Slug
-        const { data: configCheck } = await supabase
-            .from('website_configs')
-            .select('user_id')
-            .or(`domain.eq.${domainOrSlug},slug.eq.${domainOrSlug},slug.eq.${effectiveSlug}`)
-            .maybeSingle();
+        let userId = null;
 
-        if (configCheck?.user_id) {
-            userId = configCheck.user_id;
-            console.warn('🎯 [Public] Found via website_configs:', userId);
-        } else {
+        // Build a safe query string for .or() filter
+        const orConditions = [];
+        if (domainOrSlug && domainOrSlug !== 'demo') orConditions.push(`domain.eq.${domainOrSlug}`, `slug.eq.${domainOrSlug}`);
+        if (effectiveSlug && effectiveSlug !== domainOrSlug) orConditions.push(`slug.eq.${effectiveSlug}`);
+
+        if (orConditions.length > 0) {
+            const { data: configCheck } = await supabase
+                .from('website_configs')
+                .select('user_id')
+                .or(orConditions.join(','))
+                .maybeSingle();
+
+            if (configCheck?.user_id) {
+                userId = configCheck.user_id;
+                console.warn('🎯 [Public] Found via website_configs:', userId);
+            }
+        }
+
+        if (!userId) {
             // Fallback Search in company_settings
             const { data: profiles } = await supabase.from('company_settings').select('user_id, company_name');
             if (profiles) {
+                const cleanEffective = slugify(effectiveSlug);
                 const match = profiles.find(p => {
                     const s = slugify(p.company_name);
-                    const cleanEffective = slugify(effectiveSlug);
                     return s === cleanEffective || s === effectiveSlug.toLowerCase();
                 });
                 if (match) {

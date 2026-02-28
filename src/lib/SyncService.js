@@ -237,6 +237,14 @@ class SyncService {
                     recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
                     projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
                     messages: ['id', 'sender_id', 'receiver_id', 'content', 'category', 'type', 'title', 'metadata', 'is_read', 'created_at'],
+                    services: ['id', 'user_id', 'name', 'description', 'price', 'duration', 'color', 'created_at'],
+                    staff: ['id', 'user_id', 'full_name', 'role', 'color', 'created_at'],
+                    appointment_settings: [
+                        'id', 'user_id', 'working_hours_start', 'working_hours_end',
+                        'working_hours_weekend_start', 'working_hours_weekend_end',
+                        'working_days', 'slot_duration', 'buffer_time', 'holidays', 'breaks'
+                    ],
+                    website_configs: ['id', 'user_id', 'config', 'domain', 'slug', 'is_published', 'updated_at'],
                     products: ['id', 'user_id', 'name', 'category', 'price', 'stock', 'min_stock', 'sku', 'image_url', 'supplier_info', 'created_at'],
                     sales: ['id', 'user_id', 'customer_name', 'total', 'payment_method', 'items', 'status', 'created_at'],
                     stock_movements: ['id', 'user_id', 'product_id', 'quantity_change', 'type', 'reason', 'created_at'],
