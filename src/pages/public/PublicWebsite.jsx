@@ -436,23 +436,27 @@ const PublicWebsite = ({ customDomain }) => {
                     setSiteData(prev => {
                         if (!prev) return remoteData;
 
-                        // Helper for null-safe merge
-                        const safeMerge = (local = {}, remote = {}) => {
-                            const result = { ...local };
-                            Object.entries(remote).forEach(([key, val]) => {
-                                if (val !== null && val !== undefined && val !== '' && (Array.isArray(val) ? val.length > 0 : true)) {
-                                    result[key] = val;
-                                }
-                            });
-                            return result;
-                        };
+                        // Remote data is always the source of truth for products (to keep images)
+                        // Only fallback to local if remote has nothing
+                        const mergedProducts = (remoteData.products && remoteData.products.length > 0)
+                            ? remoteData.products.map(p => ({
+                                ...p,
+                                // Ensure image field is populated from both possible fields
+                                image: p.image || p.image_url || null
+                            }))
+                            : prev.products;
 
                         return {
                             ...prev,
-                            config: safeMerge(prev.config, remoteData.config),
+                            // Config: deep merge, remote wins on non-null values
+                            config: { ...prev.config, ...remoteData.config },
+                            // Sections: remote always wins if it has content
                             sections: (remoteData.sections && remoteData.sections.length > 0) ? remoteData.sections : prev.sections,
-                            profile: safeMerge(prev.profile, remoteData.profile),
-                            products: (remoteData.products && remoteData.products.length > 0) ? remoteData.products : prev.products,
+                            // Profile: deep merge
+                            profile: { ...prev.profile, ...remoteData.profile },
+                            // Products: ALWAYS use remote (to preserve images from Supabase)
+                            products: mergedProducts,
+                            // Appointment settings: remote wins
                             appointmentSettings: (remoteData.appointmentSettings && Object.keys(remoteData.appointmentSettings).length > 0)
                                 ? remoteData.appointmentSettings
                                 : prev.appointmentSettings

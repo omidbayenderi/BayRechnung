@@ -76,29 +76,56 @@ function App() {
 
   // Domain detection logic
   const hostname = window.location.hostname;
-  const isCustomDomain = hostname !== 'localhost' &&
-    hostname !== 'bayrechnung.com' &&
-    hostname !== 'bayzenit.com' &&
-    hostname !== 'www.bayzenit.com' &&
-    !hostname.endsWith('.vercel.app') &&
-    !hostname.endsWith('.supabase.co');
+  const platformDomain = 'bayzenit.com';
 
-  console.warn('🌐 [App] Hostname:', hostname, '| isCustomDomain:', isCustomDomain);
+  // Detect if this is a platform subdomain: firmaadi.bayzenit.com
+  const isPlatformSubdomain = hostname.endsWith(`.${platformDomain}`) &&
+    hostname !== `www.${platformDomain}` &&
+    hostname !== platformDomain;
+
+  // Extract slug from subdomain: firmaadi.bayzenit.com → 'firmaadi'
+  const subdomainSlug = isPlatformSubdomain
+    ? hostname.replace(`.${platformDomain}`, '').replace('www.', '')
+    : null;
+
+  // A truly custom domain (not bayzenit.com and not vercel/supabase)
+  const isTrulyCustomDomain = hostname !== 'localhost' &&
+    hostname !== 'bayrechnung.com' &&
+    hostname !== platformDomain &&
+    hostname !== `www.${platformDomain}` &&
+    !hostname.endsWith('.vercel.app') &&
+    !hostname.endsWith('.supabase.co') &&
+    !isPlatformSubdomain; // custom domains handled separately
+
+  // Combined: show public website for both platform subdomains AND custom domains
+  const isPublicSite = isPlatformSubdomain || isTrulyCustomDomain;
+
+  // The effective domain/slug to pass to PublicWebsite
+  const effectivePublicDomain = subdomainSlug || hostname;
+
+  console.warn('🌐 [App] Hostname:', hostname,
+    '| isPlatformSubdomain:', isPlatformSubdomain,
+    '| subdomainSlug:', subdomainSlug,
+    '| isTrulyCustomDomain:', isTrulyCustomDomain
+  );
 
   return (
     <BayGuardProvider>
       <Routes>
-        {/* 1. Public External Website (Custom Domain or Path based) */}
-        <Route path="/" element={
-          isCustomDomain ? (
+        {/* 1. Public External Website (Custom Domain or Subdomain based) */}
+        {isPublicSite ? (
+          // When accessed via subdomain (firmaadi.bayzenit.com), ALL paths go to PublicWebsite
+          <Route path="/*" element={
             <WebsiteProvider>
-              <PublicWebsite customDomain={hostname} />
+              <PublicWebsite customDomain={effectivePublicDomain} />
             </WebsiteProvider>
-          ) : (
-            <LandingPage />
-          )
-        } />
+          } />
+        ) : (
+          // Normal platform: show landing at "/"
+          <Route path="/" element={<LandingPage />} />
+        )}
 
+        {/* Path-based fallback: bayzenit.com/s/firmaadi (always available) */}
         <Route path="/s/:domain" element={
           <WebsiteProvider>
             <PublicWebsite />
@@ -106,7 +133,6 @@ function App() {
         } />
 
         {/* 2. Public Platform Routes */}
-        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={isAuthenticated ? <Navigate to="/admin" /> : <Login />} />
         <Route path="/register" element={isAuthenticated ? <Navigate to="/admin" /> : <Register />} />
         <Route path="/success" element={<Success />} />
