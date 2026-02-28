@@ -1,4 +1,44 @@
 import { supabase, isSupabaseConfigured, checkDbHealth } from './supabase';
+import { syncService as syncServiceInstance } from './SyncService'; // Avoid circular if needed, but here we define the class
+
+const TABLE_SCHEMAS = {
+    services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'color', 'created_at'],
+    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'sites', 'role', 'color', 'created_at'],
+    recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
+    projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
+    messages: ['id', 'sender_id', 'receiver_id', 'content', 'category', 'type', 'title', 'metadata', 'is_read', 'created_at'],
+    appointment_settings: [
+        'id', 'user_id', 'working_hours_start', 'working_hours_end',
+        'working_hours_weekend_start', 'working_hours_weekend_end',
+        'working_days', 'slot_duration', 'buffer_time', 'holidays', 'breaks'
+    ],
+    website_configs: ['id', 'user_id', 'config', 'domain', 'slug', 'is_published', 'updated_at'],
+    products: ['id', 'user_id', 'name', 'category', 'price', 'stock', 'min_stock', 'sku', 'image_url', 'supplier_info', 'created_at'],
+    sales: ['id', 'user_id', 'customer_name', 'total', 'payment_method', 'items', 'status', 'created_at'],
+    stock_movements: ['id', 'user_id', 'product_id', 'quantity_change', 'type', 'reason', 'created_at'],
+    invoices: [
+        'id', 'user_id', 'invoice_number', 'customer_name', 'customer_email',
+        'customer_address', 'customer_city', 'customer_postal_code',
+        'items', 'subtotal', 'tax_rate', 'tax_amount', 'total', 'status',
+        'due_date', 'issue_date', 'notes', 'currency', 'industry_data', 'sender_snapshot', 'created_at'
+    ],
+    expenses: ['id', 'user_id', 'description', 'amount', 'category', 'date', 'receipt_url', 'status', 'created_at'],
+    appointments: [
+        'id', 'user_id', 'customer_name', 'customer_email', 'customer_phone',
+        'client_name', 'client_email', 'client_phone', // Dual support
+        'service_id', 'staff_id', 'date', 'start_time', 'end_time', 'status', 'notes', 'created_at'
+    ],
+    company_settings: [
+        'id', 'user_id', 'company_name', 'owner', 'email', 'phone', 'address',
+        'street', 'house_num', 'city', 'postal_code',
+        'tax_rate', 'currency', 'logo_url', 'industry', 'brand_palette',
+        'tax_id', 'vat_id', 'bank_name', 'iban', 'bic', 'payment_terms',
+        'stripe_public_key', 'stripe_secret_key', 'stripe_api_key', 'stripe_webhook_secret',
+        'paypal_client_id', 'paypal_secret', 'logo_display_mode', 'plan'
+    ],
+    stock_settings: ['id', 'user_id', 'tax_rate', 'currency', 'store_name', 'store_address', 'store_phone', 'default_low_stock', 'categories'],
+    invoice_customization: ['id', 'user_id', 'primary_color', 'accent_color', 'signature_url', 'footer_text', 'quote_validity_days', 'brand_palette']
+};
 
 class SyncService {
     constructor() {
@@ -40,28 +80,15 @@ class SyncService {
         setTimeout(() => this.checkConnectivity(), 1000);
     }
 
-    /**
-     * Enqueue a database operation
-     * @param {string} table - Supabase table name
-     * @param {string} action - 'insert', 'update', or 'delete'
-     * @param {object} data - The payload
-     * @param {string} id - The primary key value (optional for insert)
-     */
     enqueue(table, action, data, id = null) {
-        // Consolidate: If there's already a pending operation for this specific record, 
-        // update it instead of adding a new one to prevent queue bloating.
         const recordId = id || data?.id;
         const userId = data?.user_id || data?.userId;
 
-        // SKIP sync for mock/demo users - they exist locally only
         if (userId && (String(userId).startsWith('0000'))) {
             console.log(`[Sync] Skipping enqueue for mock record on ${table}`);
             return;
         }
 
-        // Consolidation Logic
-        // For tables identify by 'id', look for matching id
-        // For settings tables, look for matching user_id
         const settingsTables = ['company_settings', 'appointment_settings', 'stock_settings', 'invoice_customization', 'website_config', 'website_configs'];
         const isSettingsTable = settingsTables.includes(table) || table.endsWith('_settings');
 
@@ -79,10 +106,8 @@ class SyncService {
             });
 
             if (existingIndex !== -1) {
-                // Update existing item with latest data
                 this.queue[existingIndex].data = { ...this.queue[existingIndex].data, ...data };
                 this.queue[existingIndex].timestamp = new Date().toISOString();
-                // Ensure targetId is set if it's a settings table
                 if (isSettingsTable && userId) this.queue[existingIndex].targetId = userId;
                 this.saveQueue();
                 return;
@@ -90,7 +115,7 @@ class SyncService {
         }
 
         const item = {
-            id: Date.now() + Math.random(), // internal queue id
+            id: Date.now() + Math.random(),
             table,
             action,
             data,
@@ -102,19 +127,14 @@ class SyncService {
         this.queue.push(item);
         this.saveQueue();
 
-        // Debounced trigger for immediate sync
         if (this.processTimer) clearTimeout(this.processTimer);
         this.processTimer = setTimeout(() => {
             if (navigator.onLine) {
                 this.processQueue();
             }
-        }, 500); // 500ms debounce to group rapid inputs
+        }, 500);
     }
 
-    /**
-     * Patch the user_id for all items in the queue.
-     * Useful when transitioning from a mock session to a real Supabase session.
-     */
     patchUserId(newUserId) {
         if (!newUserId) return;
         console.log(`[Sync] Patching queue with new user_id: ${newUserId}`);
@@ -124,14 +144,12 @@ class SyncService {
             let changed = false;
             const newData = { ...item.data };
 
-            // Handle user_id (most tables)
-            if (newData.user_id?.startsWith('0000') || !newData.user_id) {
+            if (String(newData.user_id || '').startsWith('0000') || !newData.user_id) {
                 newData.user_id = newUserId;
                 changed = true;
             }
 
-            // Handle sender_id (messages table)
-            if (item.table === 'messages' && (newData.sender_id?.startsWith('0000') || !newData.sender_id)) {
+            if (item.table === 'messages' && (String(newData.sender_id || '').startsWith('0000') || !newData.sender_id)) {
                 newData.sender_id = newUserId;
                 changed = true;
             }
@@ -167,7 +185,6 @@ class SyncService {
             return;
         }
 
-        // Update local bit
         this.isConfigured = true;
         if (this.queue.length === 0) return;
 
@@ -194,7 +211,6 @@ class SyncService {
                     } else {
                         this.queue.push(item);
                     }
-                    // Wait after failure
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 }
 
@@ -214,73 +230,25 @@ class SyncService {
     async syncItem(item) {
         try {
             const { table, action, data, targetId } = item;
-
+            let finalData = data ? { ...data } : null;
             let query;
+
             if (action === 'insert' || action === 'update') {
-                // Use upsert for both to ensure we don't fail on duplicate keys or missing records
-                // Important: conflict target depends on the table schema
                 let conflictTarget = 'id';
                 const settingsTables = ['company_settings', 'appointment_settings', 'stock_settings', 'invoice_customization', 'website_config', 'website_configs'];
                 if (settingsTables.includes(table) || table.endsWith('_settings')) {
                     conflictTarget = 'user_id';
                 }
 
-                if (table === 'company_settings' && data) {
-                    // All industries allowed
-                }
-
-                // Schema Safety Layer - Only strip if absolutely necessary for legacy compatibility.
-                // We keep brand_palette, quote_validity_days, signature_url as they are valid columns now.
-                const tableSchemas = {
-                    services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'color', 'created_at'],
-                    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'sites', 'role', 'color', 'created_at'],
-                    recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
-                    projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
-                    messages: ['id', 'sender_id', 'receiver_id', 'content', 'category', 'type', 'title', 'metadata', 'is_read', 'created_at'],
-                    appointment_settings: [
-                        'id', 'user_id', 'working_hours_start', 'working_hours_end',
-                        'working_hours_weekend_start', 'working_hours_weekend_end',
-                        'working_days', 'slot_duration', 'buffer_time', 'holidays', 'breaks'
-                    ],
-                    website_configs: ['id', 'user_id', 'config', 'domain', 'slug', 'is_published', 'updated_at'],
-                    products: ['id', 'user_id', 'name', 'category', 'price', 'stock', 'min_stock', 'sku', 'image_url', 'supplier_info', 'created_at'],
-                    sales: ['id', 'user_id', 'customer_name', 'total', 'payment_method', 'items', 'status', 'created_at'],
-                    stock_movements: ['id', 'user_id', 'product_id', 'quantity_change', 'type', 'reason', 'created_at'],
-                    invoices: [
-                        'id', 'user_id', 'invoice_number', 'customer_name', 'customer_email',
-                        'customer_address', 'customer_city', 'customer_postal_code',
-                        'items', 'subtotal', 'tax_rate', 'tax_amount', 'total', 'status',
-                        'due_date', 'issue_date', 'notes', 'currency', 'industry_data', 'sender_snapshot', 'created_at'
-                    ],
-                    expenses: ['id', 'user_id', 'description', 'amount', 'category', 'date', 'receipt_url', 'status', 'created_at'],
-                    appointments: [
-                        'id', 'user_id', 'customer_name', 'customer_email', 'customer_phone',
-                        'client_name', 'client_email', 'client_phone', // Dual support
-                        'service_id', 'staff_id', 'date', 'start_time', 'end_time', 'status', 'notes', 'created_at'
-                    ],
-                    company_settings: [
-                        'id', 'user_id', 'company_name', 'owner', 'email', 'phone', 'address',
-                        'street', 'house_num', 'city', 'postal_code',
-                        'tax_rate', 'currency', 'logo_url', 'industry', 'brand_palette',
-                        'tax_id', 'vat_id', 'bank_name', 'iban', 'bic', 'payment_terms',
-                        'stripe_public_key', 'stripe_secret_key', 'stripe_api_key', 'stripe_webhook_secret',
-                        'paypal_client_id', 'paypal_secret', 'logo_display_mode', 'plan'
-                    ],
-                    stock_settings: ['id', 'user_id', 'tax_rate', 'currency', 'store_name', 'store_address', 'store_phone', 'default_low_stock', 'categories'],
-                    invoice_customization: ['id', 'user_id', 'primary_color', 'accent_color', 'signature_url', 'footer_text', 'quote_validity_days', 'brand_palette']
-                };
-
-                const finalData = { ...data };
-
-                if (tableSchemas[table]) {
+                if (TABLE_SCHEMAS[table] && finalData) {
                     Object.keys(finalData).forEach(key => {
-                        if (!tableSchemas[table].includes(key)) {
+                        if (!TABLE_SCHEMAS[table].includes(key)) {
                             delete finalData[key];
                         }
                     });
                 }
 
-                if (targetId && !finalData.id && conflictTarget === 'id') {
+                if (targetId && finalData && !finalData.id && conflictTarget === 'id') {
                     finalData.id = targetId;
                 }
 
@@ -291,8 +259,7 @@ class SyncService {
 
             const { error } = await query;
             if (error) {
-                console.error(`🛑 [Sync] Error on ${table} (${action}):`, error.message, '| Payload:', finalData);
-                // If it's a real network error, we might be offline
+                console.error(`🛑 [Sync] Error on ${table} (${action}):`, error.message, '| Payload:', finalData || targetId);
                 if (error.message?.includes('FetchError') || error.message?.includes('Network Error')) {
                     this.lastSuccess = 0;
                 }
@@ -349,7 +316,6 @@ class SyncService {
         };
     }
 
-    // Manual trigger for UI
     async forceSync() {
         console.log("[Sync] User requested manual sync...");
         await this.checkConnectivity();

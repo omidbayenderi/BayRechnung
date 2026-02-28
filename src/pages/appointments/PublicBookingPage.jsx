@@ -499,7 +499,7 @@ const PublicBookingPage = () => {
                                         onMouseLeave={(e) => e.currentTarget.style.borderColor = DS.border}
                                     >
                                         <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: member.color + '20', color: member.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.2rem' }}>
-                                            {member.name.charAt(0)}
+                                            {member.name?.charAt(0) || 'S'}
                                         </div>
                                         <div>
                                             <div style={{ fontWeight: '800', fontSize: '1.1rem', color: DS.primary, marginBottom: '4px' }}>{member.name}</div>

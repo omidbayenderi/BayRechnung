@@ -148,7 +148,7 @@ const AppointmentDashboard = () => {
                                                 <td style={{ padding: '20px 32px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                         <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}>
-                                                            {appt.customerName.charAt(0)}
+                                                            {appt.customerName?.charAt(0) || 'C'}
                                                         </div>
                                                         <div>
                                                             <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '15px' }}>{appt.customerName}</div>
@@ -202,7 +202,7 @@ const AppointmentDashboard = () => {
                                 pendingAppointments.slice(0, 3).map(appt => (
                                     <div key={appt.id} style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                            <span style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>{appt.customerName}</span>
+                                            <span style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>{appt.customerName || t('customer')}</span>
                                             <span style={{ fontSize: '12px', color: '#64748b' }}>{appt.time}</span>
                                         </div>
                                         <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>

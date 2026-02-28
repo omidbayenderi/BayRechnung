@@ -74,7 +74,7 @@ const CustomerPanel = ({ user, onClose, onLogout, theme, t }) => {
                         width: '40px', height: '40px', borderRadius: '50%', background: theme.primaryColor,
                         color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold'
                     }}>
-                        {user.name.charAt(0).toUpperCase()}
+                        {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                     </div>
                     <div>
                         <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, color: '#1e293b' }}>{safeT('cp_title') || 'Hesabım'}</h2>

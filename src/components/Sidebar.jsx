@@ -59,7 +59,9 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                             borderRadius: '12px', transition: 'all 0.2s'
                         }}
                     >
-                        <div className="logo-icon" style={{ background: currentModule.color }}>{currentModule.name.charAt(0)}</div>
+                        <div className="logo-icon" style={{ background: currentModule.color }}>
+                            {currentModule.name?.charAt(0) || 'B'}
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <h2 style={{ fontSize: '1.1rem' }}>{currentModule.name}</h2>
                             <span style={{ fontSize: '0.7rem', color: showPanelSwitcher ? 'var(--primary)' : 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
