@@ -44,22 +44,25 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         // 2. Direct Search by Domain or Exact Slug
         let userId = null;
 
-        // Build a safe query string for .or() filter
-        const orConditions = [];
-        if (domainOrSlug && domainOrSlug !== 'demo') orConditions.push(`domain.eq.${domainOrSlug}`, `slug.eq.${domainOrSlug}`);
-        if (effectiveSlug && effectiveSlug !== domainOrSlug) orConditions.push(`slug.eq.${effectiveSlug}`);
+        try {
+            const orConditions = [];
+            if (domainOrSlug && domainOrSlug !== 'demo') orConditions.push(`domain.eq.${domainOrSlug}`, `slug.eq.${domainOrSlug}`);
+            if (effectiveSlug && effectiveSlug !== domainOrSlug) orConditions.push(`slug.eq.${effectiveSlug}`);
 
-        if (orConditions.length > 0) {
-            const { data: configCheck } = await supabase
-                .from('website_configs')
-                .select('user_id')
-                .or(orConditions.join(','))
-                .maybeSingle();
+            if (orConditions.length > 0) {
+                const { data: configCheck } = await supabase
+                    .from('website_configs')
+                    .select('user_id')
+                    .or(orConditions.join(','))
+                    .maybeSingle();
 
-            if (configCheck?.user_id) {
-                userId = configCheck.user_id;
-                console.warn('🎯 [Public] Found via website_configs:', userId);
+                if (configCheck?.user_id) {
+                    userId = configCheck.user_id;
+                    console.warn('🎯 [Public] Found via website_configs:', userId);
+                }
             }
+        } catch (e) {
+            console.warn('⚠️ [Public] website_configs query failed (likely missing columns):', e.message);
         }
 
         if (!userId) {
@@ -99,8 +102,8 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             supabase.from('company_settings').select('*').eq('user_id', userId).maybeSingle()
         ]);
 
-        if (svcRes.data?.length === 0) console.warn('⚠️ [Public] No services found for user:', userId);
-        if (!profileRes.data) console.warn('⚠️ [Public] No profile found for user:', userId);
+        if (svcRes.error) console.error('🛑 [Public] Services fetch error:', svcRes.error.message);
+        if (prodRes.error) console.error('🛑 [Public] Products fetch error:', prodRes.error.message);
 
         const profileData = profileRes?.data || {};
         const config = configRes?.data?.config?.siteConfig || {
@@ -144,7 +147,10 @@ const fetchPublicSiteData = async (domainOrSlug) => {
                 houseNum: profileData.house_num || profileData.houseNum || '',
                 logo: profileData.logo_url || ''
             },
-            products: prodRes.data || [],
+            products: (prodRes.data || []).map(p => ({
+                ...p,
+                image: p.image_url // Map image_url for templates
+            })),
             appointmentSettings: normalizedSettings
         };
     } catch (err) {
