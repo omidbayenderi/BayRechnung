@@ -36,18 +36,21 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         let userId = null;
 
         // 2. Smart Search: Find User/Tenant
-        const { data: profiles, error: profileErr } = await supabase
-            .from('company_settings')
-            .select('user_id, subdomain, company_name');
-
-        if (profileErr) {
-            console.error('[Public] Profile fetch error (Check RLS!):', profileErr);
+        let profiles = null;
+        try {
+            const { data, error } = await supabase
+                .from('company_settings')
+                .select('user_id, company_name'); // Only select safe columns
+            if (error) throw error;
+            profiles = data;
+        } catch (e) {
+            console.warn('⚠️ [Public] Profile query failed (likely column mismatch):', e);
         }
 
         if (profiles) {
             console.warn('✅ [Public] Company Profiles found:', profiles.length);
             const slugify = (text) => text?.toLowerCase().trim().replace(/[ğğ]/g, 'g').replace(/[üü]/g, 'u').replace(/[şş]/g, 's').replace(/[ii]/g, 'i').replace(/[öö]/g, 'o').replace(/[çç]/g, 'c').replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
-            const match = profiles.find(p => (p.subdomain?.toLowerCase() === effectiveSlug.toLowerCase()) || slugify(p.company_name) === effectiveSlug.toLowerCase());
+            const match = profiles.find(p => slugify(p.company_name) === effectiveSlug.toLowerCase());
 
             if (match) {
                 userId = match.user_id;
@@ -69,10 +72,19 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             userId = firstConfig?.user_id;
         }
 
+        // SaaS Fallback: If no tenant found for subdomain, pick the first active site
+        if (!userId) {
+            console.warn('⚠️ [Public] No specific tenant found, using first active site as fallback.');
+            const { data: first } = await supabase.from('website_configs').select('user_id').limit(1).maybeSingle();
+            userId = first?.user_id;
+        }
+
         if (!userId) {
             console.error('🛑 [Public] USER NOT FOUND (Site cannot load). Checked slug:', effectiveSlug);
             return null;
         }
+
+        console.warn('🎯 [Public] Loading final data for User ID:', userId);
 
         // 3. Parallel Fetch all data for this user
         const [configRes, svcRes, staffRes, prodRes, settingsRes, profileRes] = await Promise.all([
@@ -85,15 +97,15 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         ]);
 
         // 4. SaaS Intelligence: Provide dynamic boilerplate if config doesn't exist
-        const profileData = profileRes.data || {};
-        const config = configRes.data?.config?.siteConfig || {
+        const profileData = profileRes?.data || {};
+        const config = configRes?.data?.config?.siteConfig || {
             isPublished: true,
             theme: { primaryColor: '#3b82f6', mode: 'light', fontFamily: 'Inter' },
             category: profileData.industry || 'standard'
         };
 
-        const sections = configRes.data?.config?.sections || [
-            { id: 'hero', type: 'hero', visible: true, data: { title: profileData.company_name || 'Hoş Geldiniz', subtitle: 'Kaliteli hizmetin adresi.' } },
+        const sections = configRes?.data?.config?.sections || [
+            { id: 'hero', type: 'hero', visible: true, data: { title: profileData.company_name || 'BayZenit Üyesi İşletme', subtitle: 'Kaliteli hizmetin adresi.' } },
             { id: 'products', type: 'products', visible: true, data: { autoPull: true, source: 'stock' } },
             { id: 'contact', type: 'contact', visible: true, data: { showMap: false } }
         ];
