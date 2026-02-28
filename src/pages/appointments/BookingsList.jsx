@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Filter, Trash2 } from 'lucide-react';
+import { Search, Plus, Filter, Trash2, Check, XCircle, Clock } from 'lucide-react';
 import { useAppointments } from '../../context/AppointmentContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,9 +7,26 @@ import { useNavigate } from 'react-router-dom';
 const BookingsList = () => {
     const { t } = useLanguage();
     const navigate = useNavigate();
-    const { appointments, services, staff, deleteAppointment } = useAppointments();
+    const { appointments, services, staff, deleteAppointment, updateAppointment } = useAppointments();
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
+
+    const handleStatusChange = async (id, newStatus) => {
+        await updateAppointment(id, { status: newStatus });
+    };
+
+    const handleReschedule = async (appt) => {
+        const newDate = window.prompt(t('enter_new_date', 'Yeni tarihi giriniz (YYYY-MM-DD):'), appt.date);
+        if (!newDate) return;
+        const newTime = window.prompt(t('enter_new_time', 'Yeni saati giriniz (HH:MM):'), appt.time);
+        if (!newTime) return;
+
+        await updateAppointment(appt.id, {
+            date: newDate,
+            time: newTime,
+            status: 'pending' // Mark as pending again when rescheduled
+        });
+    };
 
     const filteredAppointments = appointments.filter(a => {
         const matchesSearch = a.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -47,7 +64,7 @@ const BookingsList = () => {
                         <Search size={18} className="text-muted" />
                         <input
                             type="text"
-                            placeholder="Müşteri adı, telefon veya not ara..."
+                            placeholder={t('search_customers_placeholder', 'Müşteri adı, telefon veya not ara...')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{ border: 'none', background: 'transparent', marginLeft: '8px', width: '100%', outline: 'none' }}
@@ -70,7 +87,7 @@ const BookingsList = () => {
                                     textTransform: 'capitalize'
                                 }}
                             >
-                                {status === 'all' ? 'Tümü' : status}
+                                {status === 'all' ? t('all') : t(`status_${status.toLowerCase()}`, status)}
                             </button>
                         ))}
                     </div>
@@ -80,20 +97,20 @@ const BookingsList = () => {
                     <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: 'var(--bg-body)', textAlign: 'left' }}>
-                                <th style={{ padding: '12px' }}>Tarih / Saat</th>
-                                <th style={{ padding: '12px' }}>Müşteri</th>
-                                <th style={{ padding: '12px' }}>Hizmet / Personel</th>
-                                <th style={{ padding: '12px' }}>Ödeme</th>
-                                <th style={{ padding: '12px' }}>Notlar</th>
-                                <th style={{ padding: '12px' }}>Durum</th>
-                                <th style={{ padding: '12px', textAlign: 'right' }}>İşlemler</th>
+                                <th style={{ padding: '12px' }}>{t('date_time', 'Tarih / Saat')}</th>
+                                <th style={{ padding: '12px' }}>{t('customer', 'Müşteri')}</th>
+                                <th style={{ padding: '12px' }}>{t('service_staff', 'Hizmet / Personel')}</th>
+                                <th style={{ padding: '12px' }}>{t('payment', 'Ödeme')}</th>
+                                <th style={{ padding: '12px' }}>{t('notes', 'Notlar')}</th>
+                                <th style={{ padding: '12px' }}>{t('status', 'Durum')}</th>
+                                <th style={{ padding: '12px', textAlign: 'right' }}>{t('actions', 'İşlemler')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredAppointments.length > 0 ? (
                                 filteredAppointments.map(appt => {
-                                    const service = services.find(s => s.id === parseInt(appt.serviceId));
-                                    const staffMember = staff?.find(s => s.id === parseInt(appt.staffId));
+                                    const service = services.find(s => String(s.id) === String(appt.serviceId));
+                                    const staffMember = staff?.find(s => String(s.id) === String(appt.staffId));
                                     return (
                                         <tr key={appt.id} style={{ borderBottom: '1px solid var(--border)' }}>
                                             <td style={{ padding: '12px' }}>
@@ -125,7 +142,7 @@ const BookingsList = () => {
                                                         display: 'flex', alignItems: 'center', gap: '4px'
                                                     }}
                                                 >
-                                                    {appt.paymentStatus === 'paid' ? 'Ödendi' : 'Ödenmedi'}
+                                                    {appt.paymentStatus === 'paid' ? t('paid', 'Ödendi') : t('unpaid', 'Ödenmedi')}
                                                     <span style={{ color: 'var(--text-main)' }}>({appt.amount}€)</span>
                                                 </span>
                                             </td>
@@ -142,18 +159,52 @@ const BookingsList = () => {
                                                     fontWeight: '600',
                                                     textTransform: 'capitalize'
                                                 }}>
-                                                    {appt.status}
+                                                    {t(`status_${appt.status.toLowerCase()}`, appt.status)}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            <td style={{ padding: '12px', textAlign: 'right', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                                {appt.status === 'pending' && (
+                                                    <button
+                                                        className="icon-btn success"
+                                                        onClick={() => handleStatusChange(appt.id, 'confirmed')}
+                                                        title={t('approve', 'Onayla')}
+                                                        style={{ color: '#10b981', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                    >
+                                                        <Check size={18} />
+                                                    </button>
+                                                )}
+
+                                                {appt.status !== 'cancelled' && appt.status !== 'completed' && (
+                                                    <button
+                                                        className="icon-btn reschedule"
+                                                        onClick={() => handleReschedule(appt)}
+                                                        title={t('postpone', 'Ertele')}
+                                                        style={{ color: '#3b82f6', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                    >
+                                                        <Clock size={18} />
+                                                    </button>
+                                                )}
+
+                                                {appt.status !== 'cancelled' && (
+                                                    <button
+                                                        className="icon-btn danger"
+                                                        onClick={() => handleStatusChange(appt.id, 'cancelled')}
+                                                        title={t('reject', 'Reddet / İptal Et')}
+                                                        style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                    >
+                                                        <XCircle size={18} />
+                                                    </button>
+                                                )}
+
                                                 <button
                                                     className="icon-btn delete"
                                                     onClick={() => {
-                                                        if (window.confirm('Bu randevuyu silmek istediğinize emin misiniz?')) {
+                                                        if (window.confirm(t('confirm_delete_appointment', 'Bu randevuyu silmek istediğinize emin misiniz?'))) {
                                                             deleteAppointment(appt.id);
                                                         }
                                                     }}
-                                                    title="Sil"
+                                                    title={t('delete', 'Sil')}
+                                                    style={{ color: '#64748b', background: 'transparent', border: 'none', cursor: 'pointer' }}
                                                 >
                                                     <Trash2 size={18} />
                                                 </button>
@@ -163,8 +214,8 @@ const BookingsList = () => {
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="6" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                        Kayıt bulunamadı.
+                                    <td colSpan="7" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                        {t('no_records_found', 'Kayıt bulunamadı.')}
                                     </td>
                                 </tr>
                             )}

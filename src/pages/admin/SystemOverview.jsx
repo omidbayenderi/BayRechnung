@@ -29,7 +29,7 @@ import {
     Receipt,
     Sparkles
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
 import { useBayVision } from '../../context/BayVisionContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -56,22 +56,30 @@ const SystemOverview = () => {
 
     // --- Aggregated Metrics ---
 
-    // 1. Financials (Invoices + POS Sales - Expenses)
-    const invoiceRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const stockRevenue = sales.reduce((sum, sale) => sum + (sale.total || 0), 0);
-    const totalRevenue = invoiceRevenue + stockRevenue;
-    const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const totalUnpaid = invoices.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const netProfit = totalRevenue - totalExpenses;
+    // 1. Financials (Refined logic for Enterprise accuracy)
+    const activeInvoices = (invoices || []).filter(inv => inv && inv.status !== 'cancelled' && inv.status !== 'draft');
+
+    // Revenue is based on paid + pending (sent) invoices
+    const invoiceRevenue = activeInvoices.reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
+    const paidRevenue = (invoices || []).filter(inv => inv && inv.status === 'paid').reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
+
+    const stockRevenue = (sales || []).filter(s => s).reduce((sum, sale) => sum + (parseFloat(sale?.total) || 0), 0);
+    const totalRevenue = invoiceRevenue + stockRevenue; // Projected Ciro
+    const cashInHand = paidRevenue + stockRevenue;     // Actual Liquid Cash
+
+    const totalExpenses = (expenses || []).filter(e => e).reduce((sum, exp) => sum + (parseFloat(exp?.amount) || 0), 0);
+    const totalUnpaid = (invoices || []).filter(inv => inv && (inv.status === 'sent' || inv.status === 'overdue')).reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
+    const netProfit = cashInHand - totalExpenses;
 
     // 2. Operational
-    const activeStaff = employees.length;
-    const criticalStockItems = products.filter(p => p.stock <= (p.minStock || 3));
+    const activeStaff = (employees || []).filter(e => e).length;
+    const criticalStockItems = (products || []).filter(p => p && p.stock <= (p.minStock || 3));
     const lowStockItems = criticalStockItems.length;
 
     // Filter appointments for TODAY only
     const today = new Date();
-    const todaysAppointments = appointments.filter(a => {
+    const todaysAppointments = (appointments || []).filter(a => {
+        if (!a || !a.date) return false;
         const appDate = new Date(a.date);
         return appDate.getDate() === today.getDate() &&
             appDate.getMonth() === today.getMonth() &&
@@ -89,34 +97,149 @@ const SystemOverview = () => {
     // Website Status
     const isWebsiteLive = siteConfig?.isPublished;
 
-    // --- Chart Data Preparation (Connecting to real totals instead of mock) ---
+    // --- Trend Calculations (Real vs Mock) ---
+    const calculateTrend = (data, valueKey, dateKey = 'date') => {
+        const now = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+        const sixtyDaysAgo = new Date();
+        sixtyDaysAgo.setDate(now.getDate() - 60);
+
+        const currentPeriod = data.filter(item => {
+            const d = new Date(item[dateKey]);
+            return d >= thirtyDaysAgo && d <= now;
+        }).reduce((sum, item) => sum + (parseFloat(item[valueKey]) || 0), 0);
+
+        const previousPeriod = data.filter(item => {
+            const d = new Date(item[dateKey]);
+            return d >= sixtyDaysAgo && d < thirtyDaysAgo;
+        }).reduce((sum, item) => sum + (parseFloat(item[valueKey]) || 0), 0);
+
+        if (previousPeriod === 0) return currentPeriod > 0 ? 100 : 0;
+        return parseFloat(((currentPeriod - previousPeriod) / previousPeriod * 100).toFixed(1));
+    };
+
+    // Prepare combined data for profit trend
+    const revenueData = [
+        ...invoices.map(inv => ({ total: inv.total, date: inv.date })),
+        ...sales.map(sale => ({ total: sale.total, date: sale.createdAt || sale.created_at }))
+    ];
+
+    const expenseData = expenses.map(exp => ({ amount: exp.amount, date: exp.date || exp.created_at }));
+
+    const revenueTrend = calculateTrend(revenueData, 'total');
+    const expenseTrend = calculateTrend(expenseData, 'amount');
+
+    // Mathematically correct profit trend
+    const profitTrend = (() => {
+        const now = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+        const sixtyDaysAgo = new Date();
+        sixtyDaysAgo.setDate(now.getDate() - 60);
+
+        const currentRev = revenueData.filter(item => {
+            const d = new Date(item.date);
+            return d >= thirtyDaysAgo && d <= now;
+        }).reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
+
+        const currentExp = expenseData.filter(item => {
+            const d = new Date(item.date);
+            return d >= thirtyDaysAgo && d <= now;
+        }).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+        const prevRev = revenueData.filter(item => {
+            const d = new Date(item.date);
+            return d >= sixtyDaysAgo && d < thirtyDaysAgo;
+        }).reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
+
+        const prevExp = expenseData.filter(item => {
+            const d = new Date(item.date);
+            return d >= sixtyDaysAgo && d < thirtyDaysAgo;
+        }).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+        const currentProfit = currentRev - currentExp;
+        const prevProfit = prevRev - prevExp;
+
+        if (prevProfit === 0) return currentProfit > 0 ? 100 : 0;
+        return parseFloat(((currentProfit - prevProfit) / Math.abs(prevProfit) * 100).toFixed(1));
+    })();
+
+    const profitMargin = totalRevenue > 0 ? parseFloat(((netProfit / totalRevenue) * 100).toFixed(1)) : 0;
+    const expenseRatio = totalRevenue > 0 ? parseFloat(((totalExpenses / totalRevenue) * 100).toFixed(1)) : 0;
+
+    // --- Expense Breakdown Calculation ---
+    const expenseBreakdown = expenses.reduce((acc, exp) => {
+        const cat = exp.category || t('others') || 'Diğer';
+        acc[cat] = (acc[cat] || 0) + (parseFloat(exp.amount) || 0);
+        return acc;
+    }, {});
+
+    const PIE_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#64748b'];
+    const pieData = Object.entries(expenseBreakdown)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8); // Top 8 categories
+
+    // --- Strategic Insights ---
+    const estimatedTax = totalRevenue * (1 - (1 / (1 + (parseFloat(companyProfile?.taxRate || 19) / 100))));
+    const cashReserveHealth = cashInHand > totalExpenses * 1.5 ? 'healthy' : (cashInHand > totalExpenses ? 'warning' : 'critical');
+
+    // --- Chart Data Preparation (Connecting to real historical data) ---
     const generateChartData = () => {
-        // Distribute the totals evenly or dynamically based on true history if available
-        // Currently, using simple distribution of real current totals without Math.random()
         const data = [];
+        const now = new Date();
         const points = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 12;
-        const labels = timeRange === 'week' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] :
-            timeRange === 'year' ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] :
-                Array.from({ length: 30 }, (_, i) => i + 1);
 
-        let currentRevenue = 0;
-        let currentExpense = 0;
+        // Generate buckets
+        for (let i = points - 1; i >= 0; i--) {
+            const bucketDate = new Date();
+            if (timeRange === 'week') bucketDate.setDate(now.getDate() - i);
+            else if (timeRange === 'month') bucketDate.setDate(now.getDate() - i);
+            else if (timeRange === 'year') bucketDate.setMonth(now.getMonth() - i);
 
-        for (let i = 0; i < points; i++) {
-            // Distribute steadily over points
-            const revStep = totalRevenue / points;
-            const expStep = totalExpenses / points;
+            const label = timeRange === 'week' ? bucketDate.toLocaleDateString(undefined, { weekday: 'short' }) :
+                timeRange === 'month' ? bucketDate.getDate().toString() :
+                    bucketDate.toLocaleDateString(undefined, { month: 'short' });
 
-            currentRevenue += revStep;
-            currentExpense += expStep;
+            // Filter data for this bucket
+            const bucketRev = revenueData.filter(item => {
+                const d = new Date(item.date);
+                if (timeRange === 'year') return d.getMonth() === bucketDate.getMonth() && d.getFullYear() === bucketDate.getFullYear();
+                return d.getDate() === bucketDate.getDate() && d.getMonth() === bucketDate.getMonth() && d.getFullYear() === bucketDate.getFullYear();
+            }).reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
+
+            const bucketExp = expenseData.filter(item => {
+                const d = new Date(item.date);
+                if (timeRange === 'year') return d.getMonth() === bucketDate.getMonth() && d.getFullYear() === bucketDate.getFullYear();
+                return d.getDate() === bucketDate.getDate() && d.getMonth() === bucketDate.getMonth() && d.getFullYear() === bucketDate.getFullYear();
+            }).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
             data.push({
-                name: labels[i % labels.length],
-                revenue: Math.round(currentRevenue),
-                expenses: Math.round(currentExpense),
-                profit: Math.round(currentRevenue - currentExpense)
+                name: label,
+                revenue: Math.round(bucketRev),
+                expenses: Math.round(bucketExp),
+                profit: Math.round(bucketRev - bucketExp)
             });
         }
+
+        // If data is too empty, fallback to simple distribution of totals for visual balance
+        const hasData = data.some(d => d.revenue > 0 || d.expenses > 0);
+        if (!hasData && (totalRevenue > 0 || totalExpenses > 0)) {
+            return data.map((d, i) => {
+                const revStep = totalRevenue / points;
+                const expStep = totalExpenses / points;
+                const cumulativeRev = revStep * (i + 1);
+                const cumulativeExp = expStep * (i + 1);
+                return {
+                    ...d,
+                    revenue: Math.round(cumulativeRev),
+                    expenses: Math.round(cumulativeExp),
+                    profit: Math.round(cumulativeRev - cumulativeExp)
+                };
+            });
+        }
+
         return data;
     };
 
@@ -124,42 +247,103 @@ const SystemOverview = () => {
 
 
     // --- Helper Components ---
-    const MetricCard = ({ title, value, subtext, icon: Icon, color, trend }) => (
-        <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-            border: '1px solid #f1f5f9'
-        }}>
+    const Counter = ({ value, prefix = '', decimals = 0 }) => {
+        const [displayValue, setDisplayValue] = useState(0);
+
+        useEffect(() => {
+            let start = 0;
+            const end = parseFloat(value);
+            if (start === end) {
+                setDisplayValue(end);
+                return;
+            }
+
+            const totalDuration = 1000;
+            const frameDuration = 1000 / 60;
+            const totalFrames = Math.round(totalDuration / frameDuration);
+            let frame = 0;
+
+            const timer = setInterval(() => {
+                frame++;
+                const progress = frame / totalFrames;
+                const easedProgress = progress * (2 - progress); // easeOutQuad
+                setDisplayValue(start + (end - start) * easedProgress);
+
+                if (frame === totalFrames) {
+                    setDisplayValue(end);
+                    clearInterval(timer);
+                }
+            }, frameDuration);
+
+            return () => clearInterval(timer);
+        }, [value]);
+
+        return (
+            <span>
+                {prefix}{displayValue.toLocaleString(undefined, {
+                    minimumFractionDigits: decimals,
+                    maximumFractionDigits: decimals
+                })}
+            </span>
+        );
+    };
+
+    const MetricCard = ({ title, value, numericValue, subtext, icon: Icon, color, trend, isCurrency, percentageType = 'trend' }) => (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+            style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                border: '1px solid #f1f5f9',
+                transition: 'all 0.3s ease'
+            }}
+        >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                 <div style={{
                     padding: '12px',
                     borderRadius: '12px',
-                    background: `${color}15`, // 15% opacity
+                    background: `${color}15`,
                     color: color
                 }}>
                     <Icon size={24} />
                 </div>
-                {trend && (
-                    <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        color: trend > 0 ? '#10b981' : '#ef4444',
-                        background: trend > 0 ? '#d1fae5' : '#fee2e2',
-                        padding: '4px 8px',
-                        borderRadius: '20px'
-                    }}>
-                        {trend > 0 ? '+' : ''}{trend}%
-                    </span>
+                {trend !== undefined && (
+                    <motion.span
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        style={{
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            color: percentageType === 'ratio' ? '#64748b' : (trend >= 0 ? '#10b981' : '#ef4444'),
+                            background: percentageType === 'ratio' ? '#f1f5f9' : (trend >= 0 ? '#d1fae5' : '#fee2e2'),
+                            padding: '4px 8px',
+                            borderRadius: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                            border: percentageType === 'ratio' ? '1px solid #e2e8f0' : 'none'
+                        }}
+                        title={percentageType === 'ratio' ? 'Ciroya oran' : 'Aylık değişim'}
+                    >
+                        {percentageType === 'trend' ? (trend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />) : null}
+                        {percentageType === 'ratio' ? '%' : ''}{Math.abs(trend)}{percentageType === 'trend' ? '%' : ''}
+                    </motion.span>
                 )}
             </div>
             <div style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px' }}>{title}</div>
-            <div style={{ fontSize: '1.875rem', fontWeight: '800', color: '#1e293b', letterSpacing: '-0.5px' }}>{value}</div>
+            <div style={{ fontSize: '1.875rem', fontWeight: '800', color: '#1e293b', letterSpacing: '-0.5px' }}>
+                {numericValue !== undefined ? (
+                    <Counter value={numericValue} prefix={isCurrency ? '€' : ''} />
+                ) : value}
+            </div>
             {subtext && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>{subtext}</div>}
-        </div>
+        </motion.div>
     );
 
     const ModuleStatus = ({ name, status, color, onClick, icon: Icon, isLocked, requirementMet }) => (
@@ -293,7 +477,7 @@ const SystemOverview = () => {
                         background: isAnalyzing ? '#f59e0b' : '#10b981',
                         boxShadow: isAnalyzing ? '0 0 10px #f59e0b' : 'none'
                     }}></div>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>BayVision: {isAnalyzing ? 'Analiz Ediliyor...' : 'Aktif'}</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>BayVision: {isAnalyzing ? t('analyzing') : t('active')}</span>
                 </div>
             </header>
 
@@ -303,7 +487,7 @@ const SystemOverview = () => {
                 <div style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)', border: '1px solid #fee2e2', borderRadius: '16px', padding: '24px', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1 }}><AlertTriangle size={80} /></div>
                     <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '800', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Zap size={18} fill="#991b1b" /> Karar Destek Alarmları ({intelligence.alerts.length})
+                        <Zap size={18} fill="#991b1b" /> {t('decision_support_alerts')} ({intelligence.alerts.length})
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {intelligence.alerts.length > 0 ? intelligence.alerts.map(alert => (
@@ -324,10 +508,10 @@ const SystemOverview = () => {
                                 >
                                     {t('take_action', 'Harekete Geç')}
                                 </button>
-                                <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '4px', fontWeight: '600' }}>Kaynak: {alert.agent}</div>
+                                <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '4px', fontWeight: '600' }}>{t('source')}: {alert.agent}</div>
                             </div>
                         )) : (
-                            <div style={{ color: '#059669', fontSize: '0.9rem', fontStyle: 'italic' }}>Tebrikler! Şu an için kritik bir risk tespit edilmedi.</div>
+                            <div style={{ color: '#059669', fontSize: '0.9rem', fontStyle: 'italic' }}>{t('no_risks_detected')}</div>
                         )}
                     </div>
                 </div>
@@ -336,7 +520,7 @@ const SystemOverview = () => {
                 <div style={{ background: 'linear-gradient(135deg, #f0f9ff 0%, #fff 100%)', border: '1px solid #e0f2fe', borderRadius: '16px', padding: '24px', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1 }}><TrendingUp size={80} /></div>
                     <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '800', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Sparkles size={18} fill="#0369a1" /> Büyüme Fırsatları ({intelligence.opportunities.length})
+                        <Sparkles size={18} fill="#0369a1" /> {t('growth_opportunities')} ({intelligence.opportunities.length})
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {intelligence.opportunities.length > 0 ? intelligence.opportunities.map(opp => (
@@ -359,97 +543,145 @@ const SystemOverview = () => {
                                 </button>
                             </div>
                         )) : (
-                            <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Yeni fırsatlar için veri toplanıyor...</div>
+                            <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{t('collecting_data_for_opportunities')}</div>
                         )}
                     </div>
                 </div>
             </div>
 
             {/* Top Metrics Grid */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: '24px',
-                marginBottom: '40px'
-            }}>
+            <div className="grid-cols-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px' }}>
                 <MetricCard
-                    title={t('total_revenue') || 'Total Revenue'}
-                    value={`€${totalRevenue.toLocaleString()}`}
-                    subtext={t('accounting_pos_sales') || "Accounting + POS Sales"}
-                    icon={Activity}
-                    color="#3b82f6"
-                    trend={12.5}
-                />
-                <MetricCard
-                    title={t('net_profit') || 'Net Profit'}
-                    value={`€${netProfit.toLocaleString()}`}
-                    subtext={t('revenue_expenses') || "Revenue - Expenses"}
+                    title={t('total_revenue') || 'Toplam Ciro'}
+                    value={new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalRevenue)}
+                    numericValue={totalRevenue}
+                    subtext={`${t('cash')}: ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(cashInHand)}`}
                     icon={TrendingUp}
-                    color="#10b981"
-                    trend={8.2}
+                    color="#2563eb"
+                    trend={revenueTrend}
                 />
                 <MetricCard
-                    title={t('active_staff') || 'Active Staff'}
-                    value={activeStaff}
-                    subtext={t('users_with_access') || "Users with access"}
-                    icon={Users}
-                    color="#8b5cf6"
-                />
-                <MetricCard
-                    title={t('debts') || 'Borçlar (Açık)'}
-                    value={`€${totalUnpaid.toLocaleString()}`}
-                    subtext={t('unpaid_invoices') || "Ödenmemiş faturalar"}
+                    title={t('total_expenses') || t('expenses') || 'Toplam Gider'}
+                    value={new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalExpenses)}
+                    numericValue={totalExpenses}
+                    subtext={`${expenseData.length} ${t('registered_transactions')}`}
                     icon={TrendingDown}
                     color="#ef4444"
+                    trend={expenseRatio}
+                    percentageType="ratio"
+                />
+                <MetricCard
+                    title={t('net_profit') || 'Net Kâr'}
+                    value={new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(netProfit)}
+                    numericValue={netProfit}
+                    subtext={t('cash_balance')}
+                    icon={Activity}
+                    color="#10b981"
+                    trend={profitMargin}
+                    percentageType="ratio"
+                />
+                <MetricCard
+                    title={t('total_unpaid') || t('unpaid_invoices') || 'Bekleyen Tahsilat'}
+                    value={new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalUnpaid)}
+                    numericValue={totalUnpaid}
+                    subtext={t('sent_overdue_invoices_report')}
+                    icon={CreditCard}
+                    color="#f59e0b"
                 />
             </div>
 
-            {/* Financial Performance Chart */}
-            <div style={{ background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9', marginBottom: '32px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700' }}>{t('financial_performance')}</h3>
-                    <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
-                        {['week', 'month', 'year'].map(range => (
-                            <button
-                                key={range}
-                                onClick={() => setTimeRange(range)}
-                                style={{
-                                    padding: '6px 12px', border: 'none', borderRadius: '6px',
-                                    background: timeRange === range ? 'white' : 'transparent',
-                                    color: timeRange === range ? '#0f172a' : '#64748b',
-                                    fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer',
-                                    boxShadow: timeRange === range ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                                }}
-                            >
-                                {t(range)}
-                            </button>
-                        ))}
+            {/* Charts Section */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+                {/* Financial Performance Chart */}
+                <div style={{ background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: '#1e293b' }}>{t('financial_performance')}</h3>
+                        <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                            {['week', 'month', 'year'].map(range => (
+                                <button
+                                    key={range}
+                                    onClick={() => setTimeRange(range)}
+                                    style={{
+                                        padding: '6px 12px', border: 'none', borderRadius: '6px',
+                                        background: timeRange === range ? 'white' : 'transparent',
+                                        color: timeRange === range ? '#0f172a' : '#64748b',
+                                        fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer',
+                                        boxShadow: timeRange === range ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                                    }}
+                                >
+                                    {t(range)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div style={{ height: '300px', width: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData}>
+                                <defs>
+                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={(val) => `€${val}`} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                    formatter={(value) => [`€${value.toLocaleString()}`, '']}
+                                />
+                                <Area type="monotone" dataKey="revenue" name={t('income')} stroke="#3b82f6" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
+                                <Area type="monotone" dataKey="expenses" name={t('expense')} stroke="#ef4444" fillOpacity={1} fill="url(#colorExp)" strokeWidth={3} />
+                            </AreaChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
-                <div style={{ height: '350px', width: '100%' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
-                            <defs>
-                                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                </linearGradient>
-                                <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `€${val}`} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                formatter={(value) => [`€${value.toLocaleString()}`, '']}
-                            />
-                            <Area type="monotone" dataKey="revenue" name={t('income')} stroke="#3b82f6" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
-                            <Area type="monotone" dataKey="expenses" name={t('expense')} stroke="#ef4444" fillOpacity={1} fill="url(#colorExp)" strokeWidth={3} />
-                        </AreaChart>
-                    </ResponsiveContainer>
+
+                {/* Expense Distribution Pie Chart */}
+                <div style={{ background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
+                    <h3 style={{ margin: '0 0 24px 0', fontSize: '1rem', fontWeight: '700', color: '#1e293b' }}>{t('expense_distribution') || 'Gider Dağılımı'}</h3>
+                    <div style={{ height: '300px', width: '100%', display: 'flex', alignItems: 'center' }}>
+                        {pieData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={pieData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={100}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {pieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        formatter={(value) => [`€${value.toLocaleString()}`, 'Tutar']}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                    />
+                                    <Legend
+                                        layout="vertical"
+                                        align="right"
+                                        verticalAlign="middle"
+                                        iconType="circle"
+                                        formatter={(value, entry) => (
+                                            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{value}</span>
+                                        )}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div style={{ width: '100%', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
+                                {t('noData') || 'Henüz gider verisi bulunmuyor.'}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -508,9 +740,49 @@ const SystemOverview = () => {
                             ) : (
                                 <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', textAlign: 'center', color: '#64748b' }}>
                                     <CheckCircle size={20} style={{ marginBottom: '4px', opacity: 0.5 }} />
-                                    <div>{t('stock_levels_healthy') || 'Stock levels helpthy'}</div>
+                                    {t('stock_levels_healthy') || 'Stock levels healthy'}
                                 </div>
                             )}
+                        </div>
+                    </div>
+
+                    {/* Strategic Financial Insights */}
+                    <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', padding: '24px', borderRadius: '16px', color: 'white', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                            <div style={{ padding: '8px', background: 'rgba(59, 130, 246, 0.2)', borderRadius: '10px', color: '#3b82f6' }}>
+                                <Sparkles size={20} />
+                            </div>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700' }}>{t('strategic_insights')}</h3>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                            <div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    {t('tax_provision')}
+                                </div>
+                                <div style={{ fontSize: '1.25rem', fontWeight: '700' }}>
+                                    €{estimatedTax.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
+                                    {t('calculated_with_rate').replace('{rate}', companyProfile?.taxRate || 19)}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    {t('cash_safety')}
+                                </div>
+                                <div style={{
+                                    fontSize: '0.85rem', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', display: 'inline-block',
+                                    background: cashReserveHealth === 'healthy' ? '#065f46' : (cashReserveHealth === 'warning' ? '#92400e' : '#991b1b'),
+                                    color: cashReserveHealth === 'healthy' ? '#34d399' : (cashReserveHealth === 'warning' ? '#fbbf24' : '#f87171')
+                                }}>
+                                    {cashReserveHealth === 'healthy' ? t('status_healthy') : (cashReserveHealth === 'warning' ? t('status_warning') : t('status_critical'))}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
+                                    {t('cash_safety_desc')}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

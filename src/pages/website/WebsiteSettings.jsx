@@ -133,7 +133,7 @@ const WebsiteSettings = () => {
 
             if (hasCorrectA || hasCorrectCname) {
                 setDnsStatus('verified');
-                alert('DNS Doğrulama Başarılı! SSL Sertifikası oluşturuluyor...');
+                alert(t('dns_verify_success_start_ssl') || 'DNS Doğrulama Başarılı! SSL Sertifikası oluşturuluyor...');
                 // Trigger hypothetical SSL generation here
             } else {
                 setDnsStatus('partial');
@@ -142,7 +142,7 @@ const WebsiteSettings = () => {
         } catch (e) {
             console.error('Pro DNS Check Failed:', e);
             setDnsStatus('pending');
-            alert('DNS kontrolü sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.');
+            alert(t('dns_check_error') || 'DNS kontrolü sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.');
         } finally {
             setIsVerifying(false);
         }
@@ -223,12 +223,16 @@ const WebsiteSettings = () => {
         setIsConnecting(true);
         setConnectionStatus('connecting');
 
-        // Simulate API call and then show DNS instructions
+        // 1. Update Global Context (Saves to Supabase)
+        updateSiteConfig({ domain: localConfig.domain });
+
+        // 2. Simulate Connection Validation Logic
         setTimeout(() => {
             setIsConnecting(false);
             setConnectionStatus('success');
             setShowDnsInstructions(true);
-            // Reset to idle after 3 seconds but keep DNS instructions
+
+            // Keep the instructions visible, but reset button state
             setTimeout(() => setConnectionStatus('idle'), 3000);
         }, 1500);
     };
@@ -256,11 +260,49 @@ const WebsiteSettings = () => {
                         <input
                             className="form-input"
                             value={localConfig.meta?.title || ''}
-                            onChange={(e) => setLocalConfig({ meta: { ...localConfig.meta, title: e.target.value } })}
+                            onChange={(e) => setLocalConfig({ ...localConfig, meta: { ...localConfig.meta, title: e.target.value } })}
                             placeholder={t('site_title_placeholder') || "rechnung.com"}
                             style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
                         />
                         <small style={{ color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{t('site_title_help') || 'Google aramalarında görünecek başlık.'}</small>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '24px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>{t('business_category_label') || 'İşletme Kategorisi (SEO için)'}</label>
+                        <select
+                            className="form-input"
+                            value={localConfig.businessCategory || ''}
+                            onChange={(e) => setLocalConfig({ ...localConfig, businessCategory: e.target.value })}
+                            style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)', background: 'white' }}
+                        >
+                            <option value="">{t('select_category', 'Kategori Seçin...')}</option>
+                            <optgroup label={t('cat_group_service', 'Hizmet Sektörü')}>
+                                <option value="AutoRepair">{t('cat_auto_repair', 'Oto Tamir / Servis')}</option>
+                                <option value="BeautySalon">{t('cat_beauty_salon', 'Güzellik Merkezi / Kuaför')}</option>
+                                <option value="Dentist">{t('cat_dentist', 'Diş Polikliniği')}</option>
+                                <option value="LegalService">{t('cat_legal', 'Hukuk / Avukatlık')}</option>
+                                <option value="CleaningService">{t('cat_cleaning', 'Temizlik Hizmetleri')}</option>
+                            </optgroup>
+                            <optgroup label={t('cat_group_construction', 'İnşaat & Teknik')}>
+                                <option value="GeneralContractor">{t('cat_construction', 'İnşaat / Müteahhitlik')}</option>
+                                <option value="Electrician">{t('cat_electrician', 'Elektrik Servisi')}</option>
+                                <option value="Plumber">{t('cat_plumbing', 'Tesisat Servisi')}</option>
+                                <option value="HVACBusiness">{t('cat_hvac', 'Klima / Havalandırma')}</option>
+                            </optgroup>
+                            <optgroup label={t('cat_group_retail', 'Perakende & Gıda')}>
+                                <option value="Restaurant">{t('cat_restaurant', 'Restoran / Kafe')}</option>
+                                <option value="ClothingStore">{t('cat_clothing', 'Giyim Mağazası')}</option>
+                                <option value="GroceryStore">{t('cat_grocery', 'Market / Şarküteri')}</option>
+                            </optgroup>
+                            <optgroup label={t('cat_group_professional', 'Profesyonel')}>
+                                <option value="ConsultingBusiness">{t('cat_consulting', 'Danışmanlık')}</option>
+                                <option value="EducationOrganization">{t('cat_education', 'Eğitim Kurumu')}</option>
+                                <option value="ITBusiness">{t('cat_it_software', 'Yazılım / Bilişim')}</option>
+                            </optgroup>
+                        </select>
+                        <small style={{ color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                            {t('category_seo_tip', 'Doğru kategoriyi seçmek, Google aramalarında daha üst sıralarda görünmenizi sağlar.')}
+                        </small>
                     </div>
 
                     <div className="form-group">
@@ -269,7 +311,7 @@ const WebsiteSettings = () => {
                             className="form-input"
                             rows={3}
                             value={localConfig.meta?.description || ''}
-                            onChange={(e) => setLocalConfig({ meta: { ...localConfig.meta, description: e.target.value } })}
+                            onChange={(e) => setLocalConfig({ ...localConfig, meta: { ...localConfig.meta, description: e.target.value } })}
                             placeholder={t('site_description_placeholder') || "İşletmeniz hakkında kısa bilgi..."}
                             style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontFamily: 'inherit' }}
                         />
@@ -282,7 +324,7 @@ const WebsiteSettings = () => {
                         <input
                             className="form-input"
                             value={localConfig.analyticsId || ''}
-                            onChange={(e) => setLocalConfig({ analyticsId: e.target.value })}
+                            onChange={(e) => setLocalConfig({ ...localConfig, analyticsId: e.target.value })}
                             placeholder="G-XXXXXXXXXX"
                             style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontFamily: 'monospace', letterSpacing: '1px' }}
                         />
@@ -339,7 +381,7 @@ const WebsiteSettings = () => {
                                     className="form-input"
                                     value={domainQuery}
                                     onChange={(e) => setDomainQuery(e.target.value)}
-                                    placeholder="isletmeadi"
+                                    placeholder={t('check_domain_placeholder') || "isletmeadi"}
                                     style={{ flex: 1, padding: '10px 16px', borderRadius: '10px', border: '1px solid #cbd5e1' }}
                                 />
                                 <select
@@ -382,7 +424,7 @@ const WebsiteSettings = () => {
 
                                     {searchResult.available && (
                                         <button
-                                            onClick={() => setLocalConfig({ domain: searchResult.domain })}
+                                            onClick={() => setLocalConfig({ ...localConfig, domain: searchResult.domain })}
                                             style={{ marginTop: '8px', background: 'none', border: 'none', color: 'var(--primary)', fontWeight: '600', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
                                         >
                                             {t('use_this_domain') || 'Bu alan adını kullan'}
@@ -396,7 +438,7 @@ const WebsiteSettings = () => {
                                                 {searchResult.suggestions.slice(0, 3).map(alt => (
                                                     <button
                                                         key={alt.domain}
-                                                        onClick={() => setLocalConfig({ domain: alt.domain })}
+                                                        onClick={() => setLocalConfig({ ...localConfig, domain: alt.domain })}
                                                         style={{ padding: '6px 12px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', fontSize: '0.8rem', cursor: 'pointer' }}
                                                     >
                                                         {alt.domain}
@@ -465,7 +507,7 @@ const WebsiteSettings = () => {
                             <input
                                 className="form-input"
                                 value={localConfig.domain || ''}
-                                onChange={(e) => setLocalConfig({ domain: e.target.value })}
+                                onChange={(e) => setLocalConfig({ ...localConfig, domain: e.target.value })}
                                 placeholder="www.ornekisletme.com"
                                 style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
                             />
@@ -512,9 +554,9 @@ const WebsiteSettings = () => {
                             <div style={{ display: 'grid', gap: '16px' }}>
                                 <div style={{ background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid #dbeafe', position: 'relative' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginBottom: '8px', fontWeight: '600' }}>
-                                        <span style={{ width: '60px' }}>Type</span>
-                                        <span style={{ width: '60px' }}>Host</span>
-                                        <span style={{ flex: 1, textAlign: 'right' }}>Value</span>
+                                        <span style={{ width: '60px' }}>{t('dns_type') || 'Type'}</span>
+                                        <span style={{ width: '60px' }}>{t('dns_host') || 'Host'}</span>
+                                        <span style={{ flex: 1, textAlign: 'right' }}>{t('dns_value') || 'Value'}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'monospace', fontSize: '0.95rem' }}>
                                         <span style={{ width: '60px', color: '#ec4899', fontWeight: 'bold' }}>A</span>
@@ -528,9 +570,9 @@ const WebsiteSettings = () => {
 
                                 <div style={{ background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid #dbeafe' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginBottom: '8px', fontWeight: '600' }}>
-                                        <span style={{ width: '60px' }}>Type</span>
-                                        <span style={{ width: '60px' }}>Host</span>
-                                        <span style={{ flex: 1, textAlign: 'right' }}>Value</span>
+                                        <span style={{ width: '60px' }}>{t('dns_type') || 'Type'}</span>
+                                        <span style={{ width: '60px' }}>{t('dns_host') || 'Host'}</span>
+                                        <span style={{ flex: 1, textAlign: 'right' }}>{t('dns_value') || 'Value'}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'monospace', fontSize: '0.95rem' }}>
                                         <span style={{ width: '60px', color: '#3b82f6', fontWeight: 'bold' }}>CNAME</span>
@@ -597,7 +639,7 @@ const WebsiteSettings = () => {
                             <input
                                 type="checkbox"
                                 checked={!localConfig.theme?.showBranding}
-                                onChange={(e) => setLocalConfig({ theme: { ...localConfig.theme, showBranding: !e.target.checked } })}
+                                onChange={(e) => setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, showBranding: !e.target.checked } })}
                                 style={{ opacity: 0, width: 0, height: 0 }}
                             />
                             <span style={{
@@ -655,7 +697,7 @@ const WebsiteSettings = () => {
                                 {invoiceCustomization.brandPalette.map((color, idx) => (
                                     <button
                                         key={idx}
-                                        onClick={() => setLocalConfig({ theme: { ...localConfig.theme, primaryColor: color } })}
+                                        onClick={() => setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, primaryColor: color } })}
                                         style={{
                                             width: '40px', height: '40px', borderRadius: '50%', background: color,
                                             border: localConfig.theme?.primaryColor === color ? '3px solid white' : '1px solid #e2e8f0',
@@ -677,7 +719,7 @@ const WebsiteSettings = () => {
                             {colors.map(c => (
                                 <button
                                     key={c.hex}
-                                    onClick={() => setLocalConfig({ theme: { ...localConfig.theme, primaryColor: c.hex } })}
+                                    onClick={() => setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, primaryColor: c.hex } })}
                                     style={{
                                         width: '48px',
                                         height: '48px',
@@ -702,7 +744,7 @@ const WebsiteSettings = () => {
                                 <input
                                     type="color"
                                     value={localConfig.theme?.primaryColor || '#000000'}
-                                    onChange={(e) => setLocalConfig({ theme: { ...localConfig.theme, primaryColor: e.target.value } })}
+                                    onChange={(e) => setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, primaryColor: e.target.value } })}
                                     style={{
                                         width: '100%',
                                         height: '100%',
@@ -739,7 +781,7 @@ const WebsiteSettings = () => {
                         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
                             {/* Option to Reset/Clear Secondary Color */}
                             <button
-                                onClick={() => setLocalConfig({ theme: { ...localConfig.theme, secondaryColor: null } })}
+                                onClick={() => setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, secondaryColor: null } })}
                                 style={{
                                     padding: '10px 16px', borderRadius: '10px',
                                     border: !localConfig.theme?.secondaryColor ? '2px solid var(--primary)' : '1px solid var(--border)',
@@ -755,7 +797,7 @@ const WebsiteSettings = () => {
                             {colors.map(c => (
                                 <button
                                     key={c.hex + '_sec'}
-                                    onClick={() => setLocalConfig({ theme: { ...localConfig.theme, secondaryColor: c.hex } })}
+                                    onClick={() => setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, secondaryColor: c.hex } })}
                                     style={{
                                         width: '40px',
                                         height: '40px',
@@ -781,7 +823,7 @@ const WebsiteSettings = () => {
                                 <input
                                     type="color"
                                     value={localConfig.theme?.secondaryColor || '#ffffff'}
-                                    onChange={(e) => setLocalConfig({ theme: { ...localConfig.theme, secondaryColor: e.target.value } })}
+                                    onChange={(e) => setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, secondaryColor: e.target.value } })}
                                     style={{
                                         width: '100%',
                                         height: '100%',
@@ -816,7 +858,7 @@ const WebsiteSettings = () => {
                             <select
                                 className="form-input"
                                 value={localConfig.theme?.fontFamily || '"Inter", sans-serif'}
-                                onChange={(e) => setLocalConfig({ theme: { ...localConfig.theme, fontFamily: e.target.value } })}
+                                onChange={(e) => setLocalConfig({ ...localConfig, theme: { ...localConfig.theme, fontFamily: e.target.value } })}
                                 style={{
                                     width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)',
                                     fontFamily: localConfig.theme?.fontFamily?.replace(/"/g, '') || 'Inter'
@@ -953,7 +995,7 @@ const WebsiteSettings = () => {
                                 <input
                                     className="form-input"
                                     value={localConfig.mapsUrl || ''}
-                                    onChange={(e) => setLocalConfig({ mapsUrl: e.target.value })}
+                                    onChange={(e) => setLocalConfig({ ...localConfig, mapsUrl: e.target.value })}
                                     placeholder="https://goo.gl/maps/..."
                                     style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
                                 />
@@ -1032,42 +1074,101 @@ const WebsiteSettings = () => {
                             </div>
                         ))}
                     </div>
-                </div>
 
-                {/* Floating Save Button */}
-                <button
-                    onClick={handleSaveAndExit}
-                    style={{
-                        position: 'fixed',
-                        bottom: '32px',
-                        right: '32px',
-                        padding: '16px 32px',
-                        borderRadius: '100px',
-                        fontSize: '1.1rem',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        gap: '12px',
-                        alignItems: 'center',
-                        background: 'linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%)',
-                        color: 'white',
-                        border: 'none',
-                        boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 8px 10px -6px rgba(59, 130, 246, 0.5)',
-                        cursor: 'pointer',
-                        zIndex: 1000,
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    }}
-                    onMouseOver={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)';
-                        e.currentTarget.style.boxShadow = '0 20px 30px -5px rgba(59, 130, 246, 0.6), 0 15px 15px -10px rgba(59, 130, 246, 0.6)';
-                    }}
-                    onMouseOut={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                        e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 8px 10px -6px rgba(59, 130, 246, 0.5)';
-                    }}
-                >
-                    <Save size={24} /> {t('save_and_exit') || 'Kaydet ve Çık'}
-                </button>
+                    {/* Extra / Custom Social Links */}
+                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px dashed var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h4 style={{ fontSize: '0.9rem', margin: 0 }}>{t('extra_social_links') || 'Ekstra Sosyal Medya & Linkler'}</h4>
+                            <button
+                                onClick={() => {
+                                    const customLinks = [...(localConfig.extraSocialLinks || [])];
+                                    customLinks.push({ id: Date.now(), label: '', url: '', icon: 'Globe' });
+                                    setLocalConfig({ ...localConfig, extraSocialLinks: customLinks });
+                                }}
+                                style={{ padding: '6px 12px', background: '#f1f5f9', border: 'none', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                                <Plus size={14} /> {t('add_more') || 'Ekle'}
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '12px' }}>
+                            {(localConfig.extraSocialLinks || []).map((link, idx) => (
+                                <div key={link.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ width: '36px', height: '36px', background: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
+                                        <Globe size={18} color="#64748b" />
+                                    </div>
+                                    <input
+                                        className="form-input"
+                                        placeholder={t('platform_name_placeholder') || "Platform Adı (örn: YouTube)"}
+                                        value={link.label}
+                                        onChange={(e) => {
+                                            const newList = [...localConfig.extraSocialLinks];
+                                            newList[idx].label = e.target.value;
+                                            setLocalConfig({ ...localConfig, extraSocialLinks: newList });
+                                        }}
+                                        style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.85rem' }}
+                                    />
+                                    <input
+                                        className="form-input"
+                                        placeholder="URL"
+                                        value={link.url}
+                                        onChange={(e) => {
+                                            const newList = [...localConfig.extraSocialLinks];
+                                            newList[idx].url = e.target.value;
+                                            setLocalConfig({ ...localConfig, extraSocialLinks: newList });
+                                        }}
+                                        style={{ flex: 2, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.85rem' }}
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            const newList = localConfig.extraSocialLinks.filter((_, i) => i !== idx);
+                                            setLocalConfig({ ...localConfig, extraSocialLinks: newList });
+                                        }}
+                                        style={{ padding: '8px', color: '#ef4444', background: '#fef2f2', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                            {(!localConfig.extraSocialLinks || localConfig.extraSocialLinks.length === 0) && (
+                                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0, textAlign: 'center', py: '10px' }}>
+                                    {t('no_extra_links') || 'Henüz ekstra link eklenmedi.'}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            {/* Floating Save Button */}
+            <button
+                onClick={handleSaveAndExit}
+                style={{
+                    position: 'fixed',
+                    bottom: '32px',
+                    right: '32px',
+                    padding: '16px 32px',
+                    borderRadius: '100px',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'center',
+                    background: 'linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%)',
+                    color: 'white',
+                    border: 'none',
+                    boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 8px 10px -6px rgba(59, 130, 246, 0.5)',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                    e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 8px 10px -6px rgba(59, 130, 246, 0.5)';
+                }}
+            >
+                <Save size={24} /> {t('save_and_exit') || 'Kaydet ve Çık'}
+            </button>
         </div>
     );
 };

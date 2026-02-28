@@ -94,10 +94,10 @@ const StockDashboard = () => {
     };
 
     const handleShareDigital = (sale, item) => {
-        const product = item.product;
-        if (!product.downloadUrl) return alert('İndirme linki yok.');
+        const product = item?.product;
+        if (!product || !product.downloadUrl) return alert('İndirme linki yok.');
 
-        const message = `Merhaba ${sale.customerName}, ${product.name} siparişiniz için teşekkürler! 📥 İşte indirme linkiniz: ${product.downloadUrl}`;
+        const message = `Merhaba ${sale.customerName || 'Değerli Müşterimiz'}, ${product.name} siparişiniz için teşekkürler! 📥 İşte indirme linkiniz: ${product.downloadUrl}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
     };
 
@@ -152,15 +152,16 @@ const StockDashboard = () => {
                                     <td style={{ padding: '16px 20px' }}>{getStatusBadge(sale.status)}</td>
                                     <td style={{ padding: '16px 20px' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            {sale.items.map((item, idx) => (
+                                            {(sale.items || []).map((item, idx) => (
                                                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>x{item.quantity}</span>
-                                                    <span>{item.product.name}</span>
-                                                    {item.product.type === 'digital' && <Download size={14} color="#2563eb" />}
+                                                    <span>{item.product?.name || 'Bilinmeyen Ürün'}</span>
+                                                    {item.product?.type === 'digital' && <Download size={14} color="#2563eb" />}
                                                 </div>
                                             ))}
                                             {sale.trackingCode && (
                                                 <div style={{ fontSize: '0.75rem', marginTop: '4px', color: '#64748b' }}>
+                                                    <div style={{ fontWeight: '700', fontSize: '0.95rem', marginBottom: '4px', color: 'var(--text-main)' }}>{sale.items?.[0]?.product?.name || 'Ürün'}</div>
                                                     <a href={sale.trackingUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#3b82f6', textDecoration: 'none' }}>
                                                         <ExternalLink size={10} /> {sale.trackingCompany}: {sale.trackingCode}
                                                     </a>
@@ -174,14 +175,14 @@ const StockDashboard = () => {
                                     <td style={{ padding: '16px 20px' }}>
                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                             {/* Digital Share */}
-                                            {sale.items.some(i => i.product.type === 'digital') && (
-                                                <button onClick={() => handleShareDigital(sale, sale.items.find(i => i.product.type === 'digital'))} title="Link Paylaş" style={actionBtnStyle('#eff6ff', '#2563eb')}>
+                                            {(sale.items || []).some(i => i.product?.type === 'digital') && (
+                                                <button onClick={() => handleShareDigital(sale, sale.items.find(i => i.product?.type === 'digital'))} title="Link Paylaş" style={actionBtnStyle('#eff6ff', '#2563eb')}>
                                                     <Share2 size={16} />
                                                 </button>
                                             )}
 
                                             {/* Physical Actions */}
-                                            {sale.items.some(i => !i.product.type || i.product.type === 'physical') && (
+                                            {(sale.items || []).some(i => !i.product?.type || i.product?.type === 'physical') && (
                                                 <>
                                                     {(!sale.status || sale.status === 'pending') && (
                                                         <button onClick={() => handleOpenTracking(sale.id)} title="Kargola" style={actionBtnStyle('#fff7ed', '#ea580c')}>

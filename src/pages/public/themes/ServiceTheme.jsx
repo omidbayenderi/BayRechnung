@@ -2,10 +2,10 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom'; // Added Link import
 import {
-    Phone, Wrench, Car, MapPin, Calendar, CheckCircle,
-    ArrowRight, Clock, Star, Shield, PenTool, Battery,
-    ShoppingBag, Instagram, Facebook, Twitter, Linkedin, Navigation,
-    Droplet, Wind, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot, Menu, X
+    Phone, Mail, MapPin, Clock, Calendar, ChevronRight,
+    ArrowRight, Star, Quote, CheckCircle, Search, ShoppingCart,
+    Menu, X, Facebook, Instagram, Twitter, Linkedin, User, LogOut, Settings, Globe,
+    Wrench, Car, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot, Shield, ShoppingBag, PenTool
 } from 'lucide-react';
 import { generateTheme } from '../utils/ColorEngine';
 
@@ -139,21 +139,81 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
             <div style={{ background: DS.primary, color: 'rgba(255,255,255,0.7)', padding: '12px 24px', fontSize: '0.85rem', fontWeight: '500' }}>
                 <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '24px' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Clock size={14} style={{ color: DS.accent }} /> Pzt-Cmt: 08:00 - 18:00</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><MapPin size={14} style={{ color: DS.accent }} /> {profile?.city || 'Merkez'}, {profile?.country || 'Almanya'}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Clock size={14} style={{ color: DS.accent }} />
+                            {(() => {
+                                const days = siteData.appointmentSettings?.workingDays || [];
+                                const defaultHrs = { start: '09:00', end: '18:00' };
+                                const schedule = siteData.appointmentSettings?.schedule;
+                                const workingHours = siteData.appointmentSettings?.workingHours || defaultHrs;
+                                const workingHoursWeekend = siteData.appointmentSettings?.workingHoursWeekend || workingHours;
+
+                                if (days.length === 0) return t('day_closed');
+
+                                const dayMap = { 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday', 'Sun': 'sunday' };
+
+                                // Determine hours for the first and last working day
+                                const getHoursForDay = (dayCode) => {
+                                    if (schedule && schedule[dayCode]) {
+                                        return schedule[dayCode];
+                                    }
+                                    const isWeekend = ['Sat', 'Sun'].includes(dayCode);
+                                    return isWeekend ? workingHoursWeekend : workingHours;
+                                };
+
+                                const firstDayCode = days[0];
+                                const lastDayCode = days[days.length - 1];
+
+                                const firstDayHours = getHoursForDay(firstDayCode);
+                                const lastDayHours = getHoursForDay(lastDayCode);
+
+                                const startDayName = t(`day_${dayMap[firstDayCode] || firstDayCode.toLowerCase()}`).substring(0, 3);
+                                const endDayName = t(`day_${dayMap[lastDayCode] || lastDayCode.toLowerCase()}`).substring(0, 3);
+
+                                // If all working days have the same hours, display a single range
+                                const allSameHours = days.every(dayCode => {
+                                    const hrs = getHoursForDay(dayCode);
+                                    return hrs.start === firstDayHours.start && hrs.end === firstDayHours.end;
+                                });
+
+                                if (allSameHours) {
+                                    return `${startDayName}-${endDayName}: ${firstDayHours.start} - ${firstDayHours.end}`;
+                                } else {
+                                    // If hours vary, display a more general message or just the range of days
+                                    // For simplicity in the top bar, we'll show the overall range of days and a general "check schedule"
+                                    return `${startDayName}-${endDayName}: ${t('theme_check_schedule')}`;
+                                }
+                            })()}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><MapPin size={14} style={{ color: DS.accent }} /> {profile?.city || t('general')}, {profile?.country || 'EU'}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                            {(config?.social?.instagram || profile?.social?.instagram) && (
-                                <a href={config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'} onMouseLeave={e => e.currentTarget.style.color = 'inherit'}>
+                            {(config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram) && (
+                                <a href={config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'} onMouseLeave={e => e.currentTarget.style.color = 'inherit'}>
                                     <Instagram size={16} />
                                 </a>
                             )}
-                            {(config?.social?.facebook || profile?.social?.facebook) && (
-                                <a href={config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'} onMouseLeave={e => e.currentTarget.style.color = 'inherit'}>
+                            {(config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook) && (
+                                <a href={config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'} onMouseLeave={e => e.currentTarget.style.color = 'inherit'}>
                                     <Facebook size={16} />
                                 </a>
                             )}
+                            {(config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter) && (
+                                <a href={config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'} onMouseLeave={e => e.currentTarget.style.color = 'inherit'}>
+                                    <Twitter size={16} />
+                                </a>
+                            )}
+                            {(config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin) && (
+                                <a href={config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'} onMouseLeave={e => e.currentTarget.style.color = 'inherit'}>
+                                    <Linkedin size={16} />
+                                </a>
+                            )}
+                            {config?.extraSocialLinks?.map((link, idx) => (
+                                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} style={{ color: 'inherit', display: 'flex', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'} onMouseLeave={e => e.currentTarget.style.color = 'inherit'}>
+                                    <Globe size={16} />
+                                </a>
+                            ))}
                         </div>
                         <div style={{ width: '1px', height: '14px', background: 'rgba(255,255,255,0.2)' }}></div>
                         {isAutomotive && (
@@ -204,7 +264,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                     <div className="desktop-nav" style={{ alignItems: 'center', gap: '40px' }}>
                         <div style={{ display: 'flex', gap: '32px' }}>
                             <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', cursor: 'pointer', letterSpacing: '0.5px' }}>{t('theme_nav_services')}</a>
-                            <Link to="/booking" style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.5px' }}>{t('theme_cta_book')}</Link>
+                            <Link to={`/booking?domain=${siteData.domain || 'demo'}`} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.5px' }}>{t('theme_cta_book')}</Link>
                         </div>
 
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
@@ -299,7 +359,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontSize: '1.25rem', fontWeight: '700' }}>
                             <a href="#services" onClick={(e) => { scrollToSection(e, 'services'); setMobileMenuOpen(false); }} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
-                            <Link to="/booking" onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_cta_book')}</Link>
+                            <Link to={`/booking?domain=${siteData.domain || 'demo'}`} onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_cta_book')}</Link>
                             <div onClick={() => { setIsCartOpen(true); setMobileMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                                 {t('cart_title')} ({cart.length})
                             </div>
@@ -342,23 +402,49 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
 
             {/* Hero Section */}
             <header style={{
-                background: config?.hero?.type === 'image' && config?.hero?.url
-                    ? `url(${config.hero.url}) center/cover no-repeat`
-                    : `linear-gradient(rgba(11, 31, 59, 0.8), rgba(11, 31, 59, 0.95)), url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80')`,
+                background: config?.hero?.type === 'color'
+                    ? DS.primary
+                    : (config?.hero?.type === 'image' && config?.hero?.url
+                        ? `url(${config.hero.url}) center/cover no-repeat`
+                        : `linear-gradient(rgba(11, 31, 59, 0.8), rgba(11, 31, 59, 0.95)), url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80')`),
                 backgroundSize: 'cover', backgroundPosition: 'center',
                 padding: '140px 24px', textAlign: 'center', color: 'white',
                 borderBottom: `8px solid ${DS.accent}`,
                 position: 'relative',
                 overflow: 'hidden'
             }}>
-                {/* Overlay for dynamic image */}
-                {config?.hero?.type === 'image' && config?.hero?.url && (
+                {/* Overlay for dynamic image/video */}
+                {(config?.hero?.type === 'image' || config?.hero?.type === 'video') && (
                     <div style={{
                         position: 'absolute',
                         inset: 0,
-                        background: `rgba(0,0,0,${config.hero.overlay || 0.6})`,
+                        background: `rgba(0,0,0,${config.hero.overlay ?? 0.6})`,
                         zIndex: 0
                     }}></div>
+                )}
+
+                {/* Video Background Support */}
+                {config?.hero?.type === 'video' && config?.hero?.url && (
+                    <video
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            minWidth: '100%',
+                            minHeight: '100%',
+                            width: 'auto',
+                            height: 'auto',
+                            zIndex: -1,
+                            transform: 'translateX(-50%) translateY(-50%)',
+                            objectFit: 'cover'
+                        }}
+                    >
+                        <source src={config.hero.url} type="video/mp4" />
+                    </video>
                 )}
                 <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
                     <div style={{
@@ -381,7 +467,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                         {config?.hero?.description || (isAutomotive ? t('theme_service_hero_desc_auto') : t('theme_service_hero_desc_general'))}
                     </p>
                     <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                        <Link to="/booking" style={{ textDecoration: 'none' }}>
+                        <Link to={`/booking?domain=${siteData.domain || 'demo'}`} style={{ textDecoration: 'none' }}>
                             <button style={{
                                 background: DS.accent, color: 'white',
                                 border: 'none', padding: '20px 56px', borderRadius: DS.radius,
@@ -478,7 +564,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                                                 {Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
                                             </span>
                                             <Link
-                                                to={`/booking?service=${service.id}`}
+                                                to={`/booking?domain=${siteData.domain || 'demo'}&service=${service.id}`}
                                                 style={{
                                                     background: DS.primary, color: DS.buttonText, border: 'none', textDecoration: 'none',
                                                     padding: '14px 28px', borderRadius: '10px', fontWeight: '800',
@@ -585,17 +671,32 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                         <p style={{ color: 'rgba(255,255,255,0.5)', lineHeight: '1.8', fontSize: '1.05rem', marginBottom: '32px' }}>
                             {config?.footer?.description || (isAutomotive ? t('theme_service_footer_desc_auto') : t('theme_service_footer_desc_general'))}
                         </p>
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            {(config?.social?.instagram || profile?.social?.instagram) && (
-                                <a href={config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.accent}>
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                            {(config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram) && (
+                                <a href={config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.accent} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
                                     <Instagram size={20} />
                                 </a>
                             )}
-                            {(config?.social?.facebook || profile?.social?.facebook) && (
-                                <a href={config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.accent}>
+                            {(config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook) && (
+                                <a href={config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.accent} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
                                     <Facebook size={20} />
                                 </a>
                             )}
+                            {(config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter) && (
+                                <a href={config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter} target="_blank" rel="noopener noreferrer" style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.accent} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+                                    <Twitter size={20} />
+                                </a>
+                            )}
+                            {(config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin) && (
+                                <a href={config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin} target="_blank" rel="noopener noreferrer" style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.accent} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+                                    <Linkedin size={20} />
+                                </a>
+                            )}
+                            {config?.extraSocialLinks?.map((link, idx) => (
+                                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.accent} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+                                    <Globe size={20} />
+                                </a>
+                            ))}
                         </div>
 
                         {/* Dynamic Working Hours */}
@@ -605,24 +706,34 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                                     <Clock size={16} color={DS.accent} /> {t('footer_working_hours')}
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '6px' }}>
-                                        <span>{t('footer_weekdays')}:</span>
-                                        <span style={{ fontWeight: '600', color: 'white' }}>
-                                            {siteData.appointmentSettings?.workingHours?.start} - {siteData.appointmentSettings?.workingHours?.end}
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '2px' }}>
-                                        <span>{t('footer_weekend')}:</span>
-                                        <span style={{ color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
-                                            {siteData.appointmentSettings?.workingDays?.some(d => ['Sat', 'Sun'].includes(d))
-                                                ? `${siteData.appointmentSettings?.workingHours?.start} - ${siteData.appointmentSettings?.workingHours?.end}`
-                                                : t('footer_closed')}
-                                        </span>
-                                    </div>
+                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(dayCode => {
+                                        const isOpen = siteData.appointmentSettings?.workingDays?.includes(dayCode);
+                                        const dayMap = { 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday', 'Sun': 'sunday' };
+
+                                        const schedule = siteData.appointmentSettings?.schedule;
+                                        const isWeekend = ['Sat', 'Sun'].includes(dayCode);
+
+                                        const hours = (schedule && schedule[dayCode])
+                                            ? schedule[dayCode]
+                                            : (isWeekend
+                                                ? (siteData.appointmentSettings?.workingHoursWeekend?.start ? siteData.appointmentSettings.workingHoursWeekend : siteData.appointmentSettings?.workingHours)
+                                                : siteData.appointmentSettings?.workingHours);
+
+                                        const tKey = `day_${dayMap[dayCode] || dayCode.toLowerCase()}`;
+
+                                        return (
+                                            <div key={dayCode} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '2px' }}>
+                                                <span style={{ color: isOpen ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}>{t(tKey)}:</span>
+                                                <span style={{ fontWeight: isOpen ? '600' : 'normal', color: isOpen ? 'white' : 'rgba(255,255,255,0.3)', fontStyle: isOpen ? 'normal' : 'italic' }}>
+                                                    {isOpen ? `${hours?.start} - ${hours?.end}` : t('day_closed')}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                     {siteData.appointmentSettings?.holidays?.length > 0 && (
                                         <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px', borderTop: '1px dashed rgba(255,255,255,0.1)', marginTop: '4px' }}>
                                             <span>{t('footer_holidays')}:</span>
-                                            <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{t('footer_closed')}</span>
+                                            <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{t('day_closed')}</span>
                                         </div>
                                     )}
                                 </div>
@@ -636,7 +747,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                             <li style={{ marginBottom: '16px' }}><Link to="/" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'}>{t('theme_nav_home')}</Link></li>
                             <li style={{ marginBottom: '16px' }}><a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}>{t('theme_nav_services')}</a></li>
-                            <li style={{ marginBottom: '16px' }}><Link to="/booking" style={{ color: 'inherit', textDecoration: 'none' }}>{t('theme_cta_book')}</Link></li>
+                            <li style={{ marginBottom: '16px' }}><Link to={`/booking?domain=${siteData.domain || 'demo'}`} style={{ color: 'inherit', textDecoration: 'none' }}>{t('theme_cta_book')}</Link></li>
                         </ul>
                     </div>
 

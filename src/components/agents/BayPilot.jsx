@@ -4,6 +4,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useStock } from '../../context/StockContext';
 import { useAppointments } from '../../context/AppointmentContext';
+import { useBayVision } from '../../context/BayVisionContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MessageCircle, X, Send, Zap, ChevronRight, User, TrendingUp, AlertTriangle, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const BayPilot = () => {
     const { currentUser } = useAuth();
     const { t } = useLanguage();
+    const { intelligence } = useBayVision(); // Integrated CEO Insights
     // Contexts for Data Access
     const { invoices, expenses, companyProfile } = useInvoice(); // Financials
     const stockContext = useStock(); // Stock (Optional)
@@ -66,18 +68,23 @@ const BayPilot = () => {
                     }
                 }
 
+                // CEO INSIGHTS (Proactive)
+                if (intelligence.alerts.length > 0) {
+                    suggestions.unshift({ label: `⚠️ CEO Alert: ${intelligence.alerts[0].title}`, action: '/admin' });
+                }
+
                 setMessages(prev => [
                     ...prev,
                     {
                         id: 2,
                         type: 'bot',
-                        text: '💡 ' + t('tip_title'),
+                        text: intelligence.alerts.length > 0 ? `Dikkat! ${intelligence.alerts[0].message}` : '💡 ' + t('tip_title'),
                         suggestions: suggestions
                     }
                 ]);
             }, 800);
         }
-    }, [isOpen, currentUser, companyProfile, t]);
+    }, [isOpen, currentUser, companyProfile, t, intelligence]); // Added intelligence dependency
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -102,6 +109,13 @@ const BayPilot = () => {
 
     const analyzeIntent = (text) => {
         const lower = text.toLowerCase();
+
+        if (lower.includes('vision') || lower.includes('karar') || lower.includes('durum')) {
+            return {
+                text: `**BayVision CEO Özeti:**\n\n${intelligence.summary}\n\nAktif Alarmlar: ${intelligence.alerts.length}\nFırsatlar: ${intelligence.opportunities.length}`,
+                action: { label: 'Analiz Detayları', path: '/admin' }
+            }
+        }
 
         // --- 1. FINANCIAL INSIGHTS ---
         if (lower.includes('profit') || lower.includes('revenue') || lower.includes('income') || lower.includes('gewinn') || lower.includes('umsatz')) {

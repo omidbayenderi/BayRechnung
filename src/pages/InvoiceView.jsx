@@ -6,6 +6,8 @@ import { Printer, ArrowLeft, Trash2, ArrowRightCircle, Edit, MessageCircle } fro
 import { useLanguage } from '../context/LanguageContext';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { emailService } from '../lib/EmailService';
+import { Mail, Loader2 } from 'lucide-react';
 
 const InvoiceView = ({ type = 'invoice' }) => {
     const { id } = useParams();
@@ -19,6 +21,7 @@ const InvoiceView = ({ type = 'invoice' }) => {
 
     const [searchParams] = useSearchParams();
     const shouldAutoPrint = searchParams.get('autoprint') === 'true';
+    const [isSending, setIsSending] = React.useState(false);
 
     useEffect(() => {
         if (shouldAutoPrint && invoice) {
@@ -82,6 +85,35 @@ const InvoiceView = ({ type = 'invoice' }) => {
         }, 300);
     };
 
+    const handleSendEmail = async () => {
+        if (!invoice.recipientEmail) {
+            alert(t('no_recipient_email') || 'Müşteri e-posta adresi bulunamadı.');
+            return;
+        }
+
+        setIsSending(true);
+        try {
+            const result = await emailService.sendInvoiceEmail({
+                to: invoice.recipientEmail,
+                invoiceNumber: invoice.invoiceNumber,
+                customerName: invoice.recipientName,
+                amount: invoice.total,
+                currency: invoice.currency || 'EUR'
+            });
+
+            if (result.success) {
+                alert(t('email_sent_success') || 'E-posta başarıyla gönderildi.');
+            } else {
+                alert(t('email_sent_error') || 'E-posta gönderilirken bir hata oluştu.');
+            }
+        } catch (error) {
+            console.error('Email error:', error);
+            alert(t('email_sent_error') || 'E-posta gönderilirken bir hata oluştu.');
+        } finally {
+            setIsSending(false);
+        }
+    };
+
     const sender = invoice.senderSnapshot || {};
 
     const paperData = {
@@ -131,8 +163,8 @@ const InvoiceView = ({ type = 'invoice' }) => {
 
         items: invoice.items || [],
 
-        paypalMe: sender.paypalMe,
-        stripeLink: sender.stripeLink
+        paypalMe: invoice.paypalMe || sender.paypalMe || companyProfile.paypalMe,
+        stripeLink: invoice.stripeLink || sender.stripeLink || companyProfile.stripeLink
     };
 
     const paperTotals = {
@@ -170,6 +202,15 @@ const InvoiceView = ({ type = 'invoice' }) => {
                         <MessageCircle size={20} />
                         WhatsApp
                     </a>
+                    <button
+                        className="primary-btn"
+                        onClick={handleSendEmail}
+                        disabled={isSending}
+                        style={{ backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        {isSending ? <Loader2 className="animate-spin" size={20} /> : <Mail size={20} />}
+                        {t('send_email') || 'E-posta Gönder'}
+                    </button>
                     {type === 'quote' && (
                         <button className="primary-btn" onClick={handleConvert} style={{ backgroundColor: '#10b981' }}>
                             <ArrowRightCircle size={20} />

@@ -43,7 +43,7 @@ const StockSettings = () => {
         updateSettings(formData);
         setIsDirty(false);
         // Optional: Show success toast
-        alert(t('settingsSaved') || 'Ayarlar kaydedildi!');
+        alert(t('settingsSaved', 'Ayarlar kaydedildi!'));
     };
 
     // Category Management State
@@ -77,7 +77,7 @@ const StockSettings = () => {
     };
 
     const handleDelete = (category) => {
-        if (window.confirm(`${category} ${t('confirmDeleteCategory') || 'kategorisini silmek istediğinize emin misiniz?'}`)) {
+        if (window.confirm(`${category} ${t('confirmDeleteCategory', 'kategorisini silmek istediğinize emin misiniz?')}`)) {
             deleteCategory(category);
         }
     };
@@ -126,7 +126,7 @@ const StockSettings = () => {
                                 className="form-input"
                                 value={formData.storeName}
                                 onChange={e => handleInputChange('storeName', e.target.value)}
-                                placeholder="Örn: Rechnung Auto Service"
+                                placeholder={`${t('eg', 'Örn:')} Rechnung Auto Service`}
                                 style={{ width: '100%', height: '48px', padding: '0 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
                             />
                         </div>
@@ -136,7 +136,7 @@ const StockSettings = () => {
                                 className="form-input"
                                 value={formData.storeAddress}
                                 onChange={e => handleInputChange('storeAddress', e.target.value)}
-                                placeholder="Örn: Musterstraße 1..."
+                                placeholder={`${t('eg', 'Örn:')} Musterstraße 1...`}
                                 style={{ width: '100%', height: '100px', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', resize: 'none' }}
                             />
                         </div>
@@ -221,7 +221,7 @@ const StockSettings = () => {
                                     onChange={e => handleInputChange('defaultLowStock', parseInt(e.target.value))}
                                     style={{ width: '100px', height: '48px', padding: '0 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
                                 />
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Adet (Yeni ürün eklerken bu değer kullanılır)</span>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t('unitNewProductHelp', 'Adet (Yeni ürün eklerken bu değer kullanılır)')}</span>
                             </div>
                         </div>
                     </div>

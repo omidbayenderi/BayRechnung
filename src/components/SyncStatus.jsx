@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { syncService } from '../lib/SyncService';
-import { Cloud, CloudOff, RefreshCw, CheckCircle } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '../context/LanguageContext';
 
 const SyncStatus = () => {
+    const { t } = useLanguage();
     const [status, setStatus] = useState(syncService.getStatus());
     const [lastSync, setLastSync] = useState(null);
 
@@ -28,7 +30,22 @@ const SyncStatus = () => {
     }, []);
 
     const isOnline = status.isOnline;
+    const isConfigured = status.isConfigured !== false;
     const isSyncing = status.isProcessing || status.queueLength > 0;
+
+    if (!isConfigured) {
+        return (
+            <div className="no-print" style={{
+                position: 'fixed', bottom: '20px', right: '250px', zIndex: 1000,
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
+                background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444',
+                borderRadius: '20px', fontSize: '0.75rem', fontWeight: '800', color: '#ef4444'
+            }}>
+                <XCircle size={14} />
+                <span>{t('system_error_config_missing', 'Sistem Hatası: Yapılandırma Eksik')}</span>
+            </div>
+        );
+    }
 
     return (
         <div className="no-print" style={{
@@ -57,10 +74,37 @@ const SyncStatus = () => {
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.8, opacity: 0 }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
-                        <CloudOff size={14} />
-                        <span>Çevrimdışı (Veriler Güvende)</span>
+                        <div
+                            onClick={() => syncService.checkConnectivity()}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                            title={t('retry_check', 'Yeniden kontrol et')}
+                        >
+                            <CloudOff size={14} />
+                            <span>
+                                {status.queueLength > 0
+                                    ? t('sync_pending', '{count} Veri Bekliyor').replace('{count}', status.queueLength)
+                                    : t('sync_offline', 'Çevrimdışı')}
+                            </span>
+                        </div>
+                        {status.queueLength > 0 && (
+                            <button
+                                onClick={() => syncService.forceSync()}
+                                style={{
+                                    border: 'none',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    padding: '2px 8px',
+                                    borderRadius: '10px',
+                                    fontSize: '9px',
+                                    cursor: 'pointer',
+                                    fontWeight: '800'
+                                }}
+                            >
+                                {t('sync_button', 'BULUTA GÖNDER')}
+                            </button>
+                        )}
                     </motion.div>
                 ) : isSyncing ? (
                     <motion.div
@@ -71,7 +115,9 @@ const SyncStatus = () => {
                         style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
                         <RefreshCw size={14} className="animate-spin" style={{ color: 'var(--primary)' }} />
-                        <span style={{ color: 'var(--primary)' }}>Eşitleniyor ({status.queueLength})</span>
+                        <span style={{ color: 'var(--primary)' }}>
+                            {t('syncing', 'Eşitleniyor')} ({status.queueLength})
+                        </span>
                     </motion.div>
                 ) : (
                     <motion.div
@@ -82,7 +128,7 @@ const SyncStatus = () => {
                         style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
                         <CheckCircle size={14} style={{ color: '#10b981' }} />
-                        <span>Bulut ile Güncel</span>
+                        <span>{t('sync_up_to_date', 'Bulut ile Güncel')}</span>
                     </motion.div>
                 )}
             </AnimatePresence>

@@ -4,7 +4,7 @@ import { useLanguage } from './LanguageContext';
 import { usePlanGuard } from '../hooks/usePlanGuard';
 import {
     LayoutDashboard, FileText, Settings, PlusCircle, Archive, BarChart3, Receipt, Repeat, Users, MessageSquare, // Existing
-    Calendar, Clock, Monitor, ShoppingCart, Package, Globe, Layers, Command, Wrench, Shield
+    Calendar, Clock, Monitor, ShoppingCart, Package, Globe, Layers, Command, Wrench, Shield, Map, CreditCard
 } from 'lucide-react';
 
 const PanelContext = createContext();
@@ -90,11 +90,20 @@ export const PanelProvider = ({ children }) => {
         const menu = [];
         switch (activePanel) {
             case 'admin':
+                menu.push({ path: '/admin?tab=overview', icon: LayoutDashboard, label: t('dashboard') });
+
+                // Only show Site Management if we are in Construction industry.
+                // Assuming we will need to inject company profile or we can filter it in Sidebar.
+                // We'll leave the item here with a special flag that Sidebar can filter, or import InvoiceContext.
+                menu.push({ path: '/admin?tab=sites', icon: Map, label: t('site_management'), premium: true, industryOnly: ['Bauwesen / İnşaat', 'general_contractor', 'construction'] });
+
                 menu.push(
-                    { path: '#', icon: LayoutDashboard, label: t('dashboard'), onClick: () => window.location.hash = 'overview' },
-                    { path: '#', icon: Users, label: t('menu_users'), onClick: () => window.location.hash = 'users' },
-                    { path: '#', icon: MessageSquare, label: t('menu_messages'), onClick: () => window.location.hash = 'messages' },
-                    { path: '#', icon: Settings, label: t('menu_settings'), onClick: () => window.location.hash = 'settings' }
+                    { path: '/admin?tab=users', icon: Users, label: t('users'), premium: true },
+                    { path: '/admin?tab=reports', icon: FileText, label: t('reports'), premium: true },
+                    { path: '/admin?tab=messages', icon: MessageSquare, label: t('messages') },
+                    { path: '/admin?tab=integrations', icon: Globe, label: t('integration_hub'), premium: true },
+                    { path: '/admin?tab=subscription', icon: CreditCard, label: t('subscription_management') },
+                    { path: '/admin?tab=settings', icon: Settings, label: t('settings') }
                 );
                 break;
             case 'appointments':

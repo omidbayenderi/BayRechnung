@@ -9,16 +9,24 @@ import { useWebsite } from '../../context/WebsiteContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 const PublicBookingPage = () => {
-    const { services, staff, addAppointment, createPublicBooking, settings } = useAppointments();
+    const { services: contextServices, staff: contextStaff, createPublicBooking, settings: contextSettings } = useAppointments();
     const { siteConfig } = useWebsite();
+    const [publicData, setPublicData] = useState({ services: [], staff: [], userId: null, settings: null });
+    const [loading, setLoading] = useState(false);
     const { getT, serviceLanguages, appLanguage } = useLanguage();
     // Prioritize 'website' language preference for public facing booking page
     const t = getT(serviceLanguages?.website || appLanguage);
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const domainFromUrl = searchParams.get('domain');
+
+    // Use Context data if available (logged in admin), otherwise use publicData (fetched from domain)
+    const services = contextServices.length > 0 ? contextServices : publicData.services;
+    const staff = contextStaff.length > 0 ? contextStaff : publicData.staff;
+    const settings = contextServices.length > 0 ? contextSettings : (publicData.settings || contextSettings);
+    const targetUserId = publicData.userId;
 
     // Determine Back URL (Return to the specific tenant site, not SaaS landing)
-    const backUrl = siteConfig?.domain ? `/s/${siteConfig.domain}` : '/s/demo';
+    const backUrl = siteConfig?.domain ? `/s/${siteConfig.domain}` : (domainFromUrl ? `/s/${domainFromUrl}` : '/s/demo');
 
     // Initialize State
     const [step, setStep] = useState(1); // 1: Service, 2: Staff, 3: Date/Time, 4: Details, 5: Confirm
@@ -73,6 +81,59 @@ const PublicBookingPage = () => {
         document.head.appendChild(link);
     }, []);
 
+    // FETCH TENANT DATA IF PUBLIC
+    useEffect(() => {
+        if (domainFromUrl && contextServices.length === 0) {
+            const fetchTenant = async () => {
+                setLoading(true);
+                try {
+                    const { data: config, error: configErr } = await supabase
+                        .from('website_configs')
+                        .select('user_id, config')
+                        .or(`domain.eq.${domainFromUrl},slug.eq.${domainFromUrl}`)
+                        .maybeSingle();
+
+                    if (config?.user_id) {
+                        const [svcRes, staffRes, settingsRes] = await Promise.all([
+                            supabase.from('services').select('*').eq('user_id', config.user_id),
+                            supabase.from('staff').select('*').eq('user_id', config.user_id),
+                            supabase.from('appointment_settings').select('*').eq('user_id', config.user_id).maybeSingle()
+                        ]);
+
+                        const mappedSettings = settingsRes.data ? {
+                            workingHours: {
+                                start: settingsRes.data.working_hours_start,
+                                end: settingsRes.data.working_hours_end
+                            },
+                            workingHoursWeekend: {
+                                start: settingsRes.data.working_hours_weekend_start || '10:00',
+                                end: settingsRes.data.working_hours_weekend_end || '16:00'
+                            },
+                            workingDays: settingsRes.data.working_days,
+                            slotDuration: settingsRes.data.slot_duration,
+                            bufferTime: settingsRes.data.buffer_time,
+                            holidays: settingsRes.data.holidays,
+                            breaks: settingsRes.data.breaks,
+                            schedule: settingsRes.data.breaks?.schedule || null
+                        } : null;
+
+                        setPublicData({
+                            services: svcRes.data || [],
+                            staff: staffRes.data || [],
+                            userId: config.user_id,
+                            settings: mappedSettings
+                        });
+                    }
+                } catch (err) {
+                    console.error('Error fetching tenant booking data:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchTenant();
+        }
+    }, [domainFromUrl, contextServices.length]);
+
 
     // Handle URL Params (e.g. ?service=123)
     useEffect(() => {
@@ -123,13 +184,39 @@ const PublicBookingPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Mock Payment Processing
-        if (paymentMethod === 'online') {
+        if (paymentMethod === 'online' || paymentMethod === 'stripe') {
             setIsProcessingPayment(true);
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            // In a real app, verify Stripe payment here
-            setIsProcessingPayment(false);
+            try {
+                const serviceToPay = services.find(s => s.id === bookingData.serviceId);
+                const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL || 'https://ceqitkloquydkgxwikvk.supabase.co'}/functions/v1/create-checkout-session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId: `APT-${Date.now()}`,
+                        amount: Math.round((Number(serviceToPay?.price || 0)) * 100), // convert to cents
+                        currency: 'eur',
+                        customerEmail: bookingData.customerEmail || 'no-email@example.com',
+                        customerName: bookingData.customerName,
+                        items: [{ name: `Appointment: ${serviceToPay?.name}`, price: serviceToPay?.price, quantity: 1 }],
+                        stripeAccountId: settings?.stripePublicKey ? null : null // In real setup, you use the connected account id
+                    })
+                });
+                const data = await response.json();
+                if (data.url) {
+                    window.location.href = data.url;
+                    // Note: We don't advance the step locally here because they navigate away.
+                    // The webhook on the backend should actually insert the booking. 
+                    // But for this flow, we will mimic success if they return, or we let them navigate.
+                    return;
+                } else {
+                    throw new Error('No checkout URL returned.');
+                }
+            } catch (e) {
+                console.error('Stripe error:', e);
+                alert('Ödeme başlatılırken bir hata oluştu. Lütfen tekrar deneyin.');
+                setIsProcessingPayment(false);
+                return;
+            }
         }
 
         const booking = {
@@ -144,7 +231,7 @@ const PublicBookingPage = () => {
             paymentMethod: paymentMethod
         };
 
-        createPublicBooking(booking);
+        await createPublicBooking(booking, targetUserId);
 
         // 🔔 Create Admin Notification
         const notifs = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
@@ -164,15 +251,49 @@ const PublicBookingPage = () => {
         setStep(5);
     };
 
-    // Helper to generate time slots (simplified)
+    // Helper to generate time slots based on selected date
     const generateTimeSlots = () => {
-        // In a real app, this would check availability against existing appointments
+        if (!bookingData.date) return [];
+
+        const selectedDate = new Date(bookingData.date);
+        const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'short' }); // "Mon", "Tue"...
+
+        // 1. Check if the day is a working day
+        if (!settings.workingDays?.includes(dayName)) return [];
+
+        // 2. Check if it's a holiday
+        if (settings.holidays?.includes(bookingData.date)) return [];
+
+        // 3. Determine hours for this day (Weekday vs Weekend)
+        const isWeekend = dayName === 'Sat' || dayName === 'Sun';
+        const hours = isWeekend ? (settings.workingHoursWeekend || settings.workingHours) : settings.workingHours;
+
+        if (!hours || !hours.start || !hours.end) return [];
+
         const slots = [];
-        const start = parseInt(settings.workingHours.start.split(':')[0]);
-        const end = parseInt(settings.workingHours.end.split(':')[0]);
-        for (let i = start; i < end; i++) {
-            slots.push(`${i}:00`);
-            slots.push(`${i}:30`);
+        const [startH, startM] = hours.start.split(':').map(Number);
+        const [endH, endM] = hours.end.split(':').map(Number);
+
+        let current = new Date(2000, 0, 1, startH, startM);
+        const endTime = new Date(2000, 0, 1, endH, endM);
+        const slotDuration = settings.slotDuration || 30;
+
+        while (current < endTime) {
+            const timeStr = current.toTimeString().substring(0, 5);
+
+            // Check for lunch break
+            let isBreak = false;
+            if (settings.breaks?.enabled) {
+                if (timeStr >= settings.breaks.start && timeStr < settings.breaks.end) {
+                    isBreak = true;
+                }
+            }
+
+            if (!isBreak) {
+                slots.push(timeStr);
+            }
+
+            current = new Date(current.getTime() + slotDuration * 60000);
         }
         return slots;
     };

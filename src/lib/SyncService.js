@@ -62,8 +62,8 @@ class SyncService {
         // Consolidation Logic
         // For tables identify by 'id', look for matching id
         // For settings tables, look for matching user_id
-        const settingsTables = ['company_settings', 'appointment_settings', 'stock_settings', 'invoice_customization'];
-        const isSettingsTable = settingsTables.includes(table);
+        const settingsTables = ['company_settings', 'appointment_settings', 'stock_settings', 'invoice_customization', 'website_config', 'website_configs'];
+        const isSettingsTable = settingsTables.includes(table) || table.endsWith('_settings');
 
         if (action === 'insert' || action === 'update') {
             const existingIndex = this.queue.findIndex(q => {
@@ -71,7 +71,7 @@ class SyncService {
                 if (q.action !== 'insert' && q.action !== 'update') return false;
 
                 if (isSettingsTable) {
-                    return (q.data?.user_id === userId || q.data?.userId === userId);
+                    return (q.data?.user_id === userId || q.data?.userId === userId || q.targetId === userId);
                 } else if (recordId) {
                     return (q.targetId === recordId || q.data?.id === recordId);
                 }
@@ -82,6 +82,8 @@ class SyncService {
                 // Update existing item with latest data
                 this.queue[existingIndex].data = { ...this.queue[existingIndex].data, ...data };
                 this.queue[existingIndex].timestamp = new Date().toISOString();
+                // Ensure targetId is set if it's a settings table
+                if (isSettingsTable && userId) this.queue[existingIndex].targetId = userId;
                 this.saveQueue();
                 return;
             }
@@ -119,12 +121,24 @@ class SyncService {
 
         let patchedCount = 0;
         this.queue = this.queue.map(item => {
-            if (item.data && (item.data.user_id?.startsWith('0000') || !item.data.user_id)) {
+            let changed = false;
+            const newData = { ...item.data };
+
+            // Handle user_id (most tables)
+            if (newData.user_id?.startsWith('0000') || !newData.user_id) {
+                newData.user_id = newUserId;
+                changed = true;
+            }
+
+            // Handle sender_id (messages table)
+            if (item.table === 'messages' && (newData.sender_id?.startsWith('0000') || !newData.sender_id)) {
+                newData.sender_id = newUserId;
+                changed = true;
+            }
+
+            if (changed) {
                 patchedCount++;
-                return {
-                    ...item,
-                    data: { ...item.data, user_id: newUserId }
-                };
+                return { ...item, data: newData };
             }
             return item;
         });
@@ -162,39 +176,31 @@ class SyncService {
         this.notifyListeners();
 
         try {
-            const BATCH_SIZE = 3;
-
             while (this.queue.length > 0 && (navigator.onLine || force)) {
-                const batch = this.queue.slice(0, BATCH_SIZE);
+                const item = this.queue[0];
+                const success = await this.syncItem(item);
 
-                const results = await Promise.all(batch.map(async (item) => {
-                    const success = await this.syncItem(item);
-                    return { itemId: item.id, success };
-                }));
+                if (success) {
+                    this.queue = this.queue.filter(q => q.id !== item.id);
+                } else {
+                    item.retryCount = (item.retryCount || 0) + 1;
+                    this.queue = this.queue.filter(q => q.id !== item.id);
 
-                for (const res of results) {
-                    if (res.success) {
-                        this.queue = this.queue.filter(q => q.id !== res.itemId);
+                    if (item.retryCount > 20) {
+                        console.error("[Sync] Item reached max retries:", item);
+                        const deadQueue = JSON.parse(localStorage.getItem('bay_dead_sync_queue') || '[]');
+                        deadQueue.push({ ...item, retiredAt: new Date().toISOString() });
+                        localStorage.setItem('bay_dead_sync_queue', JSON.stringify(deadQueue.slice(-50)));
                     } else {
-                        const itemInQueue = this.queue.find(q => q.id === res.itemId);
-                        if (itemInQueue) {
-                            itemInQueue.retryCount = (itemInQueue.retryCount || 0) + 1;
-
-                            if (itemInQueue.retryCount > 20) {
-                                console.error("[Sync] Item reached max retries:", itemInQueue);
-                                const deadQueue = JSON.parse(localStorage.getItem('bay_dead_sync_queue') || '[]');
-                                deadQueue.push({ ...itemInQueue, retiredAt: new Date().toISOString() });
-                                localStorage.setItem('bay_dead_sync_queue', JSON.stringify(deadQueue.slice(-50)));
-                                this.queue = this.queue.filter(q => q.id !== res.itemId);
-                            }
-                        }
+                        this.queue.push(item);
                     }
+                    // Wait after failure
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
 
                 this.saveQueue();
-
-                if (results.some(r => !r.success)) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                if (this.queue.length > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 250));
                 }
             }
         } catch (err) {
@@ -214,7 +220,8 @@ class SyncService {
                 // Use upsert for both to ensure we don't fail on duplicate keys or missing records
                 // Important: conflict target depends on the table schema
                 let conflictTarget = 'id';
-                if (['company_settings', 'appointment_settings', 'stock_settings', 'invoice_customization'].includes(table)) {
+                const settingsTables = ['company_settings', 'appointment_settings', 'stock_settings', 'invoice_customization', 'website_config', 'website_configs'];
+                if (settingsTables.includes(table) || table.endsWith('_settings')) {
                     conflictTarget = 'user_id';
                 }
 
@@ -222,30 +229,32 @@ class SyncService {
                     // All industries allowed
                 }
 
-                // --- SCHEMA SAFETY LAYER ---
-                // Strip fields that might be missing in some DB environments to prevent total sync failure
+                // Schema Safety Layer - Only strip if absolutely necessary for legacy compatibility.
+                // We keep brand_palette, quote_validity_days, signature_url as they are valid columns now.
                 const tableSchemas = {
-                    services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'color', 'created_at'], // Keep description
-                    products: ['id', 'user_id', 'name', 'category', 'price', 'stock', 'min_stock', 'sku', 'image_url', 'created_at', 'updated_at'], // Strip supplier_info
-                    staff: ['id', 'user_id', 'name', 'role', 'color', 'created_at'] // Strip title (JS uses role)
+                    services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'color', 'created_at'],
+                    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'sites', 'role', 'color', 'created_at'],
+                    recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
+                    projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
+                    messages: ['id', 'sender_id', 'receiver_id', 'content', 'category', 'type', 'title', 'metadata', 'is_read', 'created_at'],
+                    products: ['id', 'user_id', 'name', 'category', 'price', 'stock', 'min_stock', 'sku', 'image_url', 'supplier_info', 'created_at'],
+                    sales: ['id', 'user_id', 'customer_name', 'total', 'payment_method', 'items', 'status', 'created_at'],
+                    stock_movements: ['id', 'user_id', 'product_id', 'quantity_change', 'type', 'reason', 'created_at'],
+                    invoices: ['id', 'user_id', 'number', 'date', 'due_date', 'customer_id', 'items', 'subtotal', 'tax_rate', 'tax_amount', 'total', 'status', 'notes', 'currency', 'created_at'],
+                    expenses: ['id', 'user_id', 'description', 'amount', 'category', 'date', 'receipt_url', 'status', 'created_at'],
+                    appointments: ['id', 'user_id', 'client_name', 'client_email', 'client_phone', 'service_id', 'staff_id', 'date', 'start_time', 'end_time', 'status', 'notes', 'created_at'],
+                    company_settings: ['id', 'user_id', 'company_name', 'owner', 'email', 'phone', 'address', 'tax_rate', 'currency', 'logo_url', 'industry', 'brand_palette', 'stripe_public_key', 'stripe_secret_key', 'paypal_client_id'],
+                    stock_settings: ['id', 'user_id', 'tax_rate', 'currency', 'store_name', 'store_address', 'store_phone', 'default_low_stock', 'categories']
                 };
 
                 const finalData = { ...data };
 
-                // If it's a known table with potential extra fields, clean it
                 if (tableSchemas[table]) {
                     Object.keys(finalData).forEach(key => {
                         if (!tableSchemas[table].includes(key)) {
                             delete finalData[key];
                         }
                     });
-                }
-
-                // Temporary fix: If DB is missing columns, strip them before sync
-                if (table === 'invoice_customization') {
-                    delete finalData.brand_palette;
-                    delete finalData.quote_validity_days;
-                    delete finalData.signature_url;
                 }
 
                 if (targetId && !finalData.id && conflictTarget === 'id') {

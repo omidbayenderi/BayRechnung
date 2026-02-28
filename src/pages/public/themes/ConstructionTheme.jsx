@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import {
     Phone, Hammer, HardHat, MapPin, Calendar, CheckSquare,
+    Instagram, Facebook, Twitter, Linkedin,
     ArrowRight, Ruler, Briefcase, Building, Layers, Navigation, TrendingUp, GraduationCap, Book, Mail, Menu, X
 } from 'lucide-react';
 import { generateTheme } from '../utils/ColorEngine';
@@ -97,8 +98,35 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                         {profile?.phone && <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Phone size={14} /> {profile.phone}</span>}
                         {profile?.email && <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Mail size={14} /> {profile.email}</span>}
                     </div>
-                    <div style={{ display: 'flex', gap: '20px' }}>
+                    <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                         <span>{isEducation ? t('theme_cons_top_edu') : isConsulting ? t('theme_cons_top_consul') : t('theme_cons_top_const')}</span>
+                        <div style={{ display: 'flex', gap: '16px', borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: '16px' }}>
+                            {(config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram) && (
+                                <a href={config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ color: 'white' }}>
+                                    <Instagram size={14} />
+                                </a>
+                            )}
+                            {(config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook) && (
+                                <a href={config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ color: 'white' }}>
+                                    <Facebook size={14} />
+                                </a>
+                            )}
+                            {(config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter) && (
+                                <a href={config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter} target="_blank" rel="noopener noreferrer" style={{ color: 'white' }}>
+                                    <Twitter size={14} />
+                                </a>
+                            )}
+                            {(config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin) && (
+                                <a href={config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin} target="_blank" rel="noopener noreferrer" style={{ color: 'white' }}>
+                                    <Linkedin size={14} />
+                                </a>
+                            )}
+                            {config?.extraSocialLinks?.map((link, idx) => (
+                                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} style={{ color: 'white' }}>
+                                    <Globe size={14} />
+                                </a>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -248,23 +276,24 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                     position: 'relative',
                     minHeight: '500px',
                     clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0 100%)',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    background: config?.hero?.type === 'color' ? DS.primary : 'transparent'
                 }}>
                     <div style={{
                         backgroundImage: config?.hero?.type === 'image' && config?.hero?.url
                             ? `url(${config.hero.url})`
-                            : 'url(https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80)',
+                            : (config?.hero?.type !== 'color' ? 'url(https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80)' : 'none'),
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         position: 'absolute',
                         inset: 0
                     }} />
-                    {/* Overlay for dynamic image */}
-                    {config?.hero?.type === 'image' && config?.hero?.url && (
+                    {/* Overlay for dynamic content */}
+                    {(config?.hero?.type === 'image' || config?.hero?.type === 'video') && (
                         <div style={{
                             position: 'absolute',
                             inset: 0,
-                            background: `rgba(0,0,0,${config.hero.overlay || 0.3})`,
+                            background: `rgba(0,0,0,${config.hero.overlay ?? 0.3})`,
                             zIndex: 1
                         }}></div>
                     )}
@@ -319,6 +348,33 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                         <div>
                             <h4 style={{ color: 'white', fontFamily: '"Roboto Slab", serif', fontSize: '2rem', marginBottom: '24px', fontWeight: '800' }}>{profile?.companyName}</h4>
                             <p style={{ maxWidth: '400px', lineHeight: '1.8', fontSize: '0.95rem' }}>{config?.footer?.description || 'İnşaat sektöründe güven ve kalitenin adresi. Modern yapılar, sürdürülebilir çözümler.'}</p>
+                            <div style={{ display: 'flex', gap: '16px', marginTop: '24px', flexWrap: 'wrap' }}>
+                                {(config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram) && (
+                                    <a href={config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.primary} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                                        <Instagram size={18} />
+                                    </a>
+                                )}
+                                {(config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook) && (
+                                    <a href={config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.primary} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                                        <Facebook size={18} />
+                                    </a>
+                                )}
+                                {(config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter) && (
+                                    <a href={config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter} target="_blank" rel="noopener noreferrer" style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.primary} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                                        <Twitter size={18} />
+                                    </a>
+                                )}
+                                {(config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin) && (
+                                    <a href={config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin} target="_blank" rel="noopener noreferrer" style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.primary} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                                        <Linkedin size={18} />
+                                    </a>
+                                )}
+                                {config?.extraSocialLinks?.map((link, idx) => (
+                                    <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = DS.primary} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                                        <Globe size={18} />
+                                    </a>
+                                ))}
+                            </div>
 
                             {/* Dynamic Working Hours */}
                             {(siteData?.appointmentSettings?.workingHours || (siteData?.appointmentSettings?.holidays && siteData.appointmentSettings.holidays.length > 0)) && (
@@ -327,19 +383,33 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                                         <Calendar size={18} color={DS.primary} /> {t('footer_working_hours')}
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: '#d6d3d1' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
-                                            <span style={{ fontWeight: '600' }}>{t('footer_weekdays')}:</span>
-                                            <span style={{ fontWeight: '700', color: 'white' }}>
-                                                {siteData.appointmentSettings?.workingHours?.start} - {siteData.appointmentSettings?.workingHours?.end}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px' }}>
-                                            <span style={{ fontWeight: '600' }}>{t('footer_weekend')}:</span>
-                                            <span style={{ color: '#a8a29e' }}>
-                                                {siteData.appointmentSettings?.workingDays?.some(d => ['Sat', 'Sun'].includes(d))
-                                                    ? `${siteData.appointmentSettings?.workingHours?.start} - ${siteData.appointmentSettings?.workingHours?.end}`
-                                                    : t('footer_closed')}
-                                            </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
+                                                const isOpen = siteData.appointmentSettings?.workingDays?.includes(day);
+                                                const dayMap = { 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday', 'Sun': 'sunday' };
+
+                                                const schedule = siteData.appointmentSettings?.schedule;
+                                                const isWeekend = ['Sat', 'Sun'].includes(day);
+
+                                                const hrs = (schedule && schedule[day])
+                                                    ? schedule[day]
+                                                    : (isWeekend
+                                                        ? (siteData.appointmentSettings?.workingHoursWeekend?.start ? siteData.appointmentSettings.workingHoursWeekend : siteData.appointmentSettings?.workingHours)
+                                                        : siteData.appointmentSettings?.workingHours);
+
+                                                const tKey = `day_${dayMap[day] || day.toLowerCase()}`;
+
+                                                return (
+                                                    <div key={day} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '4px' }}>
+                                                        <span style={{ fontWeight: '500' }}>{t(tKey)}:</span>
+                                                        <span style={{ fontWeight: isOpen ? '700' : '400', color: isOpen ? 'white' : '#a8a29e' }}>
+                                                            {isOpen
+                                                                ? `${hrs?.start || '09:00'} - ${hrs?.end || '18:00'}`
+                                                                : (t('day_closed'))}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                         {siteData.appointmentSettings?.holidays?.length > 0 && (
                                             <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '4px' }}>

@@ -108,8 +108,10 @@ const Recurring = () => {
                         {recurringTemplates.map(tpl => (
                             <tr key={tpl.id}>
                                 <td>
-                                    <strong>{tpl.recipientName}</strong>
-                                    <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>{tpl.description}</p>
+                                    <strong>{tpl.customerName || tpl.templateName || tpl.recipientName || 'Unbekannt'}</strong>
+                                    {(tpl.description || tpl.notes) && (
+                                        <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>{tpl.description || tpl.notes}</p>
+                                    )}
                                 </td>
                                 <td>
                                     <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>

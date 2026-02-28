@@ -33,7 +33,7 @@ const ProductList = () => {
     };
 
     const handleDelete = (id) => {
-        if (window.confirm(t('confirmDelete') || 'Are you sure?')) {
+        if (window.confirm(t('confirmDelete', 'Bu ürünü silmek istediğinize emin misiniz?'))) {
             deleteProduct(id);
         }
     };
@@ -54,9 +54,7 @@ const ProductList = () => {
         }
         setIsModalOpen(false);
         setEditingProduct(null);
-        setIsModalOpen(false);
-        setEditingProduct(null);
-        setFormData({ name: '', category: 'Products', price: '', stock: '', minStock: 5, sku: '', image: '', description: '' });
+        setFormData({ name: '', category: categories[0] || 'Products', price: '', stock: '', minStock: 5, sku: '', image: '', description: '' });
     };
 
     const handleAddCategory = () => {
@@ -71,7 +69,7 @@ const ProductList = () => {
     const handleDeleteCategory = (e, cat) => {
         e.preventDefault();
         e.stopPropagation();
-        if (window.confirm(`${cat} kategorisini silmek istediğinize emin misiniz?`)) {
+        if (window.confirm(`${cat} ${t('confirmDeleteCategory', 'kategorisini silmek istediğinize emin misiniz?')}`)) {
             deleteCategory(cat);
             // If the selected category was deleted, fallback to default or empty
             if (formData.category === cat) {
@@ -81,8 +79,10 @@ const ProductList = () => {
     };
 
     const filteredProducts = products.filter(product => {
-        const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.sku.toLowerCase().includes(searchTerm.toLowerCase());
+        const name = product.name || '';
+        const sku = product.sku || '';
+        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            sku.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesSearch;
     });
 
@@ -92,8 +92,8 @@ const ProductList = () => {
             {/* Page Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>{t('products') || 'Ürünler & Stok'}</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>{t('manageInventory') || 'Envanter yönetimi ve stok takibi'}</p>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>{t('products', 'Ürünler')}</h1>
+                    <p style={{ color: 'var(--text-muted)' }}>{t('manageInventory', 'Envanter yönetimi')}</p>
                 </div>
                 <button
                     className="primary-btn"
@@ -104,7 +104,7 @@ const ProductList = () => {
                     }}
                     style={{ padding: '12px 24px', borderRadius: '12px', fontSize: '1rem', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
                 >
-                    <Plus size={20} /> {t('addProduct') || 'Yeni Ürün Ekle'}
+                    <Plus size={20} /> {t('addProduct', 'Yeni Ürün Ekle')}
                 </button>
             </div>
 
@@ -114,7 +114,7 @@ const ProductList = () => {
                     <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                     <input
                         type="text"
-                        placeholder={t('searchProductPlaceholder') || 'Ürün adı, SKU veya kategori ara...'}
+                        placeholder={t('searchProductPlaceholder', 'Ürün ara...')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="form-input"
@@ -129,13 +129,13 @@ const ProductList = () => {
                 <table className="modern-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
                         <tr>
-                            <th style={{ padding: '16px 24px', textAlign: 'center', width: '80px', color: 'var(--text-muted)' }}>{t('image') || 'Görsel'}</th>
-                            <th style={{ padding: '16px 24px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('productName') || 'Ürün Adı'}</th>
-                            <th style={{ padding: '16px 24px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('category') || 'Kategori'}</th>
-                            <th style={{ padding: '16px 24px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('sku') || 'Kod (SKU)'}</th>
-                            <th style={{ padding: '16px 24px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('price') || 'Fiyat'}</th>
-                            <th style={{ padding: '16px 24px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('stock') || 'Stok'}</th>
-                            <th style={{ padding: '16px 24px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('actions') || 'İşlemler'}</th>
+                            <th style={{ padding: '16px 24px', textAlign: 'center', width: '80px', color: 'var(--text-muted)' }}>{t('image', 'Görsel')}</th>
+                            <th style={{ padding: '16px 24px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('productName', 'Ürün Adı')}</th>
+                            <th style={{ padding: '16px 24px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('category', 'Kategori')}</th>
+                            <th style={{ padding: '16px 24px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('sku', 'Kod (SKU)')}</th>
+                            <th style={{ padding: '16px 24px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('price', 'Fiyat')}</th>
+                            <th style={{ padding: '16px 24px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('stock', 'Stok')}</th>
+                            <th style={{ padding: '16px 24px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>{t('actions', 'İşlemler')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -143,7 +143,7 @@ const ProductList = () => {
                             <tr>
                                 <td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     <Package size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />
-                                    <p>{t('noProductsFound') || 'Ürün bulunamadı.'}</p>
+                                    <p>{t('noProductsFound', 'Ürün bulunamadı.')}</p>
                                 </td>
                             </tr>
                         ) : (
@@ -164,7 +164,7 @@ const ProductList = () => {
                                             <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{product.name}</div>
                                             {isLowStock && (
                                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#ef4444', marginTop: '4px', background: '#fee2e2', padding: '2px 8px', borderRadius: '4px' }}>
-                                                    <AlertTriangle size={12} /> {t('lowStock') || 'Kritik Stok'}
+                                                    <AlertTriangle size={12} /> {t('lowStockBadge', 'Kritik Stok')}
                                                 </div>
                                             )}
                                         </td>
@@ -231,13 +231,13 @@ const ProductList = () => {
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('productName') || 'Ürün Adı'}</label>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('productName', 'Ürün Adı')}</label>
                                 <input
                                     className="form-input"
                                     required
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="Örn: Motor Yağı 5W-30"
+                                    placeholder={`${t('eg', 'Örn:')} Motor Yağı 5W-30`}
                                     style={{ width: '100%', height: '48px', padding: '0 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
                                 />
                             </div>
@@ -245,7 +245,7 @@ const ProductList = () => {
                             {/* Product Type Selector */}
                             <div className="form-group">
                                 <label style={{ display: 'block', marginBottom: '12px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
-                                    {t('productType') || 'Ürün Tipi'}
+                                    {t('productType', 'Ürün Tipi')}
                                 </label>
                                 <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
                                     <button
@@ -268,7 +268,7 @@ const ProductList = () => {
                                         }}
                                     >
                                         <Package size={20} />
-                                        {t('physicalProduct') || 'Fiziksel Ürün'}
+                                        {t('physicalProduct', 'Fiziksel Ürün')}
                                     </button>
                                     <button
                                         type="button"
@@ -290,7 +290,7 @@ const ProductList = () => {
                                         }}
                                     >
                                         <Download size={20} />
-                                        {t('digitalProduct') || 'Dijital / Hizmet'}
+                                        {t('digitalProduct', 'Dijital / Hizmet')}
                                     </button>
                                 </div>
                             </div>
@@ -300,7 +300,7 @@ const ProductList = () => {
                                 <div className="form-group" style={{ marginBottom: '20px', padding: '16px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
                                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <Link size={16} />
-                                        {t('downloadLink') || 'İndirme Linki / Dosya URL'}
+                                        {t('downloadLink', 'İndirme Linki')}
                                     </label>
                                     <input
                                         className="form-input"
@@ -310,26 +310,26 @@ const ProductList = () => {
                                         style={{ width: '100%', height: '48px', padding: '0 16px', borderRadius: '12px', border: '1px solid #bbf7d0' }}
                                     />
                                     <small style={{ color: '#166534', marginTop: '6px', display: 'block' }}>
-                                        * Bu link, satın alma sonrası müşteriye otomatik gönderilir.
+                                        {t('digitalDownloadUrlHelp', '* Bu link, satın alma sonrası müşteriye otomatik gönderilir.')}
                                     </small>
                                 </div>
                             )}
 
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('description') || 'Açıklama'}</label>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('description', 'Açıklama')}</label>
                                 <textarea
                                     className="form-input"
                                     rows="2"
                                     value={formData.description || ''}
                                     onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    placeholder="Ürün hakkında kısa bilgi..."
+                                    placeholder={t('productDescriptionPlaceholder', 'Ürün hakkında kısa bilgi...')}
                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontFamily: 'inherit', resize: 'vertical' }}
                                 />
                             </div>
 
                             {/* Media Manager Section */}
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('productMedia') || 'Ürün Görselleri ve Video'}</label>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('productMedia', 'Ürün Görselleri ve Video')}</label>
 
                                 {/* 1. Upload Buttons Area */}
                                 <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
@@ -365,7 +365,7 @@ const ProductList = () => {
                                                 }
                                             }}
                                         />
-                                        <ImageIcon size={18} /> Resim Ekle (Çoklu)
+                                        <ImageIcon size={18} /> {t('addImagesMulti', 'Resim Ekle (Çoklu)')}
                                     </label>
 
                                     {/* Upload Video */}
@@ -379,7 +379,7 @@ const ProductList = () => {
                                                 const file = e.target.files[0];
                                                 if (file) {
                                                     if (file.size > 50 * 1024 * 1024) { // 50MB Limit Alert
-                                                        alert("Video boyutu çok yüksek! Lütfen 50MB altı yükleyin.");
+                                                        alert(t('videoSizeError', 'Video boyutu çok yüksek! Lütfen 50MB altı yükleyin.'));
                                                         return;
                                                     }
                                                     const reader = new FileReader();
@@ -393,7 +393,7 @@ const ProductList = () => {
                                         />
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-                                            Video Ekle
+                                            {t('addVideo', 'Video Ekle')}
                                         </div>
                                     </label>
                                 </div>
@@ -415,7 +415,7 @@ const ProductList = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setFormData({ ...formData, image: imgUrl })}
-                                                    title="Ana Görsel Yap"
+                                                    title={t('setAsMainImage', 'Ana Görsel Yap')}
                                                     style={{ background: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: formData.image === imgUrl ? '#fbbf24' : '#94a3b8' }}
                                                 >
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill={formData.image === imgUrl ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
@@ -440,7 +440,7 @@ const ProductList = () => {
 
                                             {/* Main Badge */}
                                             {formData.image === imgUrl && (
-                                                <div style={{ position: 'absolute', top: '4px', left: '4px', background: 'var(--primary)', color: 'white', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>ANA</div>
+                                                <div style={{ position: 'absolute', top: '4px', left: '4px', background: 'var(--primary)', color: 'white', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>{t('main', 'ANA')}</div>
                                             )}
                                         </div>
                                     ))}
@@ -470,19 +470,19 @@ const ProductList = () => {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('sku') || 'Kod (SKU)'}</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('sku', 'Kod (SKU)')}</label>
                                     <input
                                         className="form-input"
                                         required
                                         value={formData.sku}
                                         onChange={e => setFormData({ ...formData, sku: e.target.value })}
-                                        placeholder="Örn: OIL-001"
+                                        placeholder={`${t('eg', 'Örn:')} OIL-001`}
                                         style={{ width: '100%', height: '48px', padding: '0 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
                                     />
                                 </div>
 
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('category') || 'Kategori'}</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('category', 'Kategori')}</label>
 
                                     {!isAddingCategory ? (
                                         <div style={{ display: 'flex', gap: '8px' }}>
@@ -503,7 +503,7 @@ const ProductList = () => {
                                                 type="button"
                                                 onClick={() => setIsAddingCategory(true)}
                                                 style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#f0f9ff', color: 'var(--primary)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                title={t('addNewCategory') || 'Yeni Kategori Ekle'}
+                                                title={t('addNewCategory', 'Yeni Kategori Ekle')}
                                             >
                                                 <Plus size={20} />
                                             </button>
@@ -513,7 +513,7 @@ const ProductList = () => {
                                                 type="button"
                                                 onClick={(e) => handleDeleteCategory(e, formData.category)}
                                                 style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                title={t('deleteCategory') || 'Seçili Kategoriyi Sil'}
+                                                title={t('deleteCategory', 'Seçili Kategoriyi Sil')}
                                             >
                                                 <Trash2 size={20} />
                                             </button>
@@ -525,7 +525,7 @@ const ProductList = () => {
                                                 type="text"
                                                 value={newCategoryName}
                                                 onChange={(e) => setNewCategoryName(e.target.value)}
-                                                placeholder={t('newCategoryName') || 'Kategori adı...'}
+                                                placeholder={t('newCategoryName', 'Kategori adı...')}
                                                 style={{ flex: 1, height: '48px', padding: '0 16px', borderRadius: '12px', border: '1px solid var(--primary)', outline: 'none' }}
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter') {
@@ -555,7 +555,7 @@ const ProductList = () => {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('price') || 'Satış Fiyatı (€)'}</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('price', 'Fiyat')}</label>
                                     <input
                                         type="number"
                                         step="0.01"
@@ -567,7 +567,7 @@ const ProductList = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('stock') || 'Stok Adedi'}</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('stock', 'Stok')}</label>
                                     <input
                                         type="number"
                                         className="form-input"
@@ -580,7 +580,7 @@ const ProductList = () => {
                             </div>
 
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('minStockAlert') || 'Kritik Stok Uyarı Limiti'}</label>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: 'var(--text-secondary)' }}>{t('minStockAlert', 'Kritik Stok Uyarı Limiti')}</label>
                                 <input
                                     type="number"
                                     className="form-input"
@@ -588,15 +588,15 @@ const ProductList = () => {
                                     onChange={e => setFormData({ ...formData, minStock: e.target.value })}
                                     style={{ width: '100%', height: '48px', padding: '0 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
                                 />
-                                <small style={{ color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Stok bu sayının altına düşerse uyarı verir.</small>
+                                <small style={{ color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{t('minStockAlertHelp', 'Stok bu sayının altına düşerse uyarı verir.')}</small>
                             </div>
 
                             <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
                                 <button type="button" className="secondary-btn" onClick={() => setIsModalOpen(false)} style={{ flex: 1, height: '56px', borderRadius: '14px', border: '1px solid var(--border)', background: 'white', color: 'var(--text-secondary)', fontWeight: '600' }}>
-                                    {t('cancel') || 'İptal'}
+                                    {t('cancel', 'İptal')}
                                 </button>
                                 <button type="submit" className="primary-btn" style={{ flex: 2, height: '56px', borderRadius: '14px', background: 'var(--primary)', color: 'white', fontWeight: '600', border: 'none', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
-                                    {t('save') || 'Kaydet'}
+                                    {t('save', 'Kaydet')}
                                 </button>
                             </div>
                         </form>

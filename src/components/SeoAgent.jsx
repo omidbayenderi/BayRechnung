@@ -15,6 +15,7 @@ const SeoAgent = ({ websiteData, profile }) => {
 
         // 1. DATA EXTRACTION & INTELLIGENCE
         // ------------------------------------------------
+        const industry = websiteData.config?.businessCategory || profile?.industry || 'LocalBusiness';
         const companyName = profile?.companyName || websiteData.hero?.title || 'İşletme Adı';
         const rawDescription = websiteData.sections?.find(s => s.type === 'text')?.data?.text ||
             websiteData.hero?.subtitle ||
@@ -30,7 +31,7 @@ const SeoAgent = ({ websiteData, profile }) => {
             .filter(Boolean)
             .join(', ');
 
-        const baseKeywords = `${companyName}, ${profile?.industry || 'Hizmet'}, ${serviceKeywords || ''}, profesyonel, kaliteli, uygun fiyat`;
+        const baseKeywords = `${companyName}, ${industry}, ${serviceKeywords || ''}, profesyonel, kaliteli, uygun fiyat`;
 
         // 2. DOM MANIPULATION (META TAGS)
         // ------------------------------------------------
@@ -90,7 +91,7 @@ const SeoAgent = ({ websiteData, profile }) => {
 
         const jsonLd = {
             "@context": "https://schema.org",
-            "@type": "LocalBusiness",
+            "@type": industry,
             "name": companyName,
             "image": websiteData.hero?.image || "",
             "description": cleanDescription,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { syncService } from '../../lib/SyncService';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
@@ -50,16 +51,8 @@ const ProjectKanban = () => {
         // Optimistic update
         setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
 
-        const { error } = await supabase
-            .from('projects')
-            .update({ status: newStatus, updated_at: new Date().toISOString() })
-            .eq('id', projectId);
-
-        if (error) {
-            console.error('Error updating project status:', error);
-            // Revert could be implemented here
-            return;
-        }
+        // Enqueue update for background sync
+        syncService.enqueue('projects', 'update', { status: newStatus, updated_at: new Date().toISOString() }, projectId);
 
         if (newStatus === 'billed') {
             const project = projects.find(p => p.id === projectId);
@@ -80,25 +73,22 @@ const ProjectKanban = () => {
         if (!name) return;
         const client = prompt(t('client_name') + ':');
 
+        const id = crypto.randomUUID?.() || `proj-${Date.now()}`;
         const newProject = {
+            id,
             user_id: currentUser?.id,
             name,
             client_name: client,
             status: 'lead',
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            progress: 5
         };
 
-        const { data, error } = await supabase
-            .from('projects')
-            .insert(newProject)
-            .select()
-            .single();
+        // Update UI immediately (Optimistic)
+        setProjects(prev => [newProject, ...prev]);
 
-        if (error) {
-            // Fallback for local dev
-            setProjects(prev => [{ ...newProject, id: Date.now() }, ...prev]);
-        }
-        else setProjects(prev => [data, ...prev]);
+        // Enqueue insert for background sync
+        syncService.enqueue('projects', 'insert', newProject, id);
     };
 
     if (loading) return <div className="p-8 text-center">{t('loading')}</div>;
@@ -186,6 +176,21 @@ const ProjectKanban = () => {
                                                     <DollarSign size={14} className="text-muted" /> {project.budget}
                                                 </div>
                                             )}
+                                        </div>
+
+                                        <div style={{ marginTop: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>
+                                                <span>{t('progress') || 'İlerleme'}</span>
+                                                <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{project.progress || (stage.id === 'completed' || stage.id === 'billed' ? 100 : stage.id === 'in_progress' ? 65 : stage.id === 'quoted' ? 25 : 5)}%</span>
+                                            </div>
+                                            <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
+                                                <div style={{
+                                                    height: '100%',
+                                                    width: `${project.progress || (stage.id === 'completed' || stage.id === 'billed' ? 100 : stage.id === 'in_progress' ? 65 : stage.id === 'quoted' ? 25 : 5)}%`,
+                                                    background: stage.color,
+                                                    transition: 'width 0.3s ease'
+                                                }} />
+                                            </div>
                                         </div>
 
                                         <div style={{

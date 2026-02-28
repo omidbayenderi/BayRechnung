@@ -1,9 +1,9 @@
-
 import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
-    Phone, Mail, MapPin, Instagram, Facebook, Star,
-    Calendar, ArrowRight, CheckCircle, Menu, X,
-    ShoppingBag, User, LogIn, Navigation, Utensils, Stethoscope, Heart, Scissors, Sparkles
+    Phone, Mail, MapPin, Clock, Calendar, ChevronRight,
+    ArrowRight, Star, ShoppingCart, Menu, X, Facebook, Instagram, Twitter, Linkedin,
+    Heart, Sparkles, User, LogOut, Settings, Globe, CheckCircle, ShoppingBag, Utensils, Stethoscope, Scissors
 } from 'lucide-react';
 import { generateTheme } from '../utils/ColorEngine';
 
@@ -109,8 +109,31 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                         {profile?.email && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={12} /> {profile.email}</span>}
                     </div>
                     <div style={{ display: 'flex', gap: '16px' }}>
-                        <Instagram size={12} style={{ cursor: 'pointer' }} />
-                        <Facebook size={12} style={{ cursor: 'pointer' }} />
+                        {(config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram) && (
+                            <a href={config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+                                <Instagram size={12} style={{ cursor: 'pointer' }} />
+                            </a>
+                        )}
+                        {(config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook) && (
+                            <a href={config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+                                <Facebook size={12} style={{ cursor: 'pointer' }} />
+                            </a>
+                        )}
+                        {(config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter) && (
+                            <a href={config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+                                <Twitter size={12} style={{ cursor: 'pointer' }} />
+                            </a>
+                        )}
+                        {(config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin) && (
+                            <a href={config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+                                <Linkedin size={12} style={{ cursor: 'pointer' }} />
+                            </a>
+                        )}
+                        {config?.extraSocialLinks?.map((link, idx) => (
+                            <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} style={{ color: 'inherit' }}>
+                                <Globe size={12} style={{ cursor: 'pointer' }} />
+                            </a>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -273,9 +296,11 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                 padding: '120px 24px',
                 textAlign: 'center',
                 overflow: 'hidden',
-                background: config?.hero?.type === 'image' && config?.hero?.url
-                    ? `url(${config.hero.url}) center/cover no-repeat`
-                    : `linear-gradient(to bottom, ${DS.accent}, white)`
+                background: config?.hero?.type === 'color'
+                    ? DS.bg
+                    : (config?.hero?.type === 'image' && config?.hero?.url
+                        ? `url(${config.hero.url}) center/cover no-repeat`
+                        : `linear-gradient(to bottom, ${DS.accent}, white)`)
             }}>
                 {/* Overlay for background image */}
                 {config?.hero?.type === 'image' && config?.hero?.url && (
@@ -297,9 +322,9 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                         {config?.hero?.description || (isBeauty ? t('theme_hero_desc_beauty') : isGastronomy ? t('theme_hero_desc_gastro') : isHealthcare ? t('theme_hero_desc_health') : t('theme_hero_desc_retail'))}
                     </p>
                     <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                        <a href="/BayRechnung/booking" style={{ background: DS.primary, color: DS.buttonText, textDecoration: 'none', padding: '18px 48px', borderRadius: '50px', fontSize: '1rem', fontWeight: '700', boxShadow: `0 20px 40px -10px ${DS.primary}66` }}>
+                        <Link to={`/booking?domain=${siteData.domain || 'demo'}`} style={{ background: DS.primary, color: DS.buttonText, textDecoration: 'none', padding: '18px 48px', borderRadius: '50px', fontSize: '1rem', fontWeight: '700', boxShadow: `0 20px 40px -10px ${DS.primary}66` }}>
                             {t('theme_cta_book')}
-                        </a>
+                        </Link>
                         <a href="#services" style={{ background: 'white', color: DS.text, textDecoration: 'none', padding: '18px 48px', borderRadius: '50px', fontSize: '1rem', fontWeight: '700', border: `1px solid ${DS.border}` }}>
                             {t('theme_cta_services')}
                         </a>
@@ -336,9 +361,9 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                                     <div style={{ fontSize: '0.75rem', color: DS.textSecondary, textTransform: 'uppercase', fontWeight: '700' }}>{t('theme_price')}</div>
                                     <div style={{ fontSize: '1.25rem', fontWeight: '700', color: DS.primary }}>{Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
                                 </div>
-                                <a href={`/BayRechnung/booking?service=${service.id}`} style={{ background: DS.primary, width: '100%', textAlign: 'center', color: DS.buttonText, textDecoration: 'none', padding: '12px 24px', borderRadius: '50px', fontSize: '0.9rem', fontWeight: '700' }}>
+                                <Link to={`/booking?domain=${siteData.domain || 'demo'}&service=${service.id}`} style={{ background: DS.primary, width: '100%', textAlign: 'center', color: DS.buttonText, textDecoration: 'none', padding: '12px 24px', borderRadius: '50px', fontSize: '0.9rem', fontWeight: '700' }}>
                                     {t('theme_cta_book')}
-                                </a>
+                                </Link>
                             </div>
                         </div>
                     ))}
@@ -402,10 +427,32 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                         <p style={{ color: DS.textSecondary, lineHeight: '1.8', marginBottom: '24px' }}>
                             {config?.footer?.description || (isBeauty ? 'Profesyonel güzellik ve bakım hizmetleri ile kendinizi özel hissedin.' : isGastronomy ? 'En taze malzemeler ve kusursuz servis anlayışıyla hizmetinizdeyiz.' : isHealthcare ? 'Modern teknoloji ve şevkatli bakım anlayışını birleştiriyoruz.' : 'Stilinizi yansıtan en seçkin ürünleri beğeninize sunuyoruz.')}
                         </p>
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            <Instagram style={{ color: DS.primary, cursor: 'pointer' }} />
-                            <Facebook style={{ color: DS.primary, cursor: 'pointer' }} />
-                            <Mail style={{ color: DS.primary, cursor: 'pointer' }} />
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                            {(config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram) && (
+                                <a href={config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ color: DS.primary }}>
+                                    <Instagram style={{ cursor: 'pointer' }} />
+                                </a>
+                            )}
+                            {(config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook) && (
+                                <a href={config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ color: DS.primary }}>
+                                    <Facebook style={{ cursor: 'pointer' }} />
+                                </a>
+                            )}
+                            {(config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter) && (
+                                <a href={config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter} target="_blank" rel="noopener noreferrer" style={{ color: DS.primary }}>
+                                    <Twitter style={{ cursor: 'pointer' }} />
+                                </a>
+                            )}
+                            {(config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin) && (
+                                <a href={config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin} target="_blank" rel="noopener noreferrer" style={{ color: DS.primary }}>
+                                    <Linkedin style={{ cursor: 'pointer' }} />
+                                </a>
+                            )}
+                            {config?.extraSocialLinks?.map((link, idx) => (
+                                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} style={{ color: DS.primary }}>
+                                    <Globe style={{ cursor: 'pointer' }} />
+                                </a>
+                            ))}
                         </div>
 
                         {/* Dynamic Working Hours */}
@@ -415,24 +462,34 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                                     <Calendar size={18} /> {t('footer_working_hours')}
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: DS.textSecondary }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px dashed ${DS.border}`, paddingBottom: '8px' }}>
-                                        <span>{t('footer_weekdays')}:</span>
-                                        <span style={{ fontWeight: '600', color: DS.text }}>
-                                            {siteData.appointmentSettings?.workingHours?.start} - {siteData.appointmentSettings?.workingHours?.end}
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px' }}>
-                                        <span>{t('footer_weekend')}:</span>
-                                        <span style={{ fontStyle: 'italic' }}>
-                                            {siteData.appointmentSettings?.workingDays?.some(d => ['Sat', 'Sun'].includes(d))
-                                                ? `${siteData.appointmentSettings?.workingHours?.start} - ${siteData.appointmentSettings?.workingHours?.end}`
-                                                : t('footer_closed')}
-                                        </span>
-                                    </div>
+                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(dayCode => {
+                                        const isOpen = siteData.appointmentSettings?.workingDays?.includes(dayCode);
+                                        const dayMap = { 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday', 'Sun': 'sunday' };
+
+                                        const schedule = siteData.appointmentSettings?.schedule;
+                                        const isWeekend = ['Sat', 'Sun'].includes(dayCode);
+
+                                        const hours = (schedule && schedule[dayCode])
+                                            ? schedule[dayCode]
+                                            : (isWeekend
+                                                ? (siteData.appointmentSettings?.workingHoursWeekend?.start ? siteData.appointmentSettings.workingHoursWeekend : siteData.appointmentSettings?.workingHours)
+                                                : siteData.appointmentSettings?.workingHours);
+
+                                        const tKey = `day_${dayMap[dayCode] || dayCode.toLowerCase()}`;
+
+                                        return (
+                                            <div key={dayCode} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px dashed ${DS.border}`, paddingBottom: '4px' }}>
+                                                <span style={{ color: isOpen ? DS.textSecondary : 'rgba(0,0,0,0.3)' }}>{t(tKey)}:</span>
+                                                <span style={{ fontWeight: isOpen ? '600' : 'normal', color: isOpen ? DS.text : 'rgba(0,0,0,0.3)', fontStyle: isOpen ? 'normal' : 'italic' }}>
+                                                    {isOpen ? `${hours?.start} - ${hours?.end}` : t('day_closed')}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                     {siteData.appointmentSettings?.holidays?.length > 0 && (
                                         <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: `1px dashed ${DS.border}`, marginTop: '4px' }}>
                                             <span>{t('footer_holidays')}:</span>
-                                            <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{t('footer_closed')}</span>
+                                            <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{t('day_closed')}</span>
                                         </div>
                                     )}
                                 </div>
@@ -467,7 +524,7 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                 <div style={{ maxWidth: '1200px', margin: '40px auto 0', paddingTop: '40px', borderTop: `1px solid ${DS.border}`, textAlign: 'center', color: DS.textSecondary, fontSize: '0.85rem' }}>
                     &copy; {new Date().getFullYear()} {profile?.companyName}. {t('theme_footer_rights')}
                 </div>
-            </footer>
+            </footer >
         </div >
     );
 };

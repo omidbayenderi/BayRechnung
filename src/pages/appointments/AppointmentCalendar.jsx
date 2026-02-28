@@ -43,9 +43,19 @@ const AppointmentCalendar = () => {
 
     const weekDays = getWeekDays(currentDate);
 
-    // Generate time slots based on working hours
-    const startHour = parseInt(settings.workingHours?.start?.split(':')[0] || '09');
-    const endHour = parseInt(settings.workingHours?.end?.split(':')[0] || '18');
+    // Generate time slots based on the combined range of weekday and weekend hours
+    const wh = settings.workingHours || { start: '09:00', end: '18:00' };
+    const whw = settings.workingHoursWeekend || { start: '10:00', end: '16:00' };
+
+    const startHour = Math.min(
+        parseInt(wh.start?.split(':')[0] || '9'),
+        parseInt(whw.start?.split(':')[0] || '10')
+    );
+    const endHour = Math.max(
+        parseInt(wh.end?.split(':')[0] || '18'),
+        parseInt(whw.end?.split(':')[0] || '16')
+    );
+
     const timeSlots = [];
     for (let i = startHour; i < endHour; i++) {
         timeSlots.push(`${i.toString().padStart(2, '0')}:00`);
@@ -96,6 +106,16 @@ const AppointmentCalendar = () => {
         return time >= settings.breaks.start && time < settings.breaks.end;
     };
 
+    const isClosed = (day, time) => {
+        const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
+        if (!settings.workingDays?.includes(dayName)) return true;
+
+        const isWeekend = dayName === 'Sat' || dayName === 'Sun';
+        const hours = isWeekend ? settings.workingHoursWeekend : settings.workingHours;
+
+        return time < hours.start || time >= hours.end;
+    };
+
     return (
         <div className="page-container" style={{ position: 'relative' }}>
             <header className="page-header">
@@ -125,21 +145,25 @@ const AppointmentCalendar = () => {
 
                     {/* Header Row (Days) */}
                     <div style={{ padding: '12px', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid var(--border)' }}></div>
-                    {weekDays.map((day, i) => (
-                        <div key={i} style={{
-                            padding: '12px',
-                            background: '#f8fafc',
-                            textAlign: 'center',
-                            borderBottom: '1px solid var(--border)',
-                            borderRight: '1px solid var(--border)',
-                            position: 'sticky', top: 0, zIndex: 10,
-                            color: day.toDateString() === new Date().toDateString() ? 'var(--primary)' : 'inherit',
-                            opacity: settings.workingDays.includes(day.toLocaleDateString('en-US', { weekday: 'short' })) ? 1 : 0.5
-                        }}>
-                            <div style={{ fontWeight: '600' }}>{day.toLocaleDateString(t('locale', 'tr-TR'), { weekday: 'short' })}</div>
-                            <div style={{ fontSize: '1.2rem' }}>{day.getDate()}</div>
-                        </div>
-                    ))}
+                    {weekDays.map((day, i) => {
+                        const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
+                        const isWorkingDay = settings.workingDays?.includes(dayName);
+                        return (
+                            <div key={i} style={{
+                                padding: '12px',
+                                background: '#f8fafc',
+                                textAlign: 'center',
+                                borderBottom: '1px solid var(--border)',
+                                borderRight: '1px solid var(--border)',
+                                position: 'sticky', top: 0, zIndex: 10,
+                                color: day.toDateString() === new Date().toDateString() ? 'var(--primary)' : 'inherit',
+                                opacity: isWorkingDay ? 1 : 0.5
+                            }}>
+                                <div style={{ fontWeight: '600' }}>{day.toLocaleDateString(t('locale', 'tr-TR'), { weekday: 'short' })}</div>
+                                <div style={{ fontSize: '1.2rem' }}>{day.getDate()}</div>
+                            </div>
+                        );
+                    })}
 
                     {/* Time Slots */}
                     {timeSlots.map(time => (
@@ -164,13 +188,13 @@ const AppointmentCalendar = () => {
                                 return (
                                     <div
                                         key={i}
-                                        onClick={() => !isDailyBreak && handleSlotClick(dayStr, time)}
+                                        onClick={() => !isDailyBreak && !isClosed(day, time) && handleSlotClick(dayStr, time)}
                                         style={{
                                             borderRight: '1px solid var(--border)',
                                             borderBottom: '1px solid var(--border)',
                                             position: 'relative',
-                                            background: isDailyBreak ? '#f3f4f6' : isSelected ? 'var(--primary-light)' : 'white',
-                                            cursor: isDailyBreak ? 'not-allowed' : 'pointer',
+                                            background: isClosed(day, time) ? '#f1f5f9' : isDailyBreak ? '#f3f4f6' : isSelected ? 'var(--primary-light)' : 'white',
+                                            cursor: (isDailyBreak || isClosed(day, time)) ? 'not-allowed' : 'pointer',
                                             minHeight: '60px'
                                         }}
                                     >

@@ -195,6 +195,38 @@ export const InvoiceProvider = ({ children }) => {
         };
     };
 
+    // Helper: Normalize expenses
+    const normalizeExpense = (exp) => {
+        if (!exp) return null;
+        return {
+            ...exp,
+            id: exp.id,
+            user_id: exp.user_id,
+            date: exp.date || exp.created_at?.split('T')[0],
+            title: exp.title,
+            amount: parseFloat(exp.amount) || 0,
+            category: exp.category,
+            currency: exp.currency || 'EUR',
+            receiptImage: exp.receipt_image || exp.receiptImage
+        };
+    };
+
+    const normalizeRecurringTemplate = (t) => {
+        if (!t) return null;
+        return {
+            ...t,
+            id: t.id,
+            templateName: t.template_name || t.templateName || '',
+            customerName: t.customer_name || t.customerName || t.recipientName || '',
+            customerEmail: t.customer_email || t.customerEmail || '',
+            amount: parseFloat(t.amount) || 0,
+            frequency: t.frequency || 'monthly',
+            currency: t.currency || 'EUR',
+            status: t.status || 'active',
+            items: t.items || [],
+            description: t.description || t.notes || ''
+        };
+    };
     // UUID Generator Polyfill
     const uuidv4 = () => {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -235,6 +267,44 @@ export const InvoiceProvider = ({ children }) => {
             }
         });
 
+        // 4. PROPAGATION LAG PROTECTION:
+        // If local storage has items that are neither in DB nor in sync queue, 
+        // they might be recently synced items that haven't propagated to the read-replica yet.
+        // Also for UPDATES: If local state has a different status/value than DB, and queue is empty,
+        // it might be lag.
+        const localItemsStr = localStorage.getItem(`bay_${tableName}_${currentUser?.id}`);
+        if (localItemsStr) {
+            try {
+                const localItems = JSON.parse(localItemsStr);
+                localItems.forEach(localItem => {
+                    const idx = merged.findIndex(m => String(m.id) === String(localItem.id));
+                    const isDeleted = queue.find(q => q.action === 'delete' && String(q.targetId) === String(localItem.id));
+
+                    if (idx === -1 && !isDeleted) {
+                        // Missing item (likely lag on insert)
+                        if (localItem.id && String(localItem.id).length > 5) {
+                            merged.push(localItem);
+                        }
+                    } else if (idx !== -1 && !isDeleted) {
+                        // Item exists in DB but might be lagging (lag on update)
+                        // Heuristic: If queue is empty for this item, but local differs from remote,
+                        // and it's an important field like 'status' for invoices.
+                        const hasPendingUpdate = queue.find(q => q.action === 'update' && String(q.targetId) === String(localItem.id));
+                        if (!hasPendingUpdate) {
+                            // Merge local changes if they look like user-set data
+                            // This is risky but helps with status reversion.
+                            // We only do this for specific fields or if local is highly trusted.
+                            if (tableName === 'invoices' && localItem.status !== merged[idx].status) {
+                                merged[idx] = { ...merged[idx], status: localItem.status };
+                            }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.warn("Failed to parse local storage in merge", e);
+            }
+        }
+
         return merged.map(normalizer);
     };
 
@@ -251,12 +321,16 @@ export const InvoiceProvider = ({ children }) => {
                 const localInvoices = localStorage.getItem(`bay_invoices_${currentUser.id}`);
                 const localQuotes = localStorage.getItem(`bay_quotes_${currentUser.id}`);
                 const localExpenses = localStorage.getItem(`bay_expenses_${currentUser.id}`);
+                const localRecurring = localStorage.getItem(`bay_recurring_templates_${currentUser.id}`);
+                const localStaff = localStorage.getItem(`bay_staff_${currentUser.id}`);
                 const localProfile = localStorage.getItem(`bay_profile_${currentUser.id}`);
 
                 // Data in localStorage is already normalized to state format, so just parse and set
                 if (localInvoices) setInvoices(JSON.parse(localInvoices));
                 if (localQuotes) setQuotes(JSON.parse(localQuotes));
                 if (localExpenses) setExpenses(JSON.parse(localExpenses));
+                if (localRecurring) setRecurringTemplates(JSON.parse(localRecurring));
+                if (localStaff) setEmployees(JSON.parse(localStaff));
                 if (localProfile) setCompanyProfile(prev => ({ ...prev, ...JSON.parse(localProfile) }));
 
                 // CRITICAL: Set loading to false as soon as local cache is ready.
@@ -314,7 +388,7 @@ export const InvoiceProvider = ({ children }) => {
                 }
 
                 if (!expRes.error && expRes.data) {
-                    setExpenses(mergeWithLocalQueue(expRes.data, 'expenses'));
+                    setExpenses(mergeWithLocalQueue(expRes.data, 'expenses', normalizeExpense));
                 }
 
                 // Merge with pending sync queue for immediate consistency after refresh
@@ -330,8 +404,10 @@ export const InvoiceProvider = ({ children }) => {
                 }
 
                 if (msgRes.data) setMessages(msgRes.data.map(normalizeMessage));
-                if (staffRes.data) setEmployees(staffRes.data);
-                if (recurringRes.data) setRecurringTemplates(recurringRes.data);
+                if (staffRes.data) setEmployees(mergeWithLocalQueue(staffRes.data, 'staff'));
+                if (recurringRes.data) {
+                    setRecurringTemplates(mergeWithLocalQueue(recurringRes.data, 'recurring_templates', normalizeRecurringTemplate));
+                }
                 const pendingCustom = syncQueue
                     .filter(item => item.table === 'invoice_customization' && (item.action === 'insert' || item.action === 'update'))
                     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
@@ -418,7 +494,7 @@ export const InvoiceProvider = ({ children }) => {
             supabase.removeChannel(messageChannel);
             supabase.removeChannel(reportChannel);
         };
-    }, [currentUser?.id]);
+    }, [currentUser?.id, currentUser?.isSkeleton, currentUser?.isTimeout]);
 
     // For development, we keep localStorage as a temporary cache
     // LocalStorage Persistence - Granular syncing to prevent regression
@@ -450,6 +526,18 @@ export const InvoiceProvider = ({ children }) => {
             localStorage.setItem(`bay_expenses_${currentUser.id}`, JSON.stringify(expenses));
         }
     }, [expenses, currentUser?.id, loading]);
+
+    useEffect(() => {
+        if (currentUser?.id && !loading) {
+            localStorage.setItem(`bay_recurring_templates_${currentUser.id}`, JSON.stringify(recurringTemplates));
+        }
+    }, [recurringTemplates, currentUser?.id, loading]);
+
+    useEffect(() => {
+        if (currentUser?.id && !loading) {
+            localStorage.setItem(`bay_staff_${currentUser.id}`, JSON.stringify(employees));
+        }
+    }, [employees, currentUser?.id, loading]);
 
     const addExpenseCategory = (newCategory) => {
         if (!newCategory) return;
@@ -545,25 +633,36 @@ export const InvoiceProvider = ({ children }) => {
         if (!currentUser?.id) return;
 
         const id = expenseData.id || uuidv4();
-        const newExpense = {
+        const expenseItem = {
             id,
             user_id: currentUser.id,
             date: expenseData.date || new Date().toISOString().split('T')[0],
             title: expenseData.title,
-            amount: expenseData.amount,
+            amount: parseFloat(expenseData.amount) || 0,
             category: expenseData.category,
-            currency: expenseData.currency,
-            receipt_image: expenseData.receiptImage
+            currency: expenseData.currency || 'EUR',
+            receiptImage: expenseData.receiptImage
         };
 
-        // Optimistic update
+        const dbExpense = {
+            id,
+            user_id: currentUser.id,
+            date: expenseItem.date,
+            title: expenseItem.title,
+            amount: expenseItem.amount,
+            category: expenseItem.category,
+            currency: expenseItem.currency,
+            receipt_image: expenseItem.receiptImage // Map to DB snake_case
+        };
+
+        // Optimistic UI update
         setExpenses(prev => {
             const exists = prev.find(e => String(e.id) === String(id));
-            if (exists) return prev.map(e => String(e.id) === String(id) ? newExpense : e);
-            return [newExpense, ...prev];
+            if (exists) return prev.map(e => String(e.id) === String(id) ? expenseItem : e);
+            return [expenseItem, ...prev];
         });
 
-        syncService.enqueue('expenses', 'insert', newExpense, id);
+        syncService.enqueue('expenses', 'insert', dbExpense, id);
     };
 
     const deleteExpense = async (id) => {
@@ -574,23 +673,27 @@ export const InvoiceProvider = ({ children }) => {
     const saveRecurringTemplate = async (templateData) => {
         if (!currentUser?.id) return;
         const id = templateData.id || uuidv4();
+
+        const normalized = normalizeRecurringTemplate({ ...templateData, id });
+
         const dbTemplate = {
             id,
             user_id: currentUser.id,
-            template_name: templateData.templateName,
-            customer_name: templateData.customerName,
-            customer_email: templateData.customerEmail,
-            items: templateData.items,
-            frequency: templateData.frequency,
-            amount: templateData.amount,
-            currency: templateData.currency,
-            status: templateData.status || 'active'
+            template_name: normalized.templateName || `Tpl - ${normalized.customerName}`,
+            customer_name: normalized.customerName,
+            customer_email: normalized.customerEmail,
+            items: normalized.items,
+            frequency: normalized.frequency,
+            amount: normalized.amount,
+            currency: normalized.currency,
+            status: normalized.status
         };
+        // Description field removed from DB sync as columns 'notes' and 'description' are missing in schema.
 
         setRecurringTemplates(prev => {
             const exists = prev.find(t => String(t.id) === String(id));
-            if (exists) return prev.map(t => String(t.id) === String(id) ? { ...templateData, id } : t);
-            return [{ ...templateData, id }, ...prev];
+            if (exists) return prev.map(t => String(t.id) === String(id) ? normalized : t);
+            return [normalized, ...prev];
         });
 
         syncService.enqueue('recurring_templates', 'insert', dbTemplate, id);
@@ -665,12 +768,18 @@ export const InvoiceProvider = ({ children }) => {
     };
 
     const updateInvoiceStatus = async (id, newStatus) => {
+        // Find existing record to get user_id if possible
+        const existing = invoices.find(i => String(i.id) === String(id));
+
         setInvoices(prev => prev.map(inv =>
             String(inv.id) === String(id) ? { ...inv, status: newStatus } : inv
         ));
 
         if (currentUser?.id) {
-            syncService.enqueue('invoices', 'update', { status: newStatus }, id);
+            syncService.enqueue('invoices', 'update', {
+                status: newStatus,
+                user_id: existing?.user_id || currentUser.id
+            }, id);
         }
     };
 
@@ -678,9 +787,11 @@ export const InvoiceProvider = ({ children }) => {
         setInvoices(prev => prev.map(inv => String(inv.id) === String(id) ? { ...inv, ...newData } : inv));
 
         if (currentUser?.id) {
-            const denormalized = denormalizeInvoice(newData);
-            delete denormalized.user_id;
-            delete denormalized.id; // Don't include in payload if it's the target
+            const denormalized = denormalizeInvoice({ ...newData, id, user_id: currentUser.id });
+            // Only include non-undefined fields to allow partial updates
+            Object.keys(denormalized).forEach(key => {
+                if (denormalized[key] === undefined) delete denormalized[key];
+            });
 
             syncService.enqueue('invoices', 'update', denormalized, id);
         }
@@ -743,7 +854,11 @@ export const InvoiceProvider = ({ children }) => {
             id,
             user_id: currentUser.id,
             name: empData.name,
-            role: empData.role,
+            full_name: empData.name, // compatibility
+            email: empData.email || '',
+            role: empData.role || 'Worker',
+            status: empData.status || 'Active',
+            sites: empData.sites || ['Main'],
             color: empData.color || '#3b82f6'
         };
 

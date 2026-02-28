@@ -96,21 +96,32 @@ const DeveloperControlCenter = () => {
                     email, 
                     full_name, 
                     created_at,
-                    subscriptions(plan_type, status)
+                    subscriptions(plan_type, status, created_at)
                 `);
 
             if (error) throw error;
 
-            const formattedUsers = data.map(u => ({
-                id: u.id,
-                email: u.email,
-                name: u.full_name || 'Anonymous',
-                plan: u.subscriptions?.[0]?.plan_type || 'free',
-                status: u.subscriptions?.[0]?.status || 'active',
-                joined: new Date(u.created_at).toLocaleDateString()
-            }));
+            const formattedUsers = data.map(u => {
+                // Safely handle subscriptions which might be an array, object, or null
+                let latestSub = null;
+                if (Array.isArray(u.subscriptions)) {
+                    latestSub = [...u.subscriptions].sort((a, b) =>
+                        new Date(b.created_at) - new Date(a.created_at)
+                    )[0];
+                } else if (u.subscriptions) {
+                    latestSub = u.subscriptions;
+                }
 
-            // Fallback to mock data if no users in Supabase (initial state)
+                return {
+                    id: u.id,
+                    email: u.email,
+                    name: u.full_name || 'Anonymous',
+                    plan: latestSub?.plan_type || 'free',
+                    status: latestSub?.status || 'active',
+                    joined: new Date(u.created_at).toLocaleDateString()
+                };
+            });
+
             if (formattedUsers.length === 0) {
                 console.warn('[DCC] No users in Supabase, using mock fallback list.');
                 setUserRegistry([
@@ -140,22 +151,38 @@ const DeveloperControlCenter = () => {
     const handlePlanUpdate = async (newPlan) => {
         if (!editingUser) return;
         setIsUpdating(true);
+        const targetId = editingUser.id;
         try {
-            console.log(`[DCC] Updating plan for ${editingUser.email} to ${newPlan}...`);
+            console.log(`[DCC] Dynamic Update: ${editingUser.email} -> ${newPlan}`);
+
             const { error } = await supabase
                 .from('subscriptions')
-                .update({ plan_type: newPlan })
-                .eq('user_id', editingUser.id);
+                .upsert({
+                    user_id: targetId,
+                    plan_type: newPlan,
+                    status: 'active',
+                    created_at: new Date().toISOString() // Force new timestamp for sorting
+                }, { onConflict: 'user_id' });
 
             if (error) throw error;
 
-            await fetchUsers(); // Refresh the list
+            // IMMEDIATE UI REFLECTION
+            setUserRegistry(prev => prev.map(u =>
+                u.id === targetId ? { ...u, plan: newPlan } : u
+            ));
+
             setEditingUser(null);
-            if (addLog) addLog(new Error(`User Plan CLOUD UPDATED: ${editingUser.email} to ${newPlan}`), { severity: 'info' });
-            if (logSecurityAction) await logSecurityAction('PLAN_UPGRADED', 'subscription', editingUser.id, { newPlan, email: editingUser.email }, 'info');
+
+            if (addLog) addLog(new Error(`PLAN_CHANGE_SUCCESS: ${editingUser.email} set to ${newPlan}`), { severity: 'info' });
+            if (logSecurityAction) await logSecurityAction('PLAN_UPGRADED', 'subscription', targetId, { newPlan, email: editingUser.email }, 'info');
+
+            alert(`Plan successfully updated to ${newPlan.toUpperCase()}`);
+
+            // Wait 1s before background refetch to ensure DB has indexed the upsert
+            setTimeout(() => fetchUsers(), 1000);
         } catch (err) {
             console.error('[DCC] Plan update failed:', err);
-            alert('Failed to update plan in cloudy registry.');
+            alert(`Failed to update plan: ${err.message}`);
         } finally {
             setIsUpdating(false);
         }

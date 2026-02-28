@@ -41,8 +41,9 @@ const SubscriptionManagement = () => {
 
                 // Fetch User Count
                 const { count: userCount } = await supabase
-                    .from('users')
-                    .select('*', { count: 'exact', head: true });
+                    .from('staff')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', currentUser.id);
                 // Note: In an enterprise setup, users might belong to a company. 
                 // For now, we assume this is the count of users the current admin manages.
 

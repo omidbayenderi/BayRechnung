@@ -22,6 +22,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
+import { RotateCw, LayoutPanelLeft } from 'lucide-react';
+import TimelineGantt from '../../components/admin/TimelineGantt';
 
 const ReportCard = ({ title, date, size, type, author }) => (
     <div className="report-card" style={{
@@ -164,12 +166,13 @@ const Reports = () => {
     const formatCurr = (val) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(val);
 
     // Dynamic Tabs based on Industry
-    const isConstruction = companyProfile?.industry === 'construction';
+    const isConstruction = companyProfile?.industry?.toLowerCase() === 'construction';
 
     const tabs = [
         { id: 'daily', label: t('dailyReports') || 'Daily Reports', icon: FileText },
         { id: 'financial', label: t('financial_reports') || 'Financial', icon: TrendingUp },
         { id: 'stock', label: t('stock_reports') || 'Stock', icon: Package },
+        { id: 'timeline', label: t('timeline_reports') || 'Timeline', icon: LayoutPanelLeft },
     ];
 
     if (isConstruction) {
@@ -205,13 +208,46 @@ const Reports = () => {
 
     const [generatingReport, setGeneratingReport] = useState(false);
 
-    const handleGenerateReport = (type) => {
+    const handleGenerateReport = async (type) => {
         setGeneratingReport(true);
-        // Simulate background generation
-        setTimeout(() => {
+        try {
+            const { jsPDF } = await import('jspdf');
+            const html2canvas = (await import('html2canvas')).default;
+
+            const element = document.getElementById('report-content-area');
+            if (!element) {
+                alert('Report content not found');
+                setGeneratingReport(false);
+                return;
+            }
+
+            const canvas = await html2canvas(element, {
+                scale: 2, // Higher quality
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`BayRechnung_${type}_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+
+        } catch (error) {
+            console.error('PDF Generation Error:', error);
+            alert('Error generating report. Please try again.');
+        } finally {
             setGeneratingReport(false);
-            alert(`${type} report generated successfully!`);
-        }, 2000);
+        }
     };
 
     // ... inside component
@@ -300,11 +336,27 @@ const Reports = () => {
 
             {/* Content Area */}
             <motion.div
+                id="report-content-area"
                 key={activeTab}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
+                style={{ height: activeTab === 'timeline' ? '600px' : 'auto' }}
             >
+                {/* TIMELINE GANTT VIEW */}
+                {activeTab === 'timeline' && (
+                    <TimelineGantt
+                        title={t('business_timeline') || 'Genel İş Akışı Çizelgesi'}
+                        data={[
+                            { id: 1, name: 'Villa Restorasyon', start_date: '2024-02-01', due_date: '2024-05-15', progress: 65, color: '#4f46e5', category: 'Projeler' },
+                            { id: 2, name: 'Ofis Kompleksi A', start_date: '2024-03-10', due_date: '2024-08-20', progress: 20, color: '#8b5cf6', category: 'Projeler' },
+                            { id: 3, name: 'Mutfak Yenileme', start_date: '2024-01-15', due_date: '2024-04-10', progress: 95, color: '#10b981', category: 'Projeler' },
+                            { id: 4, name: 'Stok Yenileme (Kabasakal)', start_date: '2024-02-20', due_date: '2024-03-05', progress: 40, color: '#f59e0b', category: 'Lojistik' },
+                            { id: 5, name: 'Yıllık Vergi Beyanı', start_date: '2024-03-01', due_date: '2024-03-31', progress: 10, color: '#ef4444', category: 'Finans' },
+                        ]}
+                    />
+                )}
+
                 {/* FINANCIAL CHARTS VIEW */}
                 {activeTab === 'financial' ? (
                     <div className="financial-dashboard">

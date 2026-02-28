@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -39,6 +39,21 @@ const ProfileSettings = () => {
         stripeSecretKey: currentUser?.stripeSecretKey || '',
         paypalClientId: currentUser?.paypalClientId || ''
     });
+
+    // Sync form data with currentUser once loaded/updated
+    useEffect(() => {
+        if (currentUser) {
+            setFormData(prev => ({
+                ...prev,
+                name: currentUser.name || prev.name,
+                email: currentUser.email || prev.email,
+                role: currentUser.role || prev.role,
+                stripePublicKey: currentUser.stripePublicKey || prev.stripePublicKey,
+                stripeSecretKey: currentUser.stripeSecretKey || prev.stripeSecretKey,
+                paypalClientId: currentUser.paypalClientId || prev.paypalClientId
+            }));
+        }
+    }, [currentUser]);
     const [saved, setSaved] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [toast, setToast] = useState(null);
@@ -247,10 +262,10 @@ const ProfileSettings = () => {
                                 onChange={handleChange}
                                 style={{ paddingLeft: '40px' }}
                             >
-                                <option value="Administrator">Administrator</option>
-                                <option value="Manager">Manager</option>
-                                <option value="Accountant">Accountant</option>
-                                <option value="Employee">Employee</option>
+                                <option value="admin">Administrator</option>
+                                <option value="site_lead">Manager / Site Lead</option>
+                                <option value="finance">Accountant / Finance</option>
+                                <option value="worker">Employee / Worker</option>
                             </select>
                         </div>
                     </div>

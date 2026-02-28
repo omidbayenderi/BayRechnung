@@ -114,7 +114,7 @@ const Register = () => {
                 // Wait for session to be fully established before fetching data
                 // In Supabase, if email confirmation is required, session might be null.
                 if (result.data?.session) {
-                    navigate('/dashboard');
+                    navigate('/onboarding');
                 } else {
                     alert('Please check your email to confirm your registration before logging in.');
                     navigate('/login');

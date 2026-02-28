@@ -3,10 +3,11 @@ import { useLanguage } from '../context/LanguageContext';
 import { useInvoice } from '../context/InvoiceContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, MessageSquare, AlertTriangle, Send, CheckCircle, Search, Trash2, X, Plus, Filter, User, Users, Briefcase } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const MessagesCenter = () => {
-    const { t } = { t: (key) => key };
+    const { currentUser } = useAuth();
     const { t: translate } = useLanguage();
     // Helper to use correct translation key or fallback
     const _t = (key) => {
@@ -14,7 +15,8 @@ const MessagesCenter = () => {
         return val !== key ? val : key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
     };
 
-    const { messages, sendMessage, markMessageAsRead, deleteMessage, employees } = useInvoice();
+    const invoiceContext = useInvoice();
+    const { messages = [], sendMessage, markMessageAsRead, deleteMessage, employees = [] } = invoiceContext || {};
 
     // Main View State: 'messages' or 'notifications'
     const [mainView, setMainView] = useState('messages');
@@ -37,15 +39,17 @@ const MessagesCenter = () => {
     });
 
     // Filter Logic
-    const filteredMessages = messages.filter(msg => {
+    const filteredMessages = (messages || []).filter(msg => {
+        if (!msg) return false;
         // 1. Search Filter
-        const content = msg.content || msg.message || '';
-        const sender = msg.sender || 'System';
-        const title = msg.title || (msg.content ? msg.content.substring(0, 20) : 'No Subject');
+        const content = (msg.content || msg.message || '').toString();
+        const sender = (msg.sender || 'System').toString();
+        const title = (msg.title || (msg.content ? msg.content.substring(0, 20) : 'No Subject')).toString();
+        const q = (searchQuery || '').toLowerCase();
 
-        const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            sender.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = title.toLowerCase().includes(q) ||
+            content.toLowerCase().includes(q) ||
+            sender.toLowerCase().includes(q);
 
         if (!matchesSearch) return false;
 

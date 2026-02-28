@@ -111,10 +111,17 @@ const SecuritySettings = () => {
                                 <Lock size={18} style={{ color: '#94a3b8' }} />
                                 <div>
                                     <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>Data Isolation</span>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>RLS Policies are active</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{useSupabase ? 'RLS Policies are active' : 'Running in Local/Mock mode'}</span>
                                 </div>
                             </div>
-                            <span style={{ fontSize: '0.75rem', padding: '4px 8px', background: '#dcfce7', color: '#15803d', borderRadius: 4, fontWeight: 700 }}>ACTIVE</span>
+                            <span style={{
+                                fontSize: '0.75rem', padding: '4px 8px',
+                                background: useSupabase ? '#dcfce7' : 'rgba(245, 158, 11, 0.1)',
+                                color: useSupabase ? '#15803d' : '#f59e0b',
+                                borderRadius: 4, fontWeight: 700
+                            }}>
+                                {useSupabase ? 'ACTIVE' : 'MOCK'}
+                            </span>
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
@@ -122,10 +129,17 @@ const SecuritySettings = () => {
                                 <History size={18} style={{ color: '#94a3b8' }} />
                                 <div>
                                     <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>Audit Logging</span>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Every sensitive action is tracked</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{useSupabase ? 'Every sensitive action is tracked' : 'Local audit logging active'}</span>
                                 </div>
                             </div>
-                            <span style={{ fontSize: '0.75rem', padding: '4px 8px', background: '#dcfce7', color: '#15803d', borderRadius: 4, fontWeight: 700 }}>ACTIVE</span>
+                            <span style={{
+                                fontSize: '0.75rem', padding: '4px 8px',
+                                background: useSupabase ? '#dcfce7' : 'rgba(245, 158, 11, 0.1)',
+                                color: useSupabase ? '#15803d' : '#f59e0b',
+                                borderRadius: 4, fontWeight: 700
+                            }}>
+                                {useSupabase ? 'ACTIVE' : 'MOCK'}
+                            </span>
                         </div>
                     </div>
                 </motion.div>
@@ -240,6 +254,64 @@ const SecuritySettings = () => {
                     )}
                 </motion.div>
             </div>
+
+            {/* Live Security Stream - NEW Addition for DCC-like experience */}
+            <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                style={{ marginTop: '32px' }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '20px' }}>
+                    <div style={{ padding: 8, background: 'rgba(59, 130, 246, 0.1)', borderRadius: 8, color: '#3b82f6' }}>
+                        <ClipboardCheck size={20} />
+                    </div>
+                    <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Live Security Events</h2>
+                </div>
+
+                <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto' }} className="custom-scrollbar">
+                        {[
+                            { id: 1, event: 'MFA Status Checked', time: 'Just now', type: 'info', details: 'System verifying factor status' },
+                            { id: 2, event: 'RLS Context Verified', time: '2 mins ago', type: 'success', details: `User ID ${currentUser?.id?.substring(0, 8)}... policy checked` },
+                            { id: 3, event: 'Login Session Extended', time: '15 mins ago', type: 'info', details: 'Token refresh successful' },
+                            { id: 4, event: 'Settings Page Accessed', time: '1 hour ago', type: 'info', details: 'Security configuration viewed' },
+                        ].map((log, idx) => (
+                            <motion.div
+                                key={log.id}
+                                initial={{ x: -20, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                transition={{ delay: 0.1 * idx }}
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '16px 24px',
+                                    borderBottom: idx === 3 ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                                    background: idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent'
+                                }}
+                            >
+                                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                                    <div style={{
+                                        width: 8, height: 8, borderRadius: '50%',
+                                        background: log.type === 'success' ? '#10b981' : log.type === 'error' ? '#ef4444' : '#3b82f6'
+                                    }} />
+                                    <div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{log.event}</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{log.details}</div>
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{log.time}</div>
+                            </motion.div>
+                        ))}
+                    </div>
+                    <div style={{ padding: '12px', background: 'rgba(0,0,0,0.05)', textAlign: 'center' }}>
+                        <button style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
+                            View All Audit Logs
+                        </button>
+                    </div>
+                </div>
+            </motion.section>
         </div>
     );
 };

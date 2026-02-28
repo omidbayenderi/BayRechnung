@@ -13,6 +13,7 @@ import QuickAddAppointmentModal from '../components/QuickAddAppointmentModal';
 import QuickAddExpenseModal from '../components/QuickAddExpenseModal';
 import AiInsights from '../components/dashboard/AiInsights';
 import { usePlanGuard } from '../hooks/usePlanGuard';
+import { aiService } from '../services/aiService';
 
 const StatCard = ({ title, value, icon: Icon, color }) => (
     <motion.div
@@ -38,9 +39,9 @@ const Dashboard = () => {
     const { t } = useLanguage();
     const { isPremium } = usePlanGuard();
 
-    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const debts = invoices.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const totalRevenue = (invoices || []).filter(inv => inv).reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0);
+    const totalExpenses = (expenses || []).filter(e => e).reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+    const debts = (invoices || []).filter(inv => inv && inv.status !== 'paid').reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0);
     const profit = totalRevenue - totalExpenses;
 
     const isProfit = profit >= 0;
@@ -111,7 +112,7 @@ const Dashboard = () => {
         <div className="page-container">
             <header className="page-header">
                 <div>
-                    <h1>{t('welcome')}, {companyProfile.owner.split(' ')[0]}</h1>
+                    <h1>{t('welcome')}, {(companyProfile?.owner || 'User').split(' ')[0]}</h1>
                     <p>{t('overviewText')}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>

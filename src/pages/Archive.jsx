@@ -75,7 +75,7 @@ const Archive = () => {
                     </div>
                 </header>
 
-                <div className="card">
+                <div className="modern-table-container">
                     <table className="modern-table">
                         <thead>
                             <tr>

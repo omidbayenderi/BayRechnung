@@ -244,7 +244,32 @@ const CheckoutModal = ({
                             <p style={{ fontWeight: '600', marginBottom: '12px', color: '#334155', fontSize: '0.9rem' }}>Ödeme Yöntemi Seçiniz:</p>
                             <div style={{ display: 'grid', gap: '12px' }}>
                                 {(profile?.stripeLink || profile?.stripeApiKey) && (
-                                    <button onClick={() => alert('Online ödeme entegrasyonu simüle edildi.')} style={{ background: 'white', border: '2px solid #e2e8f0', color: '#1e293b', padding: '16px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}><div style={{ background: '#635bff', padding: '8px', borderRadius: '8px', color: 'white' }}><CreditCard size={20} /></div>Kredi Kartı ile Öde</button>
+                                    <button onClick={async () => {
+                                        try {
+                                            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL || 'https://ceqitkloquydkgxwikvk.supabase.co'}/functions/v1/create-checkout-session`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    orderId: `ORD-${Date.now()}`,
+                                                    amount: Math.round(total * 100), // convert to cents
+                                                    currency: 'eur',
+                                                    customerEmail: currentUser.email,
+                                                    customerName: currentUser.name,
+                                                    items: cart.map(item => ({ name: item.name, price: item.price, quantity: item.quantity })),
+                                                    stripeAccountId: profile.stripe_account_id || null
+                                                })
+                                            });
+                                            const data = await response.json();
+                                            if (data.url) {
+                                                window.location.href = data.url;
+                                            } else {
+                                                throw new Error('No checkout URL returned.');
+                                            }
+                                        } catch (e) {
+                                            console.error('Stripe error:', e);
+                                            alert('Ödeme başlatılırken bir hata oluştu. Lütfen tekrar deneyin.');
+                                        }
+                                    }} style={{ background: 'white', border: '2px solid #e2e8f0', color: '#1e293b', padding: '16px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}><div style={{ background: '#635bff', padding: '8px', borderRadius: '8px', color: 'white' }}><CreditCard size={20} /></div>Kredi Kartı ile Öde (Stripe)</button>
                                 )}
                                 <button onClick={handlePlaceOrder} style={{ background: 'white', border: '2px solid #e2e8f0', color: '#1e293b', padding: '16px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}><div style={{ background: '#f59e0b', padding: '8px', borderRadius: '8px', color: 'white' }}><ShoppingBag size={20} /></div>Kapıda Ödeme / Havale</button>
                             </div>

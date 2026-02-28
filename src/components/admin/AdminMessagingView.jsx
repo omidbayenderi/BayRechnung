@@ -23,7 +23,8 @@ import {
 
 const AdminMessagingView = () => {
     const { t } = useLanguage();
-    const { employees, invoices, messages, sendMessage, sendBroadcastMessage, deleteMessage, markMessageAsRead } = useInvoice();
+    const invoiceContext = useInvoice();
+    const { employees = [], invoices = [], messages = [], sendMessage, sendBroadcastMessage, deleteMessage, markMessageAsRead } = invoiceContext || {};
 
     const [activeTab, setActiveTab] = useState('compose'); // compose, history
     const [targetGroup, setTargetGroup] = useState('employees'); // employees, customers
@@ -40,8 +41,8 @@ const AdminMessagingView = () => {
     // Derived Data
     const customers = useMemo(() => {
         const unique = {};
-        invoices.forEach(inv => {
-            if (inv.recipientName && !unique[inv.recipientEmail || inv.recipientName]) {
+        (invoices || []).forEach(inv => {
+            if (inv && inv.recipientName && !unique[inv.recipientEmail || inv.recipientName]) {
                 unique[inv.recipientEmail || inv.recipientName] = {
                     id: inv.recipientEmail || inv.id, // Fallback ID
                     name: inv.recipientName,
@@ -55,11 +56,14 @@ const AdminMessagingView = () => {
     }, [invoices]);
 
     const filteredRecipients = useMemo(() => {
-        const list = targetGroup === 'employees' ? employees : customers;
-        return list.filter(r =>
-            r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (r.email && r.email.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
+        const list = targetGroup === 'employees' ? (employees || []) : customers;
+        const q = (searchQuery || '').toLowerCase();
+        return list.filter(r => {
+            if (!r) return false;
+            const nameMatch = (r.name || '').toLowerCase().includes(q);
+            const emailMatch = (r.email || '').toLowerCase().includes(q);
+            return nameMatch || emailMatch;
+        });
     }, [targetGroup, employees, customers, searchQuery]);
 
     const handleSend = async (e) => {

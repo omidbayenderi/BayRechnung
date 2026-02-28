@@ -3,6 +3,7 @@ import { useStock } from '../../context/StockContext';
 import { Search, ShoppingCart, Package, AlertTriangle, ChevronRight, X, Trash2, CreditCard, Banknote, Droplet, Wrench, Settings, Box, Zap, Plus, Wallet, Smartphone, QrCode } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useInvoice } from '../../context/InvoiceContext';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 
 // --- Icons for Categories ---
@@ -161,7 +162,21 @@ const POS = () => {
     const { products, categories, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale } = useStock();
     const { t } = useLanguage();
     const { currentUser } = useAuth();
+    const { companyProfile } = useInvoice();
 
+    // Defensive check: Ensure products are valid before deriving cart total
+    const safeCart = useMemo(() => {
+        return cart.map(item => {
+            if (item.product) return item;
+            // Try to find product in the products list if missing from item object
+            const foundProduct = products.find(p => p.id === item.productId || p.id === item.id);
+            return { ...item, product: foundProduct || { name: 'Unknown Product', price: 0 } };
+        });
+    }, [cart, products]);
+
+    const cartTotal = useMemo(() => {
+        return safeCart.reduce((sum, item) => sum + ((item.product?.price || 0) * item.quantity), 0);
+    }, [safeCart]);
     const [searchTerm, setSearchTerm] = useState('');
     // Initialize with 'All' or the first available category if 'All' isn't explicitly in the list (though we usually add it manually)
     // Ensure selectedCategory is never null/undefined
@@ -177,6 +192,8 @@ const POS = () => {
     const [showCheckout, setShowCheckout] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [paymentStep, setPaymentStep] = useState('select'); // 'select' | 'processing'
+    const [checkoutId, setCheckoutId] = useState(null);
+    const [qrError, setQrError] = useState(false);
     const [lastAddedCategory, setLastAddedCategory] = useState(null);
 
     // --- Sound Effects (Web Audio API) ---
@@ -253,8 +270,10 @@ const POS = () => {
     // Filter Products - Memoized for performance to prevent flicker during heavy renders
     const filteredProducts = useMemo(() => {
         return products.filter(product => {
-            const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                product.sku.toLowerCase().includes(searchTerm.toLowerCase());
+            const name = product.name || '';
+            const sku = product.sku || '';
+            const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                sku.toLowerCase().includes(searchTerm.toLowerCase());
 
             // Loose matching for category to avoid case/whitespace issues
             const productCat = product.category || '';
@@ -265,33 +284,63 @@ const POS = () => {
         });
     }, [products, searchTerm, selectedCategory]);
 
-    const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
     const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
     const handleCheckout = () => {
         if (cart.length === 0) return;
+        setCheckoutId(Date.now().toString());
+        setQrError(false);
         setPaymentStep('select');
         setShowCheckout(true);
     };
 
     const handleSelectPaymentMethod = (method) => {
         setPaymentMethod(method);
-        if (method === 'stripe' || method === 'paypal') {
+        // Ensure we have a checkout ID if we are jumping into online payment
+        if (!checkoutId) setCheckoutId(Date.now().toString());
+        setQrError(false);
+
+        if (method === 'stripe' || method === 'paypal' || method === 'card') {
             setPaymentStep('processing');
         }
     };
 
-    const confirmPayment = () => {
-        const sale = completeSale(paymentMethod);
-        if (sale) {
-            playSuccessSound();
-            // Optional: Confetti effect could go here
-            alert(t('saleComplete') || 'Satış Tamamlandı!');
-            setShowCheckout(false);
-            setPaymentStep('select');
-            setLastAddedCategory(null);
+    const confirmPayment = async () => {
+        try {
+            const sale = await completeSale(paymentMethod);
+            if (sale) {
+                playSuccessSound();
+                alert(t('saleComplete') || 'Satış Tamamlandı!');
+                setShowCheckout(false);
+                setPaymentStep('select');
+                setLastAddedCategory(null);
+            } else {
+                alert(t('saleFailed') || 'Satış işlemi kaydedilemedi. Lütfen bağlantınızı kontrol edin.');
+            }
+        } catch (err) {
+            console.error('Confirm payment error:', err);
+            alert('Ödeme onayı sırasında bir hata oluştu: ' + err.message);
         }
     };
+
+    const paymentData = useMemo(() => {
+        if (!checkoutId) return '';
+        if (paymentMethod === 'paypal') {
+            return companyProfile?.paypalMe || `https://paypal.me/bayzenit/${cartTotal}`;
+        } else if (paymentMethod === 'stripe') {
+            return companyProfile?.stripeLink || `https://buy.stripe.com/bayzenit_demo?amount=${cartTotal * 100}`;
+        }
+        return `https://bayrechnung.com/pay/${checkoutId}`;
+    }, [paymentMethod, checkoutId, cartTotal, companyProfile]);
+
+    const paymentQrUrl = useMemo(() => {
+        if (!paymentData) return '';
+        // Using Google Charts QR API for maximum compatibility
+        const baseUrl = "https://chart.googleapis.com/chart?cht=qr&chs=350x350&chl=";
+        const url = `${baseUrl}${encodeURIComponent(paymentData)}`;
+        console.log('[POS] Generated QR URL:', url);
+        return url;
+    }, [paymentData]);
 
     return (
         <div className="pos-container" style={{
@@ -549,9 +598,9 @@ const POS = () => {
                             </div>
                         ) : (
                             <AnimatePresence>
-                                {cart.map((item, index) => (
+                                {safeCart.map((item, idx) => (
                                     <motion.div
-                                        key={item.product.id}
+                                        key={item.product?.id || idx}
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, x: -20 }}
@@ -567,16 +616,16 @@ const POS = () => {
                                         }}
                                     >
                                         <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: '700', fontSize: '0.95rem', marginBottom: '4px', color: 'var(--text-main)' }}>{item.product.name}</div>
+                                            <div style={{ fontWeight: '700', fontSize: '0.95rem', marginBottom: '4px', color: 'var(--text-main)' }}>{item.product?.name || 'Ürün'}</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: '600' }}>
-                                                {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(item.product.price)}
+                                                {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(item.product?.price || 0)}
                                             </div>
                                         </div>
 
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'white', padding: '4px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }}>
                                             <motion.button
                                                 whileTap={{ scale: 0.9 }}
-                                                onClick={() => updateCartQuantity(item.product.id, -1)}
+                                                onClick={() => item.product?.id && updateCartQuantity(item.product.id, -1)}
                                                 style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: '#f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-main)' }}
                                             >
                                                 -
@@ -584,7 +633,7 @@ const POS = () => {
                                             <span style={{ width: '24px', textAlign: 'center', fontWeight: '700', fontSize: '1rem' }}>{item.quantity}</span>
                                             <motion.button
                                                 whileTap={{ scale: 0.9 }}
-                                                onClick={() => updateCartQuantity(item.product.id, 1)}
+                                                onClick={() => item.product?.id && updateCartQuantity(item.product.id, 1)}
                                                 style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}
                                             >
                                                 +
@@ -592,7 +641,7 @@ const POS = () => {
                                         </div>
 
                                         <button
-                                            onClick={() => removeFromCart(item.product.id)}
+                                            onClick={() => item.product?.id && removeFromCart(item.product.id)}
                                             style={{ marginLeft: '12px', color: '#ff4d4f', background: 'rgba(255, 77, 79, 0.1)', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
                                             <Trash2 size={16} />
@@ -730,7 +779,7 @@ const POS = () => {
                                         {/* Generic Card / Manual POS */}
                                         <motion.button
                                             whileTap={{ scale: 0.95 }}
-                                            onClick={() => setPaymentMethod('card')}
+                                            onClick={() => handleSelectPaymentMethod('card')}
                                             style={{
                                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px',
                                                 border: `2px solid ${paymentMethod === 'card' ? 'var(--primary)' : '#e2e8f0'}`,
@@ -829,11 +878,23 @@ const POS = () => {
                                     }}>
                                         <div style={{ position: 'relative' }}>
                                             {/* We use a robust QR generator API for the demo to ensure it works without npm install */}
-                                            <img
-                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://bayrechnung.com/pay/${Date.now()}`}
-                                                alt="Payment QR"
-                                                style={{ width: '200px', height: '200px', display: 'block', borderRadius: '8px' }}
-                                            />
+                                            {!qrError && paymentQrUrl ? (
+                                                <img
+                                                    src={paymentQrUrl}
+                                                    alt="Payment QR"
+                                                    style={{ width: '220px', height: '220px', minWidth: '220px', minHeight: '220px', display: 'block', borderRadius: '12px', background: '#fff' }}
+                                                    onError={() => {
+                                                        console.error('QR Image failed to load:', paymentQrUrl);
+                                                        setQrError(true);
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div style={{ width: '220px', height: '220px', background: '#f1f5f9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', padding: '20px' }}>
+                                                    <QrCode size={48} color="#94a3b8" style={{ marginBottom: '12px' }} />
+                                                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>QR Kod Yüklenemedi</span>
+                                                    <a href={paymentData} target="_blank" rel="noreferrer" style={{ marginTop: '12px', fontSize: '0.9rem', color: 'var(--primary)', fontWeight: '600' }}>Ödeme Linkini Aç</a>
+                                                </div>
+                                            )}
                                             {/* Center Logo Overlay */}
                                             <div style={{
                                                 position: 'absolute',
@@ -850,7 +911,7 @@ const POS = () => {
                                     </div>
 
                                     <h3 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-main)' }}>
-                                        {paymentMethod === 'paypal' ? 'PayPal ile Öde' : 'Stripe ile Öde'}
+                                        {paymentMethod === 'paypal' ? 'PayPal ile Öde' : (paymentMethod === 'stripe' ? 'Stripe ile Öde' : 'Kart ile Öde')}
                                     </h3>
                                     <p style={{ color: 'var(--text-muted)', marginBottom: '32px', maxWidth: '300px' }}>
                                         {t('scanQrInstruction') || 'Müşterinin kamerasıyla bu QR kodu okutmasını sağlayın.'}

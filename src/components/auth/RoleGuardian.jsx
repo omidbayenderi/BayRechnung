@@ -19,14 +19,44 @@ const RoleGuardian = ({ children, allowedRoles = [], redirectToLogin = true, fal
     }
 
     if (allowedRoles.length > 0) {
-        // Fix: If we are in the middle of fetching the true profile (isSkeleton), 
-        // and we already assigned a probable role, allow the pass to prevent flicker.
-        const userRole = currentUser?.role || 'worker';
+        // Role Normalization: Map display names to internal codes if needed
+        const rawRole = currentUser?.role?.toLowerCase() || 'worker';
+        const roleMap = {
+            'administrator': 'admin',
+            'manager': 'site_lead',
+            'accountant': 'finance',
+            'employee': 'worker'
+        };
+        const userRole = roleMap[rawRole] || rawRole;
         const hasAccess = allowedRoles.includes(userRole);
 
-        // If authenticated but profile still loading, show a tiny delay or just allow if it's the admin shell
+        // If authenticated but profile still loading, show a tiny delay
         if (isAuthenticated && !hasAccess && currentUser?.isSkeleton) {
-            return null; // Silent wait for 0.1s while AuthContext finishes fetchUserData
+            const [showRetry, setShowRetry] = React.useState(false);
+
+            React.useEffect(() => {
+                const timer = setTimeout(() => {
+                    setShowRetry(true);
+                }, 5000);
+                return () => clearTimeout(timer);
+            }, []);
+
+            return (
+                <div style={{ padding: '80px', textAlign: 'center' }}>
+                    <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTop: '3px solid #2563eb', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto' }}></div>
+                    <p style={{ marginTop: '20px', color: '#64748b' }}>
+                        {showRetry ? 'Bağlantı yavaş, profil hala yükleniyor...' : 'Profil yükleniyor...'}
+                    </p>
+                    {showRetry && (
+                        <button
+                            onClick={() => window.location.reload()}
+                            style={{ marginTop: '16px', padding: '8px 16px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', cursor: 'pointer' }}
+                        >
+                            Sayfayı Yenile
+                        </button>
+                    )}
+                </div>
+            );
         }
 
         if (!hasAccess) {

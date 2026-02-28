@@ -3,11 +3,13 @@ import { useLanguage } from '../context/LanguageContext';
 import { useInvoice } from '../context/InvoiceContext';
 import { motion } from 'framer-motion';
 import { Search, UserPlus, Mail, Shield, Building, Edit2, Trash2, MoreVertical, X, Check, Users } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const UserManagement = () => {
     const { t } = useLanguage();
-    const { companyProfile, employees, saveEmployee, deleteEmployee, updateEmployee } = useInvoice();
+    const invoiceContext = useInvoice();
+    const { companyProfile = {}, employees = [], saveEmployee, deleteEmployee, updateEmployee } = invoiceContext || {};
     const [searchQuery, setSearchQuery] = useState('');
 
     // Modal State
@@ -25,21 +27,26 @@ const UserManagement = () => {
     });
     const [editId, setEditId] = useState(null);
 
-    const filteredEmployees = employees.filter(emp =>
-        emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.email.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredEmployees = (employees || []).filter(emp => {
+        if (!emp) return false;
+        const q = (searchQuery || '').toLowerCase();
+        const nameMatch = (emp.name || '').toLowerCase().includes(q);
+        const emailMatch = (emp.email || '').toLowerCase().includes(q);
+        return nameMatch || emailMatch;
+    });
 
-    const ROLES = ['Admin', 'Manager', 'Site Lead', 'Accountant', 'Worker'];
+    const ROLES = ['admin', 'site_lead', 'finance', 'worker'];
     const STATUSES = ['Active', 'Inactive', 'Pending'];
 
     const getRoleLabel = (role) => {
-        const key = `role_${role.toLowerCase().replace(' ', '_')}`;
+        if (!role) return t('role_worker');
+        const key = `role_${role.toString().toLowerCase().replace(' ', '_')}`;
         return t(key) || role;
     };
 
     const getStatusLabel = (status) => {
-        const key = `status_${status.toLowerCase()}`;
+        if (!status) return t('status_active');
+        const key = `status_${status.toString().toLowerCase()}`;
         return t(key) || status;
     };
 
@@ -123,7 +130,7 @@ const UserManagement = () => {
                     </div>
                     <div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('active')}</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: '800' }}>{employees.filter(e => e.status === 'Active').length}</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: '800' }}>{(employees || []).filter(e => e && e.status === 'Active').length}</div>
                     </div>
                 </div>
                 <div className="card glass premium-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', marginBottom: 0 }}>
@@ -132,7 +139,7 @@ const UserManagement = () => {
                     </div>
                     <div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('role_admin')}</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: '800' }}>{employees.filter(e => e.role === 'Admin').length}</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: '800' }}>{(employees || []).filter(e => e && (e.role === 'Admin' || e.role === 'admin')).length}</div>
                     </div>
                 </div>
             </div>
@@ -151,7 +158,7 @@ const UserManagement = () => {
                 </div>
             </div>
 
-            <div className="card">
+            <div className="modern-table-container">
                 <table className="modern-table">
                     <thead>
                         <tr>

@@ -25,3 +25,5 @@ dist-ssr
 
 # Environment Variables
 .env
+install_tmp/
+tools/

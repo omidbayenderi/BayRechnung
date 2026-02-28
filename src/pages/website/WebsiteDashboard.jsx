@@ -20,15 +20,47 @@ const WebsiteDashboard = () => {
 
     // Stats Logic
     const activeProducts = products.filter(p => p.stock > 0).length;
-    // Dynamic Site URL Logic
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const subDomain = companyProfile?.companyName?.toLowerCase().replace(/ /g, '-') || 'demo';
 
-    // In production: tenant.bayrechnung.com
-    // In local: localhost:5173/s/tenant
-    const siteUrl = isLocalhost
-        ? `${window.location.origin}/s/${subDomain}`
-        : `https://${subDomain}.bayrechnung.com`;
+    // Dynamic Site URL Logic
+    const isLocalhost =
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname.endsWith('.local') ||
+        window.location.port !== ''; // If there is a port, it's likely local dev
+
+    // Better slugification for subDomain
+    const subDomain = companyProfile?.companyName
+        ?.toLowerCase()
+        .trim()
+        .replace(/[ğğ]/g, 'g')
+        .replace(/[üü]/g, 'u')
+        .replace(/[şş]/g, 's')
+        .replace(/[ii]/g, 'i')
+        .replace(/[öö]/g, 'o')
+        .replace(/[çç]/g, 'c')
+        .replace(/ /g, '-')
+        .replace(/[^a-z0-9-]/g, '') || 'demo';
+
+    // Help determine if it's an internal or external link
+    const relativeUrl = `/s/${siteConfig.domain || subDomain}`;
+    const fullUrl = isLocalhost
+        ? `${window.location.origin}${relativeUrl}`
+        : (siteConfig.domain ? `https://${siteConfig.domain}` : `https://${subDomain}.bayrechnung.com`);
+
+    // Helper: Open Site
+    const handleViewSite = (e) => {
+        console.log('User clicked view site. Relative:', relativeUrl, 'Full:', fullUrl);
+
+        if (isLocalhost) {
+            // On local, use internal navigate to avoid popup blockers and stay in flow
+            // If they really want a new tab, we can try, but navigate is safer for 'not working' issues
+            // Let's try internal navigate first to confirm it works
+            navigate(relativeUrl);
+        } else {
+            const win = window.open(fullUrl, '_blank');
+            if (win) win.focus();
+        }
+    };
 
     // Load font dynamically when it changes
     React.useEffect(() => {
@@ -63,16 +95,19 @@ const WebsiteDashboard = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    {siteConfig.isPublished ? (
-                        <button
-                            className="secondary-btn"
-                            onClick={() => window.open(siteUrl, '_blank')}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white' }}
-                        >
-                            <ExternalLink size={18} />
-                            {t('view_site') || 'View Site'}
-                        </button>
-                    ) : null}
+                    <button
+                        className="secondary-btn"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            background: 'white', border: '1px solid var(--border)',
+                            cursor: 'pointer'
+                        }}
+                        onClick={handleViewSite}
+                    >
+                        <ExternalLink size={18} />
+                        {t('view_site') || 'Siteyi Görüntüle'}
+                        {!siteConfig.isPublished && <span style={{ fontSize: '10px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>{t('preview') || 'Önizleme'}</span>}
+                    </button>
 
                     <button
                         className={siteConfig.isPublished ? 'secondary-btn' : 'primary-btn'}
@@ -85,7 +120,7 @@ const WebsiteDashboard = () => {
                         }}
                     >
                         {siteConfig.isPublished ? <Eye size={18} /> : <Share2 size={18} />}
-                        {siteConfig.isPublished ? (t('unpublish') || 'Unpublish') : (t('publishLive') || 'Publish Live')}
+                        {siteConfig.isPublished ? (t('unpublish') || 'Yayından Kaldır') : (t('publishLive') || 'Canlıya Al')}
                     </button>
                 </div>
             </header>
@@ -98,9 +133,9 @@ const WebsiteDashboard = () => {
                         {siteConfig.isPublished ? <CheckCircle size={32} /> : <Edit3 size={32} />}
                     </div>
                     <div>
-                        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{siteConfig.isPublished ? (t('siteLive') || 'Live') : (t('siteDraft') || 'Draft')}</h3>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{siteConfig.isPublished ? (t('siteLive') || 'Yayında') : (t('siteDraft') || 'Taslak')}</h3>
                         <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                            {siteConfig.isPublished ? `${t('lastUpdate') || 'Last Update'}: ${t('just_now') || 'Just now'}` : (t('notVisibleYet') || 'Not visible yet')}
+                            {siteConfig.isPublished ? `${t('lastUpdate') || 'Güncelleme'}: ${t('just_now') || 'Az önce'}` : (t('notVisibleYet') || 'Henüz yayında değil')}
                         </p>
                     </div>
                 </div>
@@ -108,21 +143,21 @@ const WebsiteDashboard = () => {
                 {/* Content Health */}
                 <div className="card" style={{ padding: '24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                        <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{t('content_status') || 'Content Status'}</span>
+                        <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{t('content_status') || 'İçerik Durumu'}</span>
                         <BarChart2 size={20} color="var(--primary)" />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><ShoppingCart size={14} /> {t('label_products') || 'Products'}</span>
-                            <span style={{ fontWeight: 'bold' }}>{activeProducts} {t('active') || 'Active'}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><ShoppingCart size={14} /> {t('label_products') || 'Ürünler'}</span>
+                            <span style={{ fontWeight: 'bold' }}>{activeProducts} {t('active') || 'Aktif'}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Calendar size={14} /> {t('label_services') || 'Services'}</span>
-                            <span style={{ fontWeight: 'bold' }}>{t('automatic') || 'Automatic'}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Calendar size={14} /> {t('label_services') || 'Hizmetler'}</span>
+                            <span style={{ fontWeight: 'bold' }}>{t('automatic') || 'Otomatik'}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Layout size={14} /> {t('label_pages') || 'Pages'}</span>
-                            <span style={{ fontWeight: 'bold' }}>{sections.filter(s => s.visible).length} {t('section_unit') || 'Section(s)'}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Layout size={14} /> {t('label_pages') || 'Bölümler'}</span>
+                            <span style={{ fontWeight: 'bold' }}>{sections.filter(s => s.visible).length} {t('section_unit') || 'Bölüm'}</span>
                         </div>
                     </div>
                 </div>
@@ -131,14 +166,14 @@ const WebsiteDashboard = () => {
                 <div className="card" style={{ padding: '24px', background: siteConfig.analyticsId ? '#f0fdf4' : '#fffbeb', border: siteConfig.analyticsId ? '1px solid #bbf7d0' : '1px solid #fde68a' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                         <span style={{ fontWeight: '600', color: siteConfig.analyticsId ? '#15803d' : '#b45309' }}>
-                            {siteConfig.analyticsId ? 'Google Analytics' : (t('visitors_month') || 'Monthly Visitors')}
+                            {siteConfig.analyticsId ? 'Google Analytics' : (t('visitors_month') || 'Ziyaretçi (Aylık)')}
                         </span>
                         <BarChart2 size={20} color={siteConfig.analyticsId ? '#16a34a' : '#d97706'} />
                     </div>
 
                     {siteConfig.analyticsId ? (
                         <div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: '800', lineHeight: 1, color: '#166534', marginBottom: '8px' }}>{t('status_active') || 'Active'}</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: '800', lineHeight: 1, color: '#166534', marginBottom: '8px' }}>{t('status_active') || 'Aktif'}</div>
                             <div style={{ fontSize: '0.85rem', color: '#15803d', fontFamily: 'monospace' }}>{siteConfig.analyticsId}</div>
                             <a
                                 href="https://analytics.google.com/"
@@ -146,7 +181,7 @@ const WebsiteDashboard = () => {
                                 rel="noreferrer"
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '12px', fontSize: '0.85rem', color: '#15803d', fontWeight: '600', textDecoration: 'none' }}
                             >
-                                {t('go_to_report') || 'Go to Report'} <ExternalLink size={12} />
+                                {t('go_to_report') || 'Rapora Git'} <ExternalLink size={12} />
                             </a>
                         </div>
                     ) : (
@@ -156,7 +191,7 @@ const WebsiteDashboard = () => {
                                 onClick={() => navigate('/website/settings')}
                                 style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.85rem', color: '#b45309', marginTop: '8px', cursor: 'pointer', textDecoration: 'underline' }}
                             >
-                                {t('analytics_pending') || 'Setup Required'}
+                                {t('analytics_pending') || 'Kurulum Gerekli'}
                             </button>
                         </div>
                     )}
@@ -169,19 +204,29 @@ const WebsiteDashboard = () => {
                     <div style={{ flex: 1, minWidth: '300px' }}>
                         <h2 style={{ fontSize: '1.25rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Globe size={20} color="var(--primary)" />
-                            Özel Alan Adı Bağla
+                            {t('connect_custom_domain') || 'Özel Alan Adı Bağla'}
                         </h2>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                            Kendi alan adınızı (örneğin: www.firmaniz.com) bu siteye bağlayarak profesyonel bir görünüm kazanın.
+                            {t('domain_desc') || 'Kendi alan adınızı (örneğin: www.firmaniz.com) bu siteye bağlayarak profesyonel bir görünüm kazanın.'}
                         </p>
 
                         <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
                             <input
                                 type="text"
-                                placeholder="örneğin: www.firmaniz.com"
+                                placeholder="www.firmaniz.com"
+                                value={siteConfig.domain || ''}
+                                onChange={(e) => updateSiteConfig({ domain: e.target.value })}
                                 style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.95rem' }}
                             />
-                            <button className="primary-btn" style={{ whiteSpace: 'nowrap' }}>Bağla</button>
+                            <button
+                                className="primary-btn"
+                                style={{ whiteSpace: 'nowrap' }}
+                                onClick={() => {
+                                    alert(t('domain_saved_msg') || 'Alan adı kaydedildi! DNS ayarlarını aşağıdan kontrol edin.');
+                                }}
+                            >
+                                {t('save_button') || 'Kaydet'}
+                            </button>
                         </div>
                     </div>
 
@@ -258,7 +303,7 @@ const WebsiteDashboard = () => {
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }}></div>
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e' }}></div>
                         <div style={{ flex: 1, textAlign: 'center', fontSize: '10px', color: '#64748b', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                            <span>{siteUrl.replace('https://', '')}</span>
+                            <span>{fullUrl.replace('https://', '')}</span>
                         </div>
                         <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold' }}>EN ▾</div>
                     </div>
@@ -273,13 +318,23 @@ const WebsiteDashboard = () => {
                     </div>
 
                     {/* Overlay for Action */}
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                         <button
                             className="primary-btn"
                             style={{ boxShadow: '0 10px 25px rgba(59, 130, 246, 0.5)' }}
                             onClick={() => navigate('/website/editor')}
                         >
-                            <Edit3 size={18} /> {t('edit_content') || 'Edit Content'}
+                            <Edit3 size={18} /> {t('edit_content') || 'İçeriği Düzenle'}
+                        </button>
+                        <button
+                            className="secondary-btn"
+                            style={{
+                                background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
+                            }}
+                            onClick={handleViewSite}
+                        >
+                            <ExternalLink size={18} /> {t('open_site') || 'Siteyi Aç'}
                         </button>
                     </div>
                 </div>

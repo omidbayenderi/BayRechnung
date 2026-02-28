@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { syncService } from '../lib/SyncService';
 
 const WebsiteContext = createContext();
 
@@ -53,19 +54,34 @@ export const WebsiteProvider = ({ children }) => {
             }
 
             try {
+                // 1. Optimistic load from localStorage
+                const localConfig = localStorage.getItem('website_config');
+                const localSections = localStorage.getItem('website_sections');
+                if (localConfig) setSiteConfig(JSON.parse(localConfig));
+                if (localSections) setSections(JSON.parse(localSections));
+
+                // 2. Fetch Fresh from Supabase
                 const { data, error } = await supabase
                     .from('website_configs')
                     .select('*')
                     .eq('user_id', currentUser.id)
                     .maybeSingle();
 
-                if (data) {
+                if (data && data.config) {
                     const parsed = data.config;
                     if (parsed.siteConfig) setSiteConfig(parsed.siteConfig);
                     if (parsed.sections) setSections(parsed.sections);
+
+                    // Sync localStorage immediately with fresh data
+                    localStorage.setItem('website_config', JSON.stringify(parsed.siteConfig || siteConfig));
+                    localStorage.setItem('website_sections', JSON.stringify(parsed.sections || sections));
                 }
             } catch (err) {
                 console.error('Error loading website config:', err);
+
+                // Fallback to local if remote fails and we haven't already loaded it
+                const localConfig = localStorage.getItem('website_config');
+                if (localConfig) setSiteConfig(JSON.parse(localConfig));
             } finally {
                 setLoading(false);
             }
@@ -76,30 +92,25 @@ export const WebsiteProvider = ({ children }) => {
 
     // LocalStorage Sync for Public Preview
     useEffect(() => {
-        if (currentUser?.id) {
+        if (currentUser?.id && !loading) {
             localStorage.setItem('website_config', JSON.stringify(siteConfig));
             localStorage.setItem('website_sections', JSON.stringify(sections));
         }
-    }, [siteConfig, sections, currentUser]);
+    }, [siteConfig, sections, currentUser, loading]);
 
-    // Save to Supabase (debounced or on change)
-    const saveToSupabase = async (newConfig, newSections) => {
+    // Save to Supabase via SyncService
+    const saveToSupabase = (newConfig, newSections) => {
         if (!currentUser?.id) return;
 
-        try {
-            const { error } = await supabase
-                .from('website_configs')
-                .upsert({
-                    user_id: currentUser.id,
-                    config: { siteConfig: newConfig, sections: newSections },
-                    domain: newConfig.domain,
-                    is_published: newConfig.isPublished,
-                    updated_at: new Date().toISOString()
-                });
-            if (error) throw error;
-        } catch (err) {
-            console.error('Error saving website config to Supabase:', err);
-        }
+        const syncData = {
+            user_id: currentUser.id,
+            config: { siteConfig: newConfig, sections: newSections },
+            domain: newConfig.domain || '',
+            is_published: !!newConfig.isPublished,
+            updated_at: new Date().toISOString()
+        };
+
+        syncService.enqueue('website_configs', 'update', syncData, currentUser.id);
     };
 
     // Actions

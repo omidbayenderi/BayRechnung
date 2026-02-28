@@ -137,29 +137,52 @@ export const AuthProvider = ({ children }) => {
         return Promise.race([
             fetchUserData(userId, email),
             new Promise((resolve) => setTimeout(() => {
-                console.warn('[Auth] Fetch timed out, using minimal local profile');
+                console.warn('[Auth] Fetch timed out, using minimal local profile for initialization');
                 const isAdmin = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com'].includes(email?.toLowerCase());
+
+                // Try to get cached name if available
+                let cachedName = 'Local User';
+                try {
+                    const localProfile = localStorage.getItem(`bay_profile_${userId}`);
+                    if (localProfile) {
+                        const parsed = JSON.parse(localProfile);
+                        if (parsed.companyName) cachedName = parsed.owner || parsed.companyName;
+                    }
+                } catch (e) { }
+
                 resolve({
                     id: userId,
                     email: email,
-                    name: 'Local User',
+                    name: cachedName,
                     role: isAdmin ? 'admin' : 'worker',
                     isSkeleton: false,
                     authMode: 'cloud',
                     isTimeout: true
                 });
-            }, 4000))
+            }, 12000)) // Increased to 12s for better tolerance or DB wake-ups
         ]);
     };
 
     useEffect(() => {
+        // FAST INITIAL CHECK: If there is a Supabase token in storage, 
+        // stay in loading state to allow session recovery.
+        const hasSessionToken = Object.keys(localStorage).some(key =>
+            (key.includes('auth-token') && key.includes('sb-')) || key === 'bay-simple-auth'
+        );
+
+        if (hasSessionToken && !currentUser && useSupabase) {
+            console.log('[Auth] Recovery token detected, holding loading state...');
+            setLoading(true);
+        }
+
         // Global safety timeout to ensure loading always finishes
         const safetyTimeout = setTimeout(() => {
+            console.log('[Auth] Safety timeout reached, clearing loading state');
             setLoading(false);
-        }, 5000);
+        }, 8000); // 8s for cloud recovery
 
         let subscription = null;
-        const lastFetchedId = { current: null }; // Ref-like local variable to track within effect lifetime
+        const lastFetchedId = { current: null };
 
         if (useSupabase) {
             // Unify Auth initialization: rely on onAuthStateChange below for initial load to avoid duplicate fetches.
@@ -226,9 +249,21 @@ export const AuthProvider = ({ children }) => {
 
                     // Background fetch for detailed profile
                     try {
+                        // 1. First attempt with timeout for fast UI unblocking
                         const userData = await fetchUserDataWithTimeout(newSession.user.id, newSession.user.email);
                         if (userData) {
                             setCurrentUser(userData);
+                        }
+
+                        // 2. If it was a timeout, trigger a second "silent" fetch that will overwrite whenever it returns
+                        if (userData?.isTimeout) {
+                            console.log('[Auth] Timeout occurred earlier. Triggering silent background refresh...');
+                            fetchUserData(newSession.user.id, newSession.user.email).then(finalData => {
+                                if (finalData && !finalData.isTimeout) {
+                                    console.log('[Auth] Background refresh successful, overwriting identity.');
+                                    setCurrentUser(finalData);
+                                }
+                            });
                         }
                     } catch (fetchErr) {
                         console.error('[Auth] AuthChange fetch error:', fetchErr);

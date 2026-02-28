@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { usePanel } from '../context/PanelContext';
+import { useInvoice } from '../context/InvoiceContext';
+import ConnectionDiagnostics from './Debug/ConnectionDiagnostics';
 
 const Sidebar = ({ isOpen, closeSidebar }) => {
     const location = useLocation();
@@ -13,7 +15,9 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     const { t, appLanguage } = useLanguage();
     const { currentUser, logout } = useAuth();
     const { activePanel, switchPanel, modules, getMenuItems } = usePanel();
+    const { companyProfile } = useInvoice(); // Using import
     const [showPanelSwitcher, setShowPanelSwitcher] = useState(false);
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
 
     const handleLogout = async () => {
         await logout();
@@ -21,7 +25,24 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     };
 
     const currentModule = modules.find(m => m.id === activePanel) || modules[0];
-    const menuItems = getMenuItems(t);
+    let menuItems = getMenuItems(t);
+
+    // Filter items based on industry restrictions
+    if (companyProfile?.industry) {
+        menuItems = menuItems.filter(item => {
+            if (item.industryOnly) {
+                return item.industryOnly.includes(companyProfile.industry);
+            }
+            return true;
+        });
+    }
+
+    // Listen for external trigger (mobile header grid icon)
+    React.useEffect(() => {
+        const handleOpenSwitcher = () => setShowPanelSwitcher(true);
+        window.addEventListener('open-panel-switcher', handleOpenSwitcher);
+        return () => window.removeEventListener('open-panel-switcher', handleOpenSwitcher);
+    }, []);
 
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -32,12 +53,18 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                     <div
                         className="sidebar-logo"
                         onClick={() => setShowPanelSwitcher(!showPanelSwitcher)}
-                        style={{ cursor: 'pointer', flex: 1 }}
+                        style={{
+                            cursor: 'pointer', flex: 1, padding: '8px',
+                            background: showPanelSwitcher ? 'rgba(255,255,255,0.05)' : 'transparent',
+                            borderRadius: '12px', transition: 'all 0.2s'
+                        }}
                     >
                         <div className="logo-icon" style={{ background: currentModule.color }}>{currentModule.name.charAt(0)}</div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <h2 style={{ fontSize: '1.1rem' }}>{currentModule.name}</h2>
-                            <span style={{ fontSize: '0.7rem', opacity: 0.7, fontWeight: 'normal' }}>{t('module_switch')} ▾</span>
+                            <span style={{ fontSize: '0.7rem', color: showPanelSwitcher ? 'var(--primary)' : 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
+                                {t('module_switch') || 'Sistem Değiştir'} {showPanelSwitcher ? '▴' : '▾'}
+                            </span>
                         </div>
                     </div>
                     <button className="close-sidebar no-desktop" onClick={closeSidebar}>
@@ -53,13 +80,14 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        style={{ overflow: 'hidden', padding: '0 16px', background: 'var(--bg-body)', margin: '0 12px 12px 12px', borderRadius: '12px' }}
+                        style={{ overflow: 'hidden', padding: '12px', background: 'rgba(0,0,0,0.2)', margin: '0 12px 12px 12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}
                     >
-                        <div style={{ padding: '12px 0' }}>
-                            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '8px' }}>{t('apps_title')}</p>
-                            <div style={{ display: 'grid', gap: '8px' }}>
+                        <div style={{ padding: '4px 0' }}>
+                            <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontWeight: '700', marginBottom: '12px', paddingLeft: '8px' }}>{t('apps_title') || 'AKTİF PANELLER'}</p>
+                            <div style={{ display: 'grid', gap: '4px' }}>
                                 {modules.map(mod => {
                                     const isLocked = mod.premium && currentUser?.plan !== 'premium';
+                                    const isActive = activePanel === mod.id;
                                     return (
                                         <button
                                             key={mod.id}
@@ -75,19 +103,19 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                                             style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                gap: '10px',
+                                                gap: '12px',
                                                 padding: '10px',
-                                                background: activePanel === mod.id ? 'white' : 'transparent',
+                                                background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
                                                 border: 'none',
                                                 borderRadius: '8px',
                                                 cursor: 'pointer',
                                                 textAlign: 'left',
                                                 transition: 'all 0.2s',
-                                                boxShadow: activePanel === mod.id ? '0 2px 5px rgba(0,0,0,0.05)' : 'none',
-                                                opacity: isLocked ? 0.7 : 1
+                                                width: '100%',
+                                                color: isActive ? 'white' : 'rgba(255,255,255,0.7)'
                                             }}
                                         >
-                                            <div style={{ color: mod.color, position: 'relative' }}>
+                                            <div style={{ color: isActive ? 'white' : mod.color, position: 'relative' }}>
                                                 {mod.icon({ size: 18 })}
                                                 {isLocked && (
                                                     <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#1e293b', color: 'white', borderRadius: '50%', padding: '2px', border: '1px solid white' }}>
@@ -96,13 +124,12 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                                                 )}
                                             </div>
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '0.9rem', fontWeight: '600', color: isLocked ? '#94a3b8' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{ fontSize: '0.85rem', fontWeight: isActive ? '700' : '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     {mod.name}
-                                                    {isLocked && <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>Pro</span>}
+                                                    {isLocked && <span style={{ fontSize: '0.6rem', background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>Pro</span>}
                                                 </div>
-                                                <div style={{ fontSize: '0.7rem', color: isLocked ? '#cbd5e1' : 'var(--text-muted)' }}>{isLocked ? (t('premium_only') || 'Premium Plan Only') : mod.desc}</div>
                                             </div>
-                                            {activePanel === mod.id && <div style={{ marginLeft: 'auto', width: '6px', height: '6px', borderRadius: '50%', background: mod.color }}></div>}
+                                            {isActive && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--primary)' }}></div>}
                                         </button>
                                     );
                                 })}
@@ -117,13 +144,21 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                     {t('menu')}
                 </div>
                 {menuItems.map((item) => {
-                    const isActive = location.pathname === item.path;
+                    const currentFullPath = location.pathname + location.search;
+
+                    // Improved matching: 
+                    // 1. If path has query, match full path exactly OR if current path starts with it
+                    // 2. If path is simple, match pathname exactly
+                    const isActive = item.path.includes('?')
+                        ? (currentFullPath === item.path || (currentFullPath === '/admin' && item.path.includes('tab=overview')))
+                        : (location.pathname === item.path && !location.search);
+
                     return (
-                        <NavLink
+                        <motion.div
                             key={item.path}
-                            to={item.path}
-                            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                            onClick={closeSidebar}
+                            onClick={() => { navigate(item.path); closeSidebar(); }}
+                            className={`nav-item ${isActive ? 'active' : ''}`}
+                            style={{ cursor: 'pointer' }}
                         >
                             <item.icon size={20} />
                             <span>{item.label}</span>
@@ -135,17 +170,20 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 />
                             )}
-                        </NavLink>
+                        </motion.div>
                     );
                 })}
             </nav>
+
+            {/* System Health Diagnostics in Sidebar (Admin Only) */}
+            <ConnectionDiagnostics variant="sidebar" />
 
             <div className="sidebar-footer">
                 <div
                     className="user-mini-profile"
                     onClick={() => { closeSidebar(); navigate('/settings/profile'); }}
                     style={{ cursor: 'pointer' }}
-                    title={appLanguage === 'tr' ? 'Profil Ayarlarına Git' : 'Zu Profileinstellungen'}
+                    title={t('goToProfileSettings') || 'Go to Profile Settings'}
                 >
                     <div className="avatar">
                         {currentUser?.avatar ? (

@@ -1,0 +1,18 @@
+--- src/components/Debug/ConnectionDiagnostics.jsx
++++ src/components/Debug/ConnectionDiagnostics.jsx
+@@ -29,11 +29,11 @@
+         // 1. Config Check
+-        const isConfigured = isSupabaseConfigured();
+-        results.config = isConfigured ? 'success' : 'error';
+-        newDetails.config = isConfigured
+-            ? 'Supabase URL and Key are detected.'
+-            : 'Supabase URL or Key is missing in .env';
++        const url = import.meta.env.VITE_SUPABASE_URL || 'missing_url';
++        const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'missing_key';
++        const isConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
++        results.config = isConfigured ? 'success' : 'error';
++        newDetails.config = isConfigured
++            ? `Supabase URL: ${url.substring(0, 15)}... Key: ${key.substring(0, 5)}...`
++            : `Missing .env: URL=${url}, KEY=${key}`;
+ 
+         // 2. Auth Check

@@ -14,45 +14,130 @@ import { generateTheme } from './utils/ColorEngine';
 import { getCategoryFromThemeId, getVariantFromThemeId } from './themes/themeConfig';
 import SeoAgent from '../../components/SeoAgent';
 import PublicAIAgent from './components/common/PublicAIAgent';
+import { supabase } from '../../lib/supabase';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 
-// Mock Data Helper (In real app, this fetches from API based on domain)
-const getPublicSiteData = (domainOrSlug) => {
-    // For demo purposes, we read from the SAME localStorage that the admin uses.
-    // In production, this would be: await api.get(`/public/site?domain=${domainOrSlug}`)
-    const savedConfig = localStorage.getItem('website_config');
+// Remote Data Fetcher (Supabase)
+const fetchPublicSiteData = async (domainOrSlug) => {
+    try {
+        // 1. Try to find by custom domain first, then by slug (user_id lookup for demo)
+        // Aliasing company_settings as profiles to match frontend usage
+        let query = supabase.from('website_configs').select('*, profiles:company_settings(company_name, email, phone, address, industry)');
+
+        if (domainOrSlug && domainOrSlug !== 'demo') {
+            query = query.eq('domain', domainOrSlug);
+        } else {
+            // Fallback for demo
+            query = query.limit(1);
+        }
+
+        const { data, error } = await query.maybeSingle();
+
+        if (error) throw error;
+        if (!data) return null;
+
+        const config = data.config.siteConfig || {};
+        const sections = data.config.sections || [];
+        const profileData = data.profiles || {};
+        const userId = data.user_id;
+
+        // 2. Fetch Services, Staff, Products, and Appointment Settings in parallel using the userId
+        const [svcRes, staffRes, prodRes, settingsRes] = await Promise.all([
+            supabase.from('services').select('*').eq('user_id', userId).order('name', { ascending: true }),
+            supabase.from('staff').select('*').eq('user_id', userId).order('name', { ascending: true }),
+            supabase.from('products').select('*').eq('user_id', userId).order('name', { ascending: true }),
+            supabase.from('appointment_settings').select('*').eq('user_id', userId).maybeSingle()
+        ]);
+
+        // 3. Normalize Appointment Settings with reliable defaults
+        const rawSettings = settingsRes.data || {};
+        const normalizedSettings = {
+            services: svcRes.data || [],
+            staff: staffRes.data || [],
+            workingHours: {
+                start: rawSettings.working_hours_start || config?.workingHours?.start || '09:00',
+                end: rawSettings.working_hours_end || config?.workingHours?.end || '18:00'
+            },
+            workingHoursWeekend: {
+                start: rawSettings.working_hours_weekend_start || config?.workingHoursWeekend?.start || '10:00',
+                end: rawSettings.working_hours_weekend_end || config?.workingHoursWeekend?.end || '16:00'
+            },
+            workingDays: rawSettings.working_days || config?.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+            holidays: rawSettings.holidays || [],
+            breaks: rawSettings.breaks || { start: '13:00', end: '14:00', enabled: false },
+            schedule: rawSettings.breaks?.schedule || null
+        };
+
+        return {
+            domain: domainOrSlug,
+            config,
+            sections,
+            profile: {
+                companyName: profileData.company_name,
+                email: profileData.email,
+                phone: profileData.phone,
+                address: profileData.address,
+                industry: profileData.industry,
+                city: profileData.city,
+                zip: profileData.zip,
+                street: profileData.street,
+                houseNum: profileData.house_num
+            },
+            products: prodRes.data || [],
+            appointmentSettings: normalizedSettings
+        };
+    } catch (err) {
+        console.error('[Public] Error fetching site data:', err);
+        return null;
+    }
+};
+
+const getPublicSiteData = (domainOrSlug, userId = null) => {
+    // Local fallback/preview logic (SAME as before)
+    // Priority: If userId is provided (admin preview), use it. Otherwise fallback to global/demo keys.
+    const getLocal = (key) => {
+        if (userId) {
+            const val = localStorage.getItem(`${key}_${userId}`);
+            if (val) return val;
+        }
+        return localStorage.getItem(key);
+    };
+
+    const savedConfig = localStorage.getItem('website_config'); // Website config is usually not user-prefixed yet
     const savedSections = localStorage.getItem('website_sections');
-    const companyProfile = localStorage.getItem('bay_profile');
-    const stockProducts = localStorage.getItem('bay_products');
+    const companyProfile = getLocal('bay_profile');
+    const stockProducts = getLocal('bay_products');
+    const savedServices = getLocal('bay_services');
+    const savedStaff = getLocal('bay_staff');
+    const savedSettings = getLocal('bay_appointment_settings');
+    const savedCustomization = getLocal('bay_invoice_customization');
 
-    // Consolidated Data Sources
-    const savedServices = localStorage.getItem('bay_services');
-    const savedSettings = localStorage.getItem('bay_appointment_settings');
-    const savedCustomization = localStorage.getItem('bay_invoice_customization');
-
-    let appointmentSettings = savedSettings ? JSON.parse(savedSettings) : {};
-
-    // Inject services from the single source of truth (bay_services)
+    let appointmentSettings = savedSettings ? JSON.parse(savedSettings) : {
+        workingHours: { start: '09:00', end: '18:00' },
+        workingHoursWeekend: { start: '10:00', end: '16:00' },
+        workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+        holidays: []
+    };
     if (savedServices) {
         appointmentSettings.services = JSON.parse(savedServices);
-    } else if (!appointmentSettings.services) {
-        // Fallback Mock Data if no data exists anywhere
-        appointmentSettings.services = [
-            { id: 'srv_1', name: 'Detaylı Motor Bakımı', duration: 60, price: 120, description: 'Tam kapsamlı motor ve yağ bakımı.' },
-            { id: 'srv_2', name: 'Lastik Değişimi & Balans', duration: 45, price: 60, description: '4 mevsim lastik değişimi ve rot balans ayarı.' },
-            { id: 'srv_3', name: 'Fren Sistemi Kontrolü', duration: 30, price: 85, description: 'Balata ve disk kontrolü, hidrolik değişimi.' },
-            { id: 'srv_4', name: 'Klima Gazı Dolumu', duration: 30, price: 50, description: 'Yaz ayları için klima performans artırımı.' }
-        ];
+    }
+    if (savedStaff) {
+        appointmentSettings.staff = JSON.parse(savedStaff);
     }
 
-    // Ensure working hours exist
-    if (!appointmentSettings.workingHours) {
-        appointmentSettings.workingHours = { start: '09:00', end: '18:00' };
-    }
+    // Deep merge or ensure properties exist for local preview consistency
+    if (!appointmentSettings.workingHours) appointmentSettings.workingHours = { start: '09:00', end: '18:00' };
+    if (!appointmentSettings.workingHoursWeekend) appointmentSettings.workingHoursWeekend = { start: '10:00', end: '16:00' };
+    if (!appointmentSettings.workingDays) appointmentSettings.workingDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    if (!appointmentSettings.holidays) appointmentSettings.holidays = [];
+
+    // Explicitly extract the daily schedule for themes
+    appointmentSettings.schedule = appointmentSettings.breaks?.schedule || null;
 
     return {
-        config: savedConfig ? JSON.parse(savedConfig) : {},
-        sections: savedSections ? JSON.parse(savedSections) : [],
+        config: savedConfig ? JSON.parse(savedConfig) : null,
+        sections: savedSections ? JSON.parse(savedSections) : null,
         profile: companyProfile ? JSON.parse(companyProfile) : null,
         products: stockProducts ? JSON.parse(stockProducts) : [],
         customization: savedCustomization ? JSON.parse(savedCustomization) : null,
@@ -101,8 +186,10 @@ class ErrorBoundary extends React.Component {
     }
 }
 
-const PublicWebsite = () => {
-    const { domain } = useParams(); // Capture /s/:domain for simulating subdomains locally
+const PublicWebsite = ({ customDomain }) => {
+    const { domain: urlDomain } = useParams(); // Capture /s/:domain for simulating subdomains locally
+    const effectiveDomain = customDomain || urlDomain || 'demo';
+
     const [siteData, setSiteData] = useState(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [cart, setCart] = useState([]);
@@ -111,6 +198,7 @@ const PublicWebsite = () => {
     const [appliedDiscount, setAppliedDiscount] = useState(null); // Amount or percentage
     const [currentSlide, setCurrentSlide] = useState(0);
     const [loading, setLoading] = useState(true);
+    const { currentUser: adminUser } = useAuth(); // Logged-in admin previewing
     const { t: tApp, getT, appLanguage, serviceLanguages, setServiceLanguage, LANGUAGES } = useLanguage();
     // Dynamic Language Logic: If website language is set, use it. Otherwise use app language.
     const currentLang = serviceLanguages?.website || appLanguage || 'de';
@@ -252,37 +340,86 @@ const PublicWebsite = () => {
     }, [siteData]);
 
     useEffect(() => {
-        // Initial Fetch
-        const loadData = () => {
-            const data = getPublicSiteData(domain || 'demo');
-            setSiteData(prev => {
-                // Simple deep equality check to prevent loops (JSON string compare is enough for this scale)
-                if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
-                return data;
-            });
-            setLoading(false);
+        const loadData = async () => {
+            // 1. Try Local First (Instant for Admin)
+            // Use adminUser.id if logged in, otherwise default to demo/global keys
+            const localData = getPublicSiteData(effectiveDomain, adminUser?.id);
 
-            // Update Page Title
-            if (data.config?.meta?.title) {
-                document.title = data.config.meta.title;
+            // If we have local data and it looks valid, show it first (optimistic)
+            if (localData && localData.config) {
+                setSiteData(localData);
+                setLoading(false);
+            }
+
+            // 2. Fetch Fresh from Supabase (Source of Truth)
+            // 2. Fetch Fresh from Supabase (Source of Truth)
+            try {
+                const remoteData = await fetchPublicSiteData(effectiveDomain);
+                if (remoteData) {
+                    setSiteData(prev => {
+                        if (!prev) return remoteData;
+
+                        // Helper for null-safe merge
+                        const safeMerge = (local = {}, remote = {}) => {
+                            const result = { ...local };
+                            Object.entries(remote).forEach(([key, val]) => {
+                                if (val !== null && val !== undefined && val !== '' && (Array.isArray(val) ? val.length > 0 : true)) {
+                                    result[key] = val;
+                                }
+                            });
+                            return result;
+                        };
+
+                        return {
+                            ...prev,
+                            config: safeMerge(prev.config, remoteData.config),
+                            sections: (remoteData.sections && remoteData.sections.length > 0) ? remoteData.sections : prev.sections,
+                            profile: safeMerge(prev.profile, remoteData.profile),
+                            products: (remoteData.products && remoteData.products.length > 0) ? remoteData.products : prev.products,
+                            appointmentSettings: (remoteData.appointmentSettings && Object.keys(remoteData.appointmentSettings).length > 0)
+                                ? remoteData.appointmentSettings
+                                : prev.appointmentSettings
+                        };
+                    });
+                }
+            } catch (err) {
+                console.warn('[Public] Remote fetch failed, staying with local.', err);
+            } finally {
+                setLoading(false);
             }
         };
 
         loadData();
 
-        // POLL FOR LIVE UPDATES (Crucial for "Live Preview" feeling)
-        // Since we are using localStorage as a backend mock, we can poll it cheaply.
-        const intervalId = setInterval(loadData, 500);
+        // --- REAL-TIME SUBSCRIPTION ---
+        let subscription = null;
+        if (effectiveDomain !== 'demo') {
+            subscription = supabase.channel('public-site-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'appointment_settings' }, async (payload) => {
+                    console.log('[Public] Settings updated:', payload);
+                    // Re-fetch everything to ensure consistent state
+                    const remoteData = await fetchPublicSiteData(effectiveDomain);
+                    if (remoteData) setSiteData(prev => ({ ...prev, ...remoteData }));
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, async () => {
+                    const remoteData = await fetchPublicSiteData(effectiveDomain);
+                    if (remoteData) setSiteData(prev => ({ ...prev, appointmentSettings: { ...prev.appointmentSettings, services: remoteData.appointmentSettings.services } }));
+                })
+                .subscribe();
+        }
 
-        // Also listen for cross-tab updates
-        const handleStorageChange = () => loadData();
+        // Listen for storage events (for admin live preview in same browser)
+        const handleStorageChange = () => {
+            const data = getPublicSiteData(effectiveDomain, adminUser?.id);
+            if (data && data.config) setSiteData(data);
+        };
         window.addEventListener('storage', handleStorageChange);
 
         return () => {
-            clearInterval(intervalId);
             window.removeEventListener('storage', handleStorageChange);
+            if (subscription) supabase.removeChannel(subscription);
         };
-    }, [domain]);
+    }, [effectiveDomain, adminUser?.id]);
 
     const inputStyle = {
         width: '100%', padding: '12px 16px', borderRadius: '10px',
@@ -330,16 +467,8 @@ const PublicWebsite = () => {
 
 
     const profileIndustry = siteData.profile?.industry || siteData.profile?.sector || 'general';
-    const configCategory = String(siteData.config.category || '');
+    const activeCategory = siteData.config.category || profileIndustry;
 
-    let activeCategory = configCategory;
-
-    // Check for mismatch: if config is 'automotive-v1' but profile is 'beauty', follow profile
-    if (configCategory && !configCategory.startsWith(profileIndustry)) {
-        activeCategory = profileIndustry; // Sync to profile industry
-    } else if (!configCategory) {
-        activeCategory = profileIndustry;
-    }
 
     const category = getCategoryFromThemeId(activeCategory.toLowerCase());
     const variant = getVariantFromThemeId(activeCategory.toLowerCase());
@@ -540,7 +669,7 @@ const PublicWebsite = () => {
                             </select>
 
                             <button
-                                onClick={() => navigate('/booking')}
+                                onClick={() => navigate(`/booking?domain=${effectiveDomain}`)}
                                 style={{
                                     padding: '10px 24px',
                                     background: theme.primaryColor,
@@ -588,9 +717,6 @@ const PublicWebsite = () => {
                             onChange={(e) => setServiceLanguage('website', e.target.value)}
                             style={{
                                 display: 'none', // Hidden on desktop via CSS if needed, but here inline first
-                                background: 'transparent',
-                                border: 'none',
-                                fontSize: '1.2rem',
                                 marginLeft: '8px'
                             }}
                             className="mobile-lang-selector"
@@ -628,7 +754,7 @@ const PublicWebsite = () => {
                             <button
                                 onClick={() => {
                                     setMobileMenuOpen(false);
-                                    navigate('/booking');
+                                    navigate(`/booking?domain=${effectiveDomain}`);
                                 }}
                                 style={{
                                     width: '100%', padding: '16px', background: theme.primaryColor, color: 'white',
@@ -702,7 +828,7 @@ const PublicWebsite = () => {
                                                         {section.data.text || section.data.subtitle || 'İşletmemiz size en iyi hizmeti sunmak için burada.'}
                                                     </p>
                                                     <button
-                                                        onClick={() => navigate('/booking')}
+                                                        onClick={() => navigate(`/booking?domain=${effectiveDomain}`)}
                                                         style={{
                                                             padding: '16px 48px', fontSize: '1.1rem', background: 'white', color: theme.primaryColor,
                                                             border: 'none', borderRadius: '50px', fontWeight: '700', cursor: 'pointer',
@@ -851,15 +977,38 @@ const PublicWebsite = () => {
                                             </div>
                                         ) : (
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
-                                                {[1, 2, 3].map(i => (
-                                                    <div key={i} style={{ padding: '30px', borderRadius: '16px', background: '#fff', border: '1px solid #e2e8f0', transition: 'transform 0.2s', cursor: 'default' }}>
-                                                        <div style={{ width: '60px', height: '60px', background: `${theme.primaryColor}10`, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.primaryColor, marginBottom: '20px' }}>
-                                                            <CheckCircle size={32} />
+                                                {siteData.appointmentSettings?.services && siteData.appointmentSettings.services.length > 0 ? (
+                                                    siteData.appointmentSettings.services.map(service => (
+                                                        <div key={service.id} style={{ padding: '30px', borderRadius: '16px', background: '#fff', border: '1px solid #e2e8f0', transition: 'transform 0.2s', cursor: 'default', display: 'flex', flexDirection: 'column' }}>
+                                                            <div style={{
+                                                                width: '60px', height: '60px',
+                                                                background: service.color ? `${service.color}15` : `${theme.primaryColor}10`,
+                                                                borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                color: service.color || theme.primaryColor, marginBottom: '20px'
+                                                            }}>
+                                                                <CheckCircle size={32} />
+                                                            </div>
+                                                            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '10px', color: '#1e293b' }}>{service.name}</h3>
+                                                            <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.6, flex: 1 }}>{service.description || 'Bu hizmet için bir açıklama bulunmuyor.'}</p>
+                                                            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+                                                                <span style={{ fontWeight: '700', color: theme.primaryColor }}>
+                                                                    {Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                                                                </span>
+                                                                <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{service.duration} dk</span>
+                                                            </div>
                                                         </div>
-                                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '10px' }}>Örnek Hizmet {i}</h3>
-                                                        <p style={{ color: '#64748b' }}>Bu hizmetin detaylı açıklaması buraya gelecek. Müşterileriniz bu hizmeti sitenizden inceleyebilir.</p>
-                                                    </div>
-                                                ))}
+                                                    ))
+                                                ) : (
+                                                    [1, 2, 3].map(i => (
+                                                        <div key={i} style={{ padding: '30px', borderRadius: '16px', background: '#fff', border: '1px solid #e2e8f0', transition: 'transform 0.2s', cursor: 'default' }}>
+                                                            <div style={{ width: '60px', height: '60px', background: `${theme.primaryColor}10`, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.primaryColor, marginBottom: '20px' }}>
+                                                                <CheckCircle size={32} />
+                                                            </div>
+                                                            <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '10px' }}>Örnek Hizmet {i}</h3>
+                                                            <p style={{ color: '#64748b' }}>Hizmetlerinizi eklediğinizde burada görünecektir.</p>
+                                                        </div>
+                                                    ))
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -981,24 +1130,37 @@ const PublicWebsite = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#e2e8f0', fontWeight: '600' }}>
                                         <Clock size={16} color={theme.primaryColor} /> {t('footer_working_hours')}
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.9rem', color: '#cbd5e1' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
-                                            <span>{t('footer_weekdays')}:</span>
-                                            <span style={{ fontWeight: '600', color: 'white' }}>
-                                                {siteData.appointmentSettings?.workingHours?.start} - {siteData.appointmentSettings?.workingHours?.end}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '2px' }}>
-                                            <span>{t('footer_weekend')}:</span>
-                                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>
-                                                {siteData.appointmentSettings?.workingDays?.some(d => ['Sat', 'Sun'].includes(d))
-                                                    ? `${siteData.appointmentSettings?.workingHours?.start} - ${siteData.appointmentSettings?.workingHours?.end}`
-                                                    : t('footer_closed')}
-                                            </span>
-                                        </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: '#cbd5e1' }}>
+                                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(dayCode => {
+                                            const isOpen = siteData.appointmentSettings?.workingDays?.includes(dayCode);
+                                            const dayMap = { 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday', 'Sun': 'sunday' };
+
+                                            // 1. Try independent daily schedule
+                                            // 2. Fallback to weekend/weekday grouping
+                                            const schedule = siteData.appointmentSettings?.schedule;
+                                            const isWeekend = ['Sat', 'Sun'].includes(dayCode);
+
+                                            const hours = (schedule && schedule[dayCode])
+                                                ? schedule[dayCode]
+                                                : (isWeekend
+                                                    ? (siteData.appointmentSettings?.workingHoursWeekend?.start ? siteData.appointmentSettings.workingHoursWeekend : siteData.appointmentSettings?.workingHours)
+                                                    : siteData.appointmentSettings?.workingHours);
+
+                                            const tKey = `day_${dayMap[dayCode] || dayCode.toLowerCase()}`;
+
+                                            return (
+                                                <div key={dayCode} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '2px' }}>
+                                                    <span style={{ color: isOpen ? '#cbd5e1' : '#64748b' }}>{t(tKey)}:</span>
+                                                    <span style={{ fontWeight: isOpen ? '600' : 'normal', color: isOpen ? 'white' : '#64748b', fontStyle: isOpen ? 'normal' : 'italic' }}>
+                                                        {isOpen ? `${hours?.start} - ${hours?.end}` : t('day_closed')}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+
                                         {siteData.appointmentSettings?.holidays?.length > 0 && (
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px', borderTop: '1px dashed rgba(255,255,255,0.1)', marginTop: '4px' }}>
-                                                <span>{t('footer_holidays')}:</span>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px', marginTop: '4px' }}>
+                                                <span style={{ color: '#ef4444' }}>{t('footer_holidays')}:</span>
                                                 <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{t('footer_closed')}</span>
                                             </div>
                                         )}
@@ -1023,15 +1185,31 @@ const PublicWebsite = () => {
                                 {profile?.address && <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><MapPin size={18} /> {profile.address}</div>}
                             </div>
                             <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
-                                <Facebook size={20} color="#cbd5e1" style={{ cursor: 'pointer' }} />
-                                <Instagram size={20} color="#cbd5e1" style={{ cursor: 'pointer' }} />
-                                <Linkedin size={20} color="#cbd5e1" style={{ cursor: 'pointer' }} />
-                                <Twitter size={20} color="#cbd5e1" style={{ cursor: 'pointer' }} />
+                                {config?.socialLinks?.facebook && (
+                                    <a href={config.socialLinks.facebook} target="_blank" rel="noopener noreferrer" style={{ color: '#cbd5e1' }}>
+                                        <Facebook size={20} style={{ cursor: 'pointer' }} />
+                                    </a>
+                                )}
+                                {config?.socialLinks?.instagram && (
+                                    <a href={config.socialLinks.instagram} target="_blank" rel="noopener noreferrer" style={{ color: '#cbd5e1' }}>
+                                        <Instagram size={20} style={{ cursor: 'pointer' }} />
+                                    </a>
+                                )}
+                                {config?.socialLinks?.linkedin && (
+                                    <a href={config.socialLinks.linkedin} target="_blank" rel="noopener noreferrer" style={{ color: '#cbd5e1' }}>
+                                        <Linkedin size={20} style={{ cursor: 'pointer' }} />
+                                    </a>
+                                )}
+                                {config?.socialLinks?.twitter && (
+                                    <a href={config.socialLinks.twitter} target="_blank" rel="noopener noreferrer" style={{ color: '#cbd5e1' }}>
+                                        <Twitter size={20} style={{ cursor: 'pointer' }} />
+                                    </a>
+                                )}
                             </div>
                         </div>
                     </div>
                     <div style={{ maxWidth: '1200px', margin: '40px auto 0', paddingTop: '24px', borderTop: '1px solid #1e293b', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>
-                        &copy; {new Date().getFullYear()} {profile?.companyName}. Tüm hakları saklıdır.
+                        &copy; {new Date().getFullYear()} {profile?.companyName}. {t('theme_footer_rights')}
                         {siteData.config?.theme?.showBranding !== false && (
                             <div style={{ marginTop: '8px', opacity: 0.6, fontSize: '0.75rem' }}>
                                 Powered by <span style={{ fontWeight: 'bold', color: theme.primaryColor }}>BayZenit</span>
