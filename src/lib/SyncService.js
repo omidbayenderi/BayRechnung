@@ -285,13 +285,14 @@ class SyncService {
 
             const { error } = await query;
             if (error) {
-                console.error(`Sync error on ${table} (${action}):`, error);
+                console.error(`🛑 [Sync] Error on ${table} (${action}):`, error.message, '| Payload:', finalData);
                 // If it's a real network error, we might be offline
                 if (error.message?.includes('FetchError') || error.message?.includes('Network Error')) {
                     this.lastSuccess = 0;
                 }
                 return false;
             }
+            console.log(`✅ [Sync] Success on ${table} (${action})`);
             this.lastSuccess = Date.now();
             this.notifyListeners();
             return true;

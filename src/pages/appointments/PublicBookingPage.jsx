@@ -7,6 +7,7 @@ import {
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useWebsite } from '../../context/WebsiteContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { supabase } from '../../lib/supabase';
 
 const PublicBookingPage = () => {
     const { services: contextServices, staff: contextStaff, createPublicBooking, settings: contextSettings } = useAppointments();
@@ -26,7 +27,11 @@ const PublicBookingPage = () => {
     const targetUserId = publicData.userId;
 
     // Determine Back URL (Return to the specific tenant site, not SaaS landing)
-    const backUrl = siteConfig?.domain ? `/s/${siteConfig.domain}` : (domainFromUrl ? `/s/${domainFromUrl}` : '/s/demo');
+    const hostname = window.location.hostname;
+    const isPlatformDomain = hostname === 'bayrechnung.com' || hostname === 'bayzenit.com' || hostname === 'www.bayzenit.com' || hostname.endsWith('.vercel.app');
+    const isCustomDomain = !isPlatformDomain && hostname !== 'localhost';
+
+    const backUrl = isCustomDomain ? '/' : (domainFromUrl ? `/s/${domainFromUrl}` : '/s/demo');
 
     // Initialize State
     const [step, setStep] = useState(1); // 1: Service, 2: Staff, 3: Date/Time, 4: Details, 5: Confirm
@@ -98,12 +103,13 @@ const PublicBookingPage = () => {
                     };
 
                     let userId = null;
+                    const cleanEffective = slugify(effectiveSlug);
 
                     // 1. website_configs araması
                     const { data: config } = await supabase
                         .from('website_configs')
                         .select('user_id')
-                        .or(`domain.eq.${domainFromUrl},slug.eq.${domainFromUrl},slug.eq.${effectiveSlug}`)
+                        .or(`domain.eq.${domainFromUrl},slug.eq.${domainFromUrl},slug.eq.${effectiveSlug},slug.eq.${cleanEffective}`)
                         .maybeSingle();
 
                     if (config?.user_id) {
@@ -114,8 +120,7 @@ const PublicBookingPage = () => {
                         if (profiles) {
                             const match = profiles.find(p => {
                                 const s = slugify(p.company_name);
-                                const cleanEffective = slugify(effectiveSlug);
-                                return s === cleanEffective || s === effectiveSlug.toLowerCase();
+                                return s === cleanEffective || s === effectiveSlug.toLowerCase() || p.user_id === domainFromUrl;
                             });
                             if (match) userId = match.user_id;
                         }
