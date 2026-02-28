@@ -13,7 +13,7 @@ import QuickAddAppointmentModal from '../components/QuickAddAppointmentModal';
 import QuickAddExpenseModal from '../components/QuickAddExpenseModal';
 import AiInsights from '../components/dashboard/AiInsights';
 import { usePlanGuard } from '../hooks/usePlanGuard';
-import { aiService } from '../services/aiService';
+import { aiService } from '../services/AiService';
 
 const StatCard = ({ title, value, icon: Icon, color }) => (
     <motion.div
