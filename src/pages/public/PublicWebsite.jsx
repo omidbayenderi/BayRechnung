@@ -49,8 +49,8 @@ const fetchPublicSiteData = async (domainOrSlug) => {
 
         try {
             const orConditions = [];
-            if (domainOrSlug && domainOrSlug !== 'demo') orConditions.push(`domain.eq.${domainOrSlug}`, `slug.eq.${domainOrSlug}`);
-            if (effectiveSlug && effectiveSlug !== domainOrSlug) orConditions.push(`slug.eq.${effectiveSlug}`);
+            if (domainOrSlug && domainOrSlug !== 'demo') orConditions.push(`domain.eq."${domainOrSlug}"`, `slug.eq."${domainOrSlug}"`);
+            if (effectiveSlug && effectiveSlug !== domainOrSlug) orConditions.push(`slug.eq."${effectiveSlug}"`);
 
             if (orConditions.length > 0) {
                 const { data: configCheck } = await supabase
