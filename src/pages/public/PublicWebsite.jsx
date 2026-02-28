@@ -21,16 +21,6 @@ import { useAuth } from '../../context/AuthContext';
 // Remote Data Fetcher (Supabase)
 const fetchPublicSiteData = async (domainOrSlug) => {
     try {
-        console.warn('🔍 [Public] Starting fetch for:', domainOrSlug);
-        const platformDomain = 'bayzenit.com';
-        let effectiveSlug = domainOrSlug;
-
-        // 1. Detect if it's a platform subdomain (e.g. firma.bayzenit.com)
-        if (domainOrSlug && domainOrSlug.endsWith(platformDomain) && domainOrSlug !== platformDomain) {
-            effectiveSlug = domainOrSlug.replace(`.${platformDomain}`, '').replace('www.', '');
-            console.warn('🔹 [Public] Platform subdomain detected:', effectiveSlug);
-        }
-
         const slugify = (text) => {
             if (!text) return '';
             return text.toString().toLowerCase().trim()
@@ -39,6 +29,19 @@ const fetchPublicSiteData = async (domainOrSlug) => {
                 .replace(/-+/g, '-')
                 .replace(/^-|-$/g, '');
         };
+
+        console.warn('🔍 [Public] Starting fetch for:', domainOrSlug);
+        const platformDomain = 'bayzenit.com';
+        let effectiveSlug = domainOrSlug;
+
+        // 1. Detect if it's a platform subdomain (e.g. firma.bayzenit.com)
+        if (domainOrSlug && domainOrSlug.includes(platformDomain) && domainOrSlug !== platformDomain) {
+            effectiveSlug = domainOrSlug.split(`.${platformDomain}`)[0].replace('www.', '');
+            console.warn('🔹 [Public] Platform subdomain detected:', effectiveSlug);
+        } else if (domainOrSlug && domainOrSlug.includes('.')) {
+            // Probably a custom domain, use the first part as slug fallback or exact
+            effectiveSlug = domainOrSlug.split('.')[0].replace('www.', '');
+        }
 
 
         // 2. Direct Search by Domain or Exact Slug
