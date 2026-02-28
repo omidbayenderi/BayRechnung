@@ -244,7 +244,8 @@ class SyncService {
                     expenses: ['id', 'user_id', 'description', 'amount', 'category', 'date', 'receipt_url', 'status', 'created_at'],
                     appointments: ['id', 'user_id', 'client_name', 'client_email', 'client_phone', 'service_id', 'staff_id', 'date', 'start_time', 'end_time', 'status', 'notes', 'created_at'],
                     company_settings: ['id', 'user_id', 'company_name', 'owner', 'email', 'phone', 'address', 'tax_rate', 'currency', 'logo_url', 'industry', 'brand_palette', 'stripe_public_key', 'stripe_secret_key', 'paypal_client_id'],
-                    stock_settings: ['id', 'user_id', 'tax_rate', 'currency', 'store_name', 'store_address', 'store_phone', 'default_low_stock', 'categories']
+                    stock_settings: ['id', 'user_id', 'tax_rate', 'currency', 'store_name', 'store_address', 'store_phone', 'default_low_stock', 'categories'],
+                    invoice_customization: ['id', 'user_id', 'primary_color', 'accent_color', 'signature_url', 'footer_text', 'quote_validity_days', 'brand_palette']
                 };
 
                 const finalData = { ...data };

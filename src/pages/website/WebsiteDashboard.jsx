@@ -45,7 +45,7 @@ const WebsiteDashboard = () => {
     const relativeUrl = `/s/${siteConfig.domain || subDomain}`;
     const fullUrl = isLocalhost
         ? `${window.location.origin}${relativeUrl}`
-        : (siteConfig.domain ? `https://${siteConfig.domain}` : `https://${subDomain}.bayrechnung.com`);
+        : (siteConfig.domain ? `https://${siteConfig.domain}` : `https://${subDomain}.bayzenit.com`);
 
     // Helper: Open Site
     const handleViewSite = (e) => {

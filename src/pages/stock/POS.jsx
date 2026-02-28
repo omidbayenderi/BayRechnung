@@ -330,7 +330,7 @@ const POS = () => {
         } else if (paymentMethod === 'stripe') {
             return companyProfile?.stripeLink || `https://buy.stripe.com/bayzenit_demo?amount=${cartTotal * 100}`;
         }
-        return `https://bayrechnung.com/pay/${checkoutId}`;
+        return `https://bayzenit.com/pay/${checkoutId}`;
     }, [paymentMethod, checkoutId, cartTotal, companyProfile]);
 
     const paymentQrUrl = useMemo(() => {

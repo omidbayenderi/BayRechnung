@@ -527,7 +527,7 @@ const WebsiteSettings = () => {
                             </button>
                         </div>
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
-                            {t('current_address_label') || 'Şu anki adresiniz:'} <strong style={{ color: 'var(--primary)' }}>{localConfig.domain || 'demo.bayrechnung.com'}</strong>
+                            {t('current_address_label') || 'Şu anki adresiniz:'} <strong style={{ color: 'var(--primary)' }}>{localConfig.domain || 'demo.bayzenit.com'}</strong>
                         </p>
                     </div>
 

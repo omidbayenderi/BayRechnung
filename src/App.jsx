@@ -76,7 +76,7 @@ function App() {
 
   // Domain detection logic
   const hostname = window.location.hostname;
-  const isCustomDomain = hostname !== 'localhost' && hostname !== 'bayrechnung.com' && !hostname.endsWith('.vercel.app') && !hostname.endsWith('.supabase.co');
+  const isCustomDomain = hostname !== 'localhost' && hostname !== 'bayrechnung.com' && hostname !== 'bayzenit.com' && !hostname.endsWith('.vercel.app') && !hostname.endsWith('.supabase.co');
 
   if (isCustomDomain) {
     return (

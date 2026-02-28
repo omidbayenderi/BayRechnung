@@ -1332,7 +1332,11 @@ const translations = {
                 sync_up_to_date: 'Auf Wolke aktuell',
                 sync_offline: 'Offline',
                 sync_pending: '{count} Daten warten',
-                sync_button: 'WOLKE SENDEN'
+                sync_button: 'WOLKE SENDEN',
+                pricing: 'Preise',
+                take_action: 'Handeln',
+                growth_opportunity_publish: 'Wachstumschance veröffentlichen',
+                brand_value_about_section: 'Markenwert im Info-Bereich'
         },
         en: {
                 appointment_calendar: "Appointment Calendar",
@@ -2675,7 +2679,11 @@ const translations = {
                 sync_up_to_date: 'Cloud up to date',
                 sync_offline: 'Offline',
                 sync_pending: '{count} Data pending',
-                sync_button: 'SEND TO CLOUD'
+                sync_button: 'SEND TO CLOUD',
+                pricing: 'Pricing',
+                take_action: 'Take Action',
+                growth_opportunity_publish: 'Publish Growth Opportunity',
+                brand_value_about_section: 'Brand Value in About Section'
         },
         tr: {
                 appointment_calendar: "Randevu Takvimi",

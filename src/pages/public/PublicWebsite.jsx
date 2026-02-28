@@ -22,8 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 const fetchPublicSiteData = async (domainOrSlug) => {
     try {
         // 1. Try to find by custom domain first, then by slug (user_id lookup for demo)
-        // Aliasing company_settings as profiles to match frontend usage
-        let query = supabase.from('website_configs').select('*, profiles:company_settings(company_name, email, phone, address, industry)');
+        let query = supabase.from('website_configs').select('*');
 
         if (domainOrSlug && domainOrSlug !== 'demo') {
             query = query.eq('domain', domainOrSlug);
@@ -37,18 +36,20 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         if (error) throw error;
         if (!data) return null;
 
-        const config = data.config.siteConfig || {};
-        const sections = data.config.sections || [];
-        const profileData = data.profiles || {};
         const userId = data.user_id;
 
-        // 2. Fetch Services, Staff, Products, and Appointment Settings in parallel using the userId
-        const [svcRes, staffRes, prodRes, settingsRes] = await Promise.all([
+        // 2. Fetch Services, Staff, Products, Appointment Settings AND Company Settings in parallel
+        const [svcRes, staffRes, prodRes, settingsRes, profileRes] = await Promise.all([
             supabase.from('services').select('*').eq('user_id', userId).order('name', { ascending: true }),
             supabase.from('staff').select('*').eq('user_id', userId).order('name', { ascending: true }),
             supabase.from('products').select('*').eq('user_id', userId).order('name', { ascending: true }),
-            supabase.from('appointment_settings').select('*').eq('user_id', userId).maybeSingle()
+            supabase.from('appointment_settings').select('*').eq('user_id', userId).maybeSingle(),
+            supabase.from('company_settings').select('*').eq('user_id', userId).maybeSingle()
         ]);
+
+        const config = data.config.siteConfig || {};
+        const sections = data.config.sections || [];
+        const profileData = profileRes.data || {};
 
         // 3. Normalize Appointment Settings with reliable defaults
         const rawSettings = settingsRes.data || {};
