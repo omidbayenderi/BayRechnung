@@ -240,10 +240,26 @@ class SyncService {
                     products: ['id', 'user_id', 'name', 'category', 'price', 'stock', 'min_stock', 'sku', 'image_url', 'supplier_info', 'created_at'],
                     sales: ['id', 'user_id', 'customer_name', 'total', 'payment_method', 'items', 'status', 'created_at'],
                     stock_movements: ['id', 'user_id', 'product_id', 'quantity_change', 'type', 'reason', 'created_at'],
-                    invoices: ['id', 'user_id', 'number', 'date', 'due_date', 'customer_id', 'items', 'subtotal', 'tax_rate', 'tax_amount', 'total', 'status', 'notes', 'currency', 'created_at'],
+                    invoices: [
+                        'id', 'user_id', 'invoice_number', 'customer_name', 'customer_email',
+                        'customer_address', 'customer_city', 'customer_postal_code',
+                        'items', 'subtotal', 'tax_rate', 'tax_amount', 'total', 'status',
+                        'due_date', 'issue_date', 'notes', 'currency', 'industry_data', 'sender_snapshot', 'created_at'
+                    ],
                     expenses: ['id', 'user_id', 'description', 'amount', 'category', 'date', 'receipt_url', 'status', 'created_at'],
-                    appointments: ['id', 'user_id', 'client_name', 'client_email', 'client_phone', 'service_id', 'staff_id', 'date', 'start_time', 'end_time', 'status', 'notes', 'created_at'],
-                    company_settings: ['id', 'user_id', 'company_name', 'owner', 'email', 'phone', 'address', 'tax_rate', 'currency', 'logo_url', 'industry', 'brand_palette', 'stripe_public_key', 'stripe_secret_key', 'paypal_client_id'],
+                    appointments: [
+                        'id', 'user_id', 'customer_name', 'customer_email', 'customer_phone',
+                        'client_name', 'client_email', 'client_phone', // Dual support
+                        'service_id', 'staff_id', 'date', 'start_time', 'end_time', 'status', 'notes', 'created_at'
+                    ],
+                    company_settings: [
+                        'id', 'user_id', 'company_name', 'owner', 'email', 'phone', 'address',
+                        'street', 'house_num', 'city', 'postal_code',
+                        'tax_rate', 'currency', 'logo_url', 'industry', 'brand_palette',
+                        'tax_id', 'vat_id', 'bank_name', 'iban', 'bic', 'payment_terms',
+                        'stripe_public_key', 'stripe_secret_key', 'stripe_api_key', 'stripe_webhook_secret',
+                        'paypal_client_id', 'paypal_secret', 'logo_display_mode', 'plan'
+                    ],
                     stock_settings: ['id', 'user_id', 'tax_rate', 'currency', 'store_name', 'store_address', 'store_phone', 'default_low_stock', 'categories'],
                     invoice_customization: ['id', 'user_id', 'primary_color', 'accent_color', 'signature_url', 'footer_text', 'quote_validity_days', 'brand_palette']
                 };

@@ -85,18 +85,20 @@ function App() {
 
   console.warn('🌐 [App] Hostname:', hostname, '| isCustomDomain:', isCustomDomain);
 
-  if (isCustomDomain) {
-    return (
-      <WebsiteProvider>
-        <PublicWebsite customDomain={hostname} />
-      </WebsiteProvider>
-    );
-  }
-
   return (
     <BayGuardProvider>
       <Routes>
-        {/* 1. Public External Website (NO Internal Agents) */}
+        {/* 1. Public External Website (Custom Domain or Path based) */}
+        <Route path="/" element={
+          isCustomDomain ? (
+            <WebsiteProvider>
+              <PublicWebsite customDomain={hostname} />
+            </WebsiteProvider>
+          ) : (
+            <LandingPage />
+          )
+        } />
+
         <Route path="/s/:domain" element={
           <WebsiteProvider>
             <PublicWebsite />

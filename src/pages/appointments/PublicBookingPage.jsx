@@ -87,17 +87,43 @@ const PublicBookingPage = () => {
             const fetchTenant = async () => {
                 setLoading(true);
                 try {
-                    const { data: config, error: configErr } = await supabase
+                    const platformDomain = 'bayzenit.com';
+                    let effectiveSlug = domainFromUrl;
+                    if (domainFromUrl.endsWith(platformDomain) && domainFromUrl !== platformDomain) {
+                        effectiveSlug = domainFromUrl.replace(`.${platformDomain}`, '').replace('www.', '');
+                    }
+
+                    let userId = null;
+                    const { data: config } = await supabase
                         .from('website_configs')
-                        .select('user_id, config')
-                        .or(`domain.eq.${domainFromUrl},slug.eq.${domainFromUrl}`)
+                        .select('user_id')
+                        .or(`domain.eq.${domainFromUrl},slug.eq.${domainFromUrl},slug.eq.${effectiveSlug}`)
                         .maybeSingle();
 
                     if (config?.user_id) {
+                        userId = config.user_id;
+                    } else {
+                        // Fallback: Search in company_settings by slugified name
+                        const { data: profiles } = await supabase.from('company_settings').select('user_id, company_name');
+                        if (profiles) {
+                            const slugify = (text) => {
+                                if (!text) return '';
+                                return text.toString().toLowerCase().trim()
+                                    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                                    .replace(/[^a-z0-9]/g, '-')
+                                    .replace(/-+/g, '-')
+                                    .replace(/^-|-$/g, '');
+                            };
+                            const match = profiles.find(p => slugify(p.company_name) === effectiveSlug.toLowerCase());
+                            if (match) userId = match.user_id;
+                        }
+                    }
+
+                    if (userId) {
                         const [svcRes, staffRes, settingsRes] = await Promise.all([
-                            supabase.from('services').select('*').eq('user_id', config.user_id),
-                            supabase.from('staff').select('*').eq('user_id', config.user_id),
-                            supabase.from('appointment_settings').select('*').eq('user_id', config.user_id).maybeSingle()
+                            supabase.from('services').select('*').eq('user_id', userId).order('name', { ascending: true }),
+                            supabase.from('staff').select('*').eq('user_id', userId).order('name', { ascending: true }),
+                            supabase.from('appointment_settings').select('*').eq('user_id', userId).maybeSingle()
                         ]);
 
                         const mappedSettings = settingsRes.data ? {
@@ -120,7 +146,7 @@ const PublicBookingPage = () => {
                         setPublicData({
                             services: svcRes.data || [],
                             staff: staffRes.data || [],
-                            userId: config.user_id,
+                            userId: userId,
                             settings: mappedSettings
                         });
                     }

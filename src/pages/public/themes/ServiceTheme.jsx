@@ -263,8 +263,10 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                     {/* Desktop Actions */}
                     <div className="desktop-nav" style={{ alignItems: 'center', gap: '40px' }}>
                         <div style={{ display: 'flex', gap: '32px' }}>
-                            <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', cursor: 'pointer', letterSpacing: '0.5px' }}>{t('theme_nav_services')}</a>
-                            <Link to={`/booking?domain=${siteData.domain || 'demo'}`} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.5px' }}>{t('theme_cta_book')}</Link>
+                            {siteData.appointmentSettings?.services?.length > 0 && (
+                                <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', cursor: 'pointer', letterSpacing: '0.5px' }}>{t('theme_nav_services')}</a>
+                            )}
+                            <Link to={`/booking?domain=${siteData.domain || siteData.slug || 'demo'}`} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.5px' }}>{t('theme_cta_book')}</Link>
                         </div>
 
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
@@ -358,8 +360,10 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                             </button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontSize: '1.25rem', fontWeight: '700' }}>
-                            <a href="#services" onClick={(e) => { scrollToSection(e, 'services'); setMobileMenuOpen(false); }} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
-                            <Link to={`/booking?domain=${siteData.domain || 'demo'}`} onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_cta_book')}</Link>
+                            {siteData.appointmentSettings?.services?.length > 0 && (
+                                <a href="#services" onClick={(e) => { scrollToSection(e, 'services'); setMobileMenuOpen(false); }} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
+                            )}
+                            <Link to={`/booking?domain=${siteData.domain || siteData.slug || 'demo'}`} onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_cta_book')}</Link>
                             <div onClick={() => { setIsCartOpen(true); setMobileMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                                 {t('cart_title')} ({cart.length})
                             </div>
@@ -747,7 +751,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                             <li style={{ marginBottom: '16px' }}><Link to="/" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'white'}>{t('theme_nav_home')}</Link></li>
                             <li style={{ marginBottom: '16px' }}><a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}>{t('theme_nav_services')}</a></li>
-                            <li style={{ marginBottom: '16px' }}><Link to={`/booking?domain=${siteData.domain || 'demo'}`} style={{ color: 'inherit', textDecoration: 'none' }}>{t('theme_cta_book')}</Link></li>
+                            <li style={{ marginBottom: '16px' }}><Link to={`/booking?domain=${siteData.domain || siteData.slug || 'demo'}`} style={{ color: 'inherit', textDecoration: 'none' }}>{t('theme_cta_book')}</Link></li>
                         </ul>
                     </div>
 

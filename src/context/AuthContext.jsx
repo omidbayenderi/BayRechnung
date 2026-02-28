@@ -101,6 +101,12 @@ export const AuthProvider = ({ children }) => {
                 plan: (isAdminEmail || subRes.data?.plan_type === 'premium') ? 'premium' : (subRes.data?.plan_type || 'free'),
                 companyName: companyRes.data?.company_name || 'My Company',
                 industry: companyRes.data?.industry || 'general',
+                phone: companyRes.data?.phone,
+                address: companyRes.data?.address,
+                city: companyRes.data?.city,
+                zip: companyRes.data?.zip,
+                street: companyRes.data?.street,
+                house_num: companyRes.data?.house_num,
                 role: profileRes.data?.role || 'admin',
                 stripePublicKey: companyRes.data?.stripe_public_key,
                 stripeSecretKey: companyRes.data?.stripe_secret_key,
@@ -537,6 +543,12 @@ export const AuthProvider = ({ children }) => {
                         user_id: userId,
                         company_name: updatedData.companyName,
                         industry: updatedData.industry,
+                        phone: updatedData.phone,
+                        street: updatedData.street,
+                        house_num: updatedData.house_num || updatedData.houseNum,
+                        city: updatedData.city,
+                        postal_code: updatedData.zip,
+                        address: `${updatedData.street || ''} ${updatedData.house_num || updatedData.houseNum || ''}`.trim(),
                         stripe_public_key: updatedData.stripePublicKey,
                         stripe_secret_key: updatedData.stripeSecretKey,
                         paypal_client_id: updatedData.paypalClientId
@@ -545,7 +557,7 @@ export const AuthProvider = ({ children }) => {
                 console.log('[Auth] Deep Trace - company_settings payload:', {
                     user_id: userId,
                     company_name: updatedData.companyName,
-                    industry: updatedData.industry
+                    address: `${updatedData.street || ''} ${updatedData.house_num || updatedData.houseNum || ''}`.trim()
                 });
 
                 if (companyError) {

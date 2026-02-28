@@ -49,8 +49,19 @@ const fetchPublicSiteData = async (domainOrSlug) => {
 
         if (profiles) {
             console.warn('✅ [Public] Company Profiles found:', profiles.length);
-            const slugify = (text) => text?.toLowerCase().trim().replace(/[ğğ]/g, 'g').replace(/[üü]/g, 'u').replace(/[şş]/g, 's').replace(/[ii]/g, 'i').replace(/[öö]/g, 'o').replace(/[çç]/g, 'c').replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
-            const match = profiles.find(p => slugify(p.company_name) === effectiveSlug.toLowerCase());
+            const slugify = (text) => {
+                if (!text) return '';
+                return text.toString().toLowerCase().trim()
+                    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                    .replace(/[^a-z0-9]/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '');
+            };
+
+            const match = profiles.find(p => {
+                const s = slugify(p.company_name);
+                return s === effectiveSlug.toLowerCase() || p.user_id === effectiveSlug;
+            });
 
             if (match) {
                 userId = match.user_id;
@@ -126,18 +137,20 @@ const fetchPublicSiteData = async (domainOrSlug) => {
 
         return {
             domain: domainOrSlug,
+            slug: effectiveSlug,
             config,
             sections,
             profile: {
-                companyName: profileData.company_name,
-                email: profileData.email,
-                phone: profileData.phone,
-                address: profileData.address,
-                industry: profileData.industry,
-                city: profileData.city,
-                zip: profileData.zip,
-                street: profileData.street,
-                houseNum: profileData.house_num
+                companyName: profileData.company_name || 'BayZenit Üyesi İşletme',
+                email: profileData.email || '',
+                phone: profileData.phone || '',
+                address: profileData.address || `${profileData.street || ''} ${profileData.house_num || profileData.houseNum || ''}`.trim(),
+                industry: profileData.industry || 'general',
+                city: profileData.city || '',
+                zip: profileData.postal_code || profileData.zip || '',
+                street: profileData.street || '',
+                houseNum: profileData.house_num || profileData.houseNum || '',
+                logo: profileData.logo_url || ''
             },
             products: prodRes.data || [],
             appointmentSettings: normalizedSettings
