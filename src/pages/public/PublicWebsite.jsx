@@ -21,25 +21,62 @@ import { useAuth } from '../../context/AuthContext';
 // Remote Data Fetcher (Supabase)
 const fetchPublicSiteData = async (domainOrSlug) => {
     try {
-        // 1. Try to find by custom domain first, then by slug (user_id lookup for demo)
-        let query = supabase.from('website_configs').select('*');
+        console.warn('🔍 [Public] Starting fetch for:', domainOrSlug);
+        const platformDomain = 'bayzenit.com';
+        let effectiveSlug = domainOrSlug;
+        let isPlatformSubdomain = false;
 
-        if (domainOrSlug && domainOrSlug !== 'demo') {
-            query = query.eq('domain', domainOrSlug);
-        } else {
-            // Fallback for demo
-            query = query.limit(1);
+        // 1. Detect if it's a platform subdomain (e.g. firma.bayzenit.com)
+        if (domainOrSlug && domainOrSlug.endsWith(platformDomain) && domainOrSlug !== platformDomain) {
+            effectiveSlug = domainOrSlug.replace(`.${platformDomain}`, '').replace('www.', '');
+            isPlatformSubdomain = true;
+            console.warn('🔹 [Public] Platform subdomain detected:', effectiveSlug);
         }
 
-        const { data, error } = await query.maybeSingle();
+        let userId = null;
 
-        if (error) throw error;
-        if (!data) return null;
+        // 2. Smart Search: Find User/Tenant
+        const { data: profiles, error: profileErr } = await supabase
+            .from('company_settings')
+            .select('user_id, subdomain, company_name');
 
-        const userId = data.user_id;
+        if (profileErr) {
+            console.error('[Public] Profile fetch error (Check RLS!):', profileErr);
+        }
 
-        // 2. Fetch Services, Staff, Products, Appointment Settings AND Company Settings in parallel
-        const [svcRes, staffRes, prodRes, settingsRes, profileRes] = await Promise.all([
+        if (profiles) {
+            console.warn('✅ [Public] Company Profiles found:', profiles.length);
+            const slugify = (text) => text?.toLowerCase().trim().replace(/[ğğ]/g, 'g').replace(/[üü]/g, 'u').replace(/[şş]/g, 's').replace(/[ii]/g, 'i').replace(/[öö]/g, 'o').replace(/[çç]/g, 'c').replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
+            const match = profiles.find(p => (p.subdomain?.toLowerCase() === effectiveSlug.toLowerCase()) || slugify(p.company_name) === effectiveSlug.toLowerCase());
+
+            if (match) {
+                userId = match.user_id;
+                console.warn('🎯 [Public] MATCH FOUND! ID:', userId, 'Company:', match.company_name);
+            } else {
+                console.warn('⚠️ [Public] No match for slug:', effectiveSlug);
+            }
+        }
+
+        // Search by direct domain if not found via slug
+        if (!userId && domainOrSlug && domainOrSlug !== 'demo') {
+            const { data: config } = await supabase.from('website_configs').select('user_id').eq('domain', domainOrSlug).maybeSingle();
+            userId = config?.user_id;
+        }
+
+        // Fallback for demo
+        if (!userId && (!domainOrSlug || domainOrSlug === 'demo')) {
+            const { data: firstConfig } = await supabase.from('website_configs').select('user_id').limit(1).maybeSingle();
+            userId = firstConfig?.user_id;
+        }
+
+        if (!userId) {
+            console.error('🛑 [Public] USER NOT FOUND (Site cannot load). Checked slug:', effectiveSlug);
+            return null;
+        }
+
+        // 3. Parallel Fetch all data for this user
+        const [configRes, svcRes, staffRes, prodRes, settingsRes, profileRes] = await Promise.all([
+            supabase.from('website_configs').select('*').eq('user_id', userId).maybeSingle(),
             supabase.from('services').select('*').eq('user_id', userId).order('name', { ascending: true }),
             supabase.from('staff').select('*').eq('user_id', userId).order('name', { ascending: true }),
             supabase.from('products').select('*').eq('user_id', userId).order('name', { ascending: true }),
@@ -47,11 +84,21 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             supabase.from('company_settings').select('*').eq('user_id', userId).maybeSingle()
         ]);
 
-        const config = data.config.siteConfig || {};
-        const sections = data.config.sections || [];
+        // 4. SaaS Intelligence: Provide dynamic boilerplate if config doesn't exist
         const profileData = profileRes.data || {};
+        const config = configRes.data?.config?.siteConfig || {
+            isPublished: true,
+            theme: { primaryColor: '#3b82f6', mode: 'light', fontFamily: 'Inter' },
+            category: profileData.industry || 'standard'
+        };
 
-        // 3. Normalize Appointment Settings with reliable defaults
+        const sections = configRes.data?.config?.sections || [
+            { id: 'hero', type: 'hero', visible: true, data: { title: profileData.company_name || 'Hoş Geldiniz', subtitle: 'Kaliteli hizmetin adresi.' } },
+            { id: 'products', type: 'products', visible: true, data: { autoPull: true, source: 'stock' } },
+            { id: 'contact', type: 'contact', visible: true, data: { showMap: false } }
+        ];
+
+        // 5. Normalize Appointment Settings
         const rawSettings = settingsRes.data || {};
         const normalizedSettings = {
             services: svcRes.data || [],
@@ -60,14 +107,9 @@ const fetchPublicSiteData = async (domainOrSlug) => {
                 start: rawSettings.working_hours_start || config?.workingHours?.start || '09:00',
                 end: rawSettings.working_hours_end || config?.workingHours?.end || '18:00'
             },
-            workingHoursWeekend: {
-                start: rawSettings.working_hours_weekend_start || config?.workingHoursWeekend?.start || '10:00',
-                end: rawSettings.working_hours_weekend_end || config?.workingHoursWeekend?.end || '16:00'
-            },
-            workingDays: rawSettings.working_days || config?.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+            workingDays: rawSettings.working_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
             holidays: rawSettings.holidays || [],
-            breaks: rawSettings.breaks || { start: '13:00', end: '14:00', enabled: false },
-            schedule: rawSettings.breaks?.schedule || null
+            breaks: rawSettings.breaks || { start: '13:00', end: '14:00', enabled: false }
         };
 
         return {
@@ -89,7 +131,7 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             appointmentSettings: normalizedSettings
         };
     } catch (err) {
-        console.error('[Public] Error fetching site data:', err);
+        console.error('[Public] Error in fetchPublicSiteData:', err);
         return null;
     }
 };
@@ -342,6 +384,7 @@ const PublicWebsite = ({ customDomain }) => {
 
     useEffect(() => {
         const loadData = async () => {
+            console.warn('🎬 [Public] useEffect/loadData firing for:', effectiveDomain);
             // 1. Try Local First (Instant for Admin)
             // Use adminUser.id if logged in, otherwise default to demo/global keys
             const localData = getPublicSiteData(effectiveDomain, adminUser?.id);
@@ -353,8 +396,8 @@ const PublicWebsite = ({ customDomain }) => {
             }
 
             // 2. Fetch Fresh from Supabase (Source of Truth)
-            // 2. Fetch Fresh from Supabase (Source of Truth)
             try {
+                console.warn('🌐 [Public] Fetching remote data for:', effectiveDomain);
                 const remoteData = await fetchPublicSiteData(effectiveDomain);
                 if (remoteData) {
                     setSiteData(prev => {
