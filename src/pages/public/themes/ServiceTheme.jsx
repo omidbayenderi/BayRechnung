@@ -266,7 +266,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                             {siteData.appointmentSettings?.services?.length > 0 && (
                                 <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', cursor: 'pointer', letterSpacing: '0.5px' }}>{t('theme_nav_services')}</a>
                             )}
-                            <Link to={`/booking?domain=${siteData.domain || siteData.slug || 'demo'}`} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.5px' }}>{t('theme_cta_book')}</Link>
+                            <Link to={`/booking?domain=${siteData.slug || 'demo'}`} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.5px' }}>{t('theme_cta_book')}</Link>
                         </div>
 
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
@@ -363,7 +363,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                             {siteData.appointmentSettings?.services?.length > 0 && (
                                 <a href="#services" onClick={(e) => { scrollToSection(e, 'services'); setMobileMenuOpen(false); }} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
                             )}
-                            <Link to={`/booking?domain=${siteData.domain || siteData.slug || 'demo'}`} onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_cta_book')}</Link>
+                            <Link to={`/booking?domain=${siteData.slug || 'demo'}`} onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_cta_book')}</Link>
                             <div onClick={() => { setIsCartOpen(true); setMobileMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                                 {t('cart_title')} ({cart.length})
                             </div>
