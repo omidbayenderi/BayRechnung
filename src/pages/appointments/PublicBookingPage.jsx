@@ -88,12 +88,18 @@ const PublicBookingPage = () => {
                 setLoading(true);
                 try {
                     const platformDomain = 'bayzenit.com';
-                    let effectiveSlug = domainFromUrl;
-                    if (domainFromUrl.endsWith(platformDomain) && domainFromUrl !== platformDomain) {
-                        effectiveSlug = domainFromUrl.replace(`.${platformDomain}`, '').replace('www.', '');
-                    }
+                    const slugify = (text) => {
+                        if (!text) return '';
+                        return text.toString().toLowerCase().trim()
+                            .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                            .replace(/[^a-z0-9]/g, '-')
+                            .replace(/-+/g, '-')
+                            .replace(/^-|-$/g, '');
+                    };
 
                     let userId = null;
+
+                    // 1. website_configs araması
                     const { data: config } = await supabase
                         .from('website_configs')
                         .select('user_id')
@@ -103,28 +109,28 @@ const PublicBookingPage = () => {
                     if (config?.user_id) {
                         userId = config.user_id;
                     } else {
-                        // Fallback: Search in company_settings by slugified name
+                        // 2. company_settings üzerinden eşleştirme (Fallback)
                         const { data: profiles } = await supabase.from('company_settings').select('user_id, company_name');
                         if (profiles) {
-                            const slugify = (text) => {
-                                if (!text) return '';
-                                return text.toString().toLowerCase().trim()
-                                    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                                    .replace(/[^a-z0-9]/g, '-')
-                                    .replace(/-+/g, '-')
-                                    .replace(/^-|-$/g, '');
-                            };
-                            const match = profiles.find(p => slugify(p.company_name) === effectiveSlug.toLowerCase());
+                            const match = profiles.find(p => {
+                                const s = slugify(p.company_name);
+                                const cleanEffective = slugify(effectiveSlug);
+                                return s === cleanEffective || s === effectiveSlug.toLowerCase();
+                            });
                             if (match) userId = match.user_id;
                         }
                     }
 
                     if (userId) {
+                        console.warn('🎯 [Booking] Fetching data for User ID:', userId);
                         const [svcRes, staffRes, settingsRes] = await Promise.all([
                             supabase.from('services').select('*').eq('user_id', userId).order('name', { ascending: true }),
                             supabase.from('staff').select('*').eq('user_id', userId).order('name', { ascending: true }),
                             supabase.from('appointment_settings').select('*').eq('user_id', userId).maybeSingle()
                         ]);
+
+                        if (svcRes.error) console.error('🛑 [Booking] Services fetch error:', svcRes.error);
+                        if (svcRes.data?.length === 0) console.warn('⚠️ [Booking] No services found in DB for user.');
 
                         const mappedSettings = settingsRes.data ? {
                             workingHours: {
@@ -149,6 +155,8 @@ const PublicBookingPage = () => {
                             userId: userId,
                             settings: mappedSettings
                         });
+                    } else {
+                        console.error('🛑 [Booking] No tenant found for:', domainFromUrl);
                     }
                 } catch (err) {
                     console.error('Error fetching tenant booking data:', err);

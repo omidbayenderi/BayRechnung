@@ -24,80 +24,62 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         console.warn('🔍 [Public] Starting fetch for:', domainOrSlug);
         const platformDomain = 'bayzenit.com';
         let effectiveSlug = domainOrSlug;
-        let isPlatformSubdomain = false;
 
         // 1. Detect if it's a platform subdomain (e.g. firma.bayzenit.com)
         if (domainOrSlug && domainOrSlug.endsWith(platformDomain) && domainOrSlug !== platformDomain) {
             effectiveSlug = domainOrSlug.replace(`.${platformDomain}`, '').replace('www.', '');
-            isPlatformSubdomain = true;
             console.warn('🔹 [Public] Platform subdomain detected:', effectiveSlug);
         }
 
+        const slugify = (text) => {
+            if (!text) return '';
+            return text.toString().toLowerCase().trim()
+                .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/[^a-z0-9]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+        };
+
         let userId = null;
 
-        // 2. Smart Search: Find User/Tenant
-        let profiles = null;
-        try {
-            const { data, error } = await supabase
-                .from('company_settings')
-                .select('user_id, company_name'); // Only select safe columns
-            if (error) throw error;
-            profiles = data;
-        } catch (e) {
-            console.warn('⚠️ [Public] Profile query failed (likely column mismatch):', e);
-        }
+        // 2. Direct Search by Domain or Exact Slug
+        const { data: configCheck } = await supabase
+            .from('website_configs')
+            .select('user_id')
+            .or(`domain.eq.${domainOrSlug},slug.eq.${domainOrSlug},slug.eq.${effectiveSlug}`)
+            .maybeSingle();
 
-        if (profiles) {
-            console.warn('✅ [Public] Company Profiles found:', profiles.length);
-            const slugify = (text) => {
-                if (!text) return '';
-                return text.toString().toLowerCase().trim()
-                    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                    .replace(/[^a-z0-9]/g, '-')
-                    .replace(/-+/g, '-')
-                    .replace(/^-|-$/g, '');
-            };
-
-            const match = profiles.find(p => {
-                const s = slugify(p.company_name);
-                return s === effectiveSlug.toLowerCase() || p.user_id === effectiveSlug;
-            });
-
-            if (match) {
-                userId = match.user_id;
-                console.warn('🎯 [Public] MATCH FOUND! ID:', userId, 'Company:', match.company_name);
-            } else {
-                console.warn('⚠️ [Public] No match for slug:', effectiveSlug);
+        if (configCheck?.user_id) {
+            userId = configCheck.user_id;
+            console.warn('🎯 [Public] Found via website_configs:', userId);
+        } else {
+            // Fallback Search in company_settings
+            const { data: profiles } = await supabase.from('company_settings').select('user_id, company_name');
+            if (profiles) {
+                const match = profiles.find(p => {
+                    const s = slugify(p.company_name);
+                    const cleanEffective = slugify(effectiveSlug);
+                    return s === cleanEffective || s === effectiveSlug.toLowerCase();
+                });
+                if (match) {
+                    userId = match.user_id;
+                    console.warn('🎯 [Public] Found via company_settings matching:', userId);
+                }
             }
         }
 
-        // Search by direct domain if not found via slug
-        if (!userId && domainOrSlug && domainOrSlug !== 'demo') {
-            const { data: config } = await supabase.from('website_configs').select('user_id').eq('domain', domainOrSlug).maybeSingle();
-            userId = config?.user_id;
-        }
-
-        // Fallback for demo
+        // Global Fallback for Demo
         if (!userId && (!domainOrSlug || domainOrSlug === 'demo')) {
-            const { data: firstConfig } = await supabase.from('website_configs').select('user_id').limit(1).maybeSingle();
-            userId = firstConfig?.user_id;
-        }
-
-        // SaaS Fallback: If no tenant found for subdomain, pick the first active site
-        if (!userId) {
-            console.warn('⚠️ [Public] No specific tenant found, using first active site as fallback.');
             const { data: first } = await supabase.from('website_configs').select('user_id').limit(1).maybeSingle();
             userId = first?.user_id;
         }
 
         if (!userId) {
-            console.error('🛑 [Public] USER NOT FOUND (Site cannot load). Checked slug:', effectiveSlug);
+            console.error('🛑 [Public] USER NOT FOUND. Checked slug:', effectiveSlug);
             return null;
         }
 
-        console.warn('🎯 [Public] Loading final data for User ID:', userId);
-
-        // 3. Parallel Fetch all data for this user
+        // 3. Parallel Fetch all data (Ensure RLS is open)
         const [configRes, svcRes, staffRes, prodRes, settingsRes, profileRes] = await Promise.all([
             supabase.from('website_configs').select('*').eq('user_id', userId).maybeSingle(),
             supabase.from('services').select('*').eq('user_id', userId).order('name', { ascending: true }),
@@ -107,7 +89,9 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             supabase.from('company_settings').select('*').eq('user_id', userId).maybeSingle()
         ]);
 
-        // 4. SaaS Intelligence: Provide dynamic boilerplate if config doesn't exist
+        if (svcRes.data?.length === 0) console.warn('⚠️ [Public] No services found for user:', userId);
+        if (!profileRes.data) console.warn('⚠️ [Public] No profile found for user:', userId);
+
         const profileData = profileRes?.data || {};
         const config = configRes?.data?.config?.siteConfig || {
             isPublished: true,
@@ -117,8 +101,8 @@ const fetchPublicSiteData = async (domainOrSlug) => {
 
         const sections = configRes?.data?.config?.sections || [
             { id: 'hero', type: 'hero', visible: true, data: { title: profileData.company_name || 'BayZenit Üyesi İşletme', subtitle: 'Kaliteli hizmetin adresi.' } },
-            { id: 'products', type: 'products', visible: true, data: { autoPull: true, source: 'stock' } },
-            { id: 'contact', type: 'contact', visible: true, data: { showMap: false } }
+            { id: 'services', type: 'services', visible: true, data: { autoPull: true } },
+            { id: 'contact', type: 'contact', visible: true, data: { showMap: true } }
         ];
 
         // 5. Normalize Appointment Settings
@@ -127,12 +111,10 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             services: svcRes.data || [],
             staff: staffRes.data || [],
             workingHours: {
-                start: rawSettings.working_hours_start || config?.workingHours?.start || '09:00',
-                end: rawSettings.working_hours_end || config?.workingHours?.end || '18:00'
+                start: rawSettings.working_hours_start || '09:00',
+                end: rawSettings.working_hours_end || '18:00'
             },
             workingDays: rawSettings.working_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-            holidays: rawSettings.holidays || [],
-            breaks: rawSettings.breaks || { start: '13:00', end: '14:00', enabled: false }
         };
 
         return {
@@ -148,7 +130,7 @@ const fetchPublicSiteData = async (domainOrSlug) => {
                 industry: profileData.industry || 'general',
                 city: profileData.city || '',
                 zip: profileData.postal_code || profileData.zip || '',
-                street: profileData.street || '',
+                street: profileData.street || profileData.address || '',
                 houseNum: profileData.house_num || profileData.houseNum || '',
                 logo: profileData.logo_url || ''
             },
