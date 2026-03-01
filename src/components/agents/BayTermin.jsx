@@ -56,10 +56,14 @@ const BayTermin = () => {
             // Trigger a mock "WhatsApp" message via Invoice Messages
             sendMessage({
                 title: 'Randevu Hatırlatması (BayTermin)',
-                message: `Sayın ${appt.customerName}, bugünkü ${appt.time} randevunuzu hatırlatmak isteriz.`,
+                message: `Sayın ${appt.customerName || 'Müşteri'}, bugünkü ${appt.time || ''} randevunuzu hatırlatmak isteriz.`,
                 category: 'customer',
                 type: 'whatsapp',
-                receiverId: appt.customerPhone || 'unknown'
+                receiverId: null, // Don't use 'unknown' for UUID field
+                metadata: {
+                    phone: appt.customerPhone,
+                    appointmentId: appt.id
+                }
             });
             updateAppointment(appt.id, { reminded: true });
             addNotification(`📱 Hatırlatma Gönderildi: ${appt.customerName}`);

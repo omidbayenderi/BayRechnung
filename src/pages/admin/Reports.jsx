@@ -166,7 +166,8 @@ const Reports = () => {
     const formatCurr = (val) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(val);
 
     // Dynamic Tabs based on Industry
-    const isConstruction = companyProfile?.industry?.toLowerCase() === 'construction';
+    const industryStr = String(companyProfile?.industry || '').toLowerCase();
+    const isConstruction = industryStr.includes('construction') || industryStr.includes('bauwesen') || industryStr.includes('inşaat');
 
     const tabs = [
         { id: 'daily', label: t('dailyReports') || 'Daily Reports', icon: FileText },
