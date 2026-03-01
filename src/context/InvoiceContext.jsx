@@ -855,11 +855,9 @@ export const InvoiceProvider = ({ children }) => {
             id,
             user_id: currentUser.id,
             name: empData.name,
-            full_name: empData.name, // compatibility
             email: empData.email || '',
             role: empData.role || 'Worker',
             status: empData.status || 'Active',
-            sites: empData.sites || ['Main'],
             color: empData.color || '#3b82f6'
         };
 

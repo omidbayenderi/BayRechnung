@@ -3,7 +3,7 @@ import { syncService as syncServiceInstance } from './SyncService'; // Avoid cir
 
 const TABLE_SCHEMAS = {
     services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'image_url', 'color', 'icon', 'created_at'],
-    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'role', 'image_url', 'color', 'created_at'],
+    staff: ['id', 'user_id', 'name', 'email', 'status', 'role', 'image_url', 'color', 'created_at'],
 
     recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
     projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
