@@ -112,6 +112,7 @@ function App() {
       '| subdomainSlug:', subdomainSlug,
       '| isTrulyCustomDomain:', isTrulyCustomDomain
     );
+    console.log('🚀 [BayRechnung] VERSION: 2.1 - Supabase Sync Fix Active');
   };
 
   React.useEffect(() => {

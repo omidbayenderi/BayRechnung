@@ -101,6 +101,7 @@ const Layout = () => {
                     <Outlet />
                 </div>
             </main>
+            <div style={{ position: 'fixed', bottom: '4px', right: '4px', fontSize: '10px', color: '#94a3b8', opacity: 0.5, pointerEvents: 'none', zIndex: 9999 }}>v2.1-sync-fix</div>
             <SyncStatus />
         </div>
     );
