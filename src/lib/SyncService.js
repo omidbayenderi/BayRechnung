@@ -277,7 +277,12 @@ class SyncService {
                     finalData.id = targetId;
                 }
 
-                query = supabase.from(table).upsert(finalData, { onConflict: conflictTarget });
+                if (action === 'insert') {
+                    query = supabase.from(table).upsert(finalData, { onConflict: conflictTarget });
+                } else {
+                    // For UPDATES, use .update() which only targets specific rows and doesn't require all NOT NULL fields
+                    query = supabase.from(table).update(finalData).eq(conflictTarget, targetId);
+                }
             } else if (action === 'delete') {
                 query = supabase.from(table).delete().eq('id', targetId);
             }
