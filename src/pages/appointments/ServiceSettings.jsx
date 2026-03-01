@@ -89,6 +89,19 @@ const ServiceSettings = () => {
             setIsUploading(false);
         }
     };
+    const handleAddClick = () => {
+        setEditingService(null);
+        setFormData({
+            name: '',
+            description: '',
+            price: '',
+            duration: 30,
+            color: '#3b82f6',
+            image_url: '',
+            icon: 'Sparkles'
+        });
+        setShowModal(true);
+    };
 
 
     const handleEditClick = (service) => {
