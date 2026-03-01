@@ -7,7 +7,7 @@ const TABLE_SCHEMAS = {
 
     recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
     projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
-    messages: ['id', 'sender_id', 'receiver_id', 'content', 'type', 'title', 'is_read', 'created_at'],
+    messages: ['id', 'sender_id', 'receiver_id', 'content', 'type', 'is_read', 'created_at'],
     appointment_settings: [
         'id', 'user_id', 'working_hours_start', 'working_hours_end',
         'working_hours_weekend_start', 'working_hours_weekend_end',
@@ -204,16 +204,16 @@ class SyncService {
                 if (success) {
                     this.queue = this.queue.filter(q => q.id !== item.id);
                 } else {
-                    // Check if it's a schema error (400 Bad Request / missing column)
-                    // These errors will NEVER succeed without a database migration.
-                    const lastError = this.errors[this.errors.length - 1];
-                    const isSchemaError = lastError && lastError.timestamp === new Date().toISOString() &&
-                        (lastError.message?.includes('column') || lastError.message?.includes('not found'));
+                    const isPermanentError = lastError &&
+                        (lastError.message?.toLowerCase().includes('column') ||
+                            lastError.message?.toLowerCase().includes('not found') ||
+                            lastError.message?.toLowerCase().includes('uuid') ||
+                            lastError.code === '400');
 
                     item.retryCount = (item.retryCount || 0) + 1;
                     this.queue = this.queue.filter(q => q.id !== item.id);
 
-                    if (item.retryCount > 10 || isSchemaError) {
+                    if (item.retryCount > 10 || isPermanentError) {
                         console.error("[Sync] Item retired (Permanent Error or Max Retries):", item);
                         const deadQueue = JSON.parse(localStorage.getItem('bay_dead_sync_queue') || '[]');
                         deadQueue.push({

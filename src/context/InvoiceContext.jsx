@@ -748,7 +748,7 @@ export const InvoiceProvider = ({ children }) => {
                 logo_display_mode: updatedProfile.logoDisplayMode
             };
 
-            syncService.enqueue('company_settings', 'update', dbData);
+            syncService.enqueue('company_settings', 'update', dbData, currentUser.id);
         }
     };
 
@@ -828,7 +828,7 @@ export const InvoiceProvider = ({ children }) => {
                 quote_validity_days: merged.quoteValidityDays,
                 brand_palette: merged.brandPalette || []
             };
-            syncService.enqueue('invoice_customization', 'update', dbData);
+            syncService.enqueue('invoice_customization', 'update', dbData, currentUser.id);
         }
     };
 
