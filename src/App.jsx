@@ -4,29 +4,29 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import Dashboard from './pages/accounting/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import SystemHealth from './pages/admin/SystemHealth';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
 import ProjectKanban from './pages/admin/ProjectKanban';
 import SiteControlCenterPage from './pages/admin/SiteControlCenterPage';
 import DeveloperControlCenter from './pages/admin/DeveloperControlCenter';
-import NewInvoice from './pages/NewInvoice';
-import Archive from './pages/Archive';
+import NewInvoice from './pages/accounting/NewInvoice';
+import Archive from './pages/accounting/Archive';
 import CustomerPortal from './pages/public/CustomerPortal';
-import Settings from './pages/Settings';
-import ProfileSettings from './pages/ProfileSettings';
-import InvoiceView from './pages/InvoiceView';
-import Reports from './pages/Reports';
-import Expenses from './pages/Expenses';
-import Recurring from './pages/Recurring';
+import Settings from './pages/settings/Settings';
+import ProfileSettings from './pages/settings/ProfileSettings';
+import InvoiceView from './pages/accounting/InvoiceView';
+import Reports from './pages/accounting/Reports';
+import Expenses from './pages/accounting/Expenses';
+import Recurring from './pages/accounting/Recurring';
 import Success from './pages/Success';
-import InvoiceEdit from './pages/InvoiceEdit';
-import Quotes from './pages/Quotes';
-import NewQuote from './pages/NewQuote';
-import UserManagement from './pages/UserManagement';
+import InvoiceEdit from './pages/accounting/InvoiceEdit';
+import Quotes from './pages/accounting/Quotes';
+import NewQuote from './pages/accounting/NewQuote';
+import UserManagement from './pages/settings/UserManagement';
 import MessagesCenter from './pages/MessagesCenter';
 import { PanelProvider } from './context/PanelContext';
 import { StockProvider } from './context/StockContext';
@@ -103,11 +103,20 @@ function App() {
   // The effective domain/slug to pass to PublicWebsite
   const effectivePublicDomain = subdomainSlug || hostname;
 
-  console.warn('🌐 [App] Hostname:', hostname,
-    '| isPlatformSubdomain:', isPlatformSubdomain,
-    '| subdomainSlug:', subdomainSlug,
-    '| isTrulyCustomDomain:', isTrulyCustomDomain
-  );
+  // Use a global to ensure only one log ever (even with remounts/StrictMode)
+  const logHostname = () => {
+    if (window._bay_hostname_logged) return;
+    window._bay_hostname_logged = true;
+    console.warn('🌐 [App] Hostname:', window.location.hostname,
+      '| isPlatformSubdomain:', isPlatformSubdomain,
+      '| subdomainSlug:', subdomainSlug,
+      '| isTrulyCustomDomain:', isTrulyCustomDomain
+    );
+  };
+
+  React.useEffect(() => {
+    logHostname();
+  }, []);
 
   return (
     <BayGuardProvider>

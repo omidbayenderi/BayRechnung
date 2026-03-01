@@ -493,7 +493,9 @@ export const AppointmentProvider = ({ children }) => {
             description: service.description,
             price: parseFloat(service.price) || 0,
             duration: parseInt(service.duration) || 30,
-            color: service.color || '#3b82f6'
+            color: service.color || '#3b82f6',
+            image_url: service.image_url || '',
+            icon: service.icon || 'Sparkles'
         };
 
         // Optimistic UI update
@@ -522,7 +524,8 @@ export const AppointmentProvider = ({ children }) => {
             user_id: currentUser.id,
             full_name: member.name, // Use database column name
             role: member.role,
-            color: member.color || '#3b82f6'
+            color: member.color || '#3b82f6',
+            image_url: member.image_url || ''
         };
 
         // Optimistic update

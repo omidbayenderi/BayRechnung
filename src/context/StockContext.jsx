@@ -140,6 +140,7 @@ export const StockProvider = ({ children }) => {
                             id: p.id,
                             name: p.name,
                             category: p.category,
+                            description: p.description || '',
                             price: parseFloat(p.price) || 0,
                             stock: p.stock || 0,
                             minStock: p.min_stock || 0,
@@ -233,6 +234,7 @@ export const StockProvider = ({ children }) => {
             id,
             user_id: currentUser.id,
             name: product.name,
+            description: product.description || '',
             category: product.category,
             price: parseFloat(product.price) || 0,
             stock: parseInt(product.stock) || 0,
@@ -245,6 +247,7 @@ export const StockProvider = ({ children }) => {
         const mapped = {
             id,
             name: product.name,
+            description: product.description || '',
             category: product.category,
             price: parseFloat(product.price),
             stock: parseInt(product.stock),
@@ -264,6 +267,7 @@ export const StockProvider = ({ children }) => {
 
         const dbUpdates = {};
         if (updates.name) dbUpdates.name = updates.name;
+        if (updates.description !== undefined) dbUpdates.description = updates.description;
         if (updates.category) dbUpdates.category = updates.category;
         if (updates.price) dbUpdates.price = updates.price;
         if (updates.stock !== undefined) dbUpdates.stock = updates.stock;

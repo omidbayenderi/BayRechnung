@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, LogIn, Smartphone, ShieldCheck } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
-import BrandLogo from '../components/Branding/BrandLogo';
+import { useLanguage } from '../../context/LanguageContext';
+import BrandLogo from '../../components/Branding/BrandLogo';
 
 const Login = () => {
     const { login, isAuthenticated, verifyMFA, sendPasswordReset } = useAuth();

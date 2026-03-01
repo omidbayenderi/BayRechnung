@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { useInvoice } from '../context/InvoiceContext';
-import InvoicePaper from '../components/InvoicePaper';
+import { useInvoice } from '../../context/InvoiceContext';
+import InvoicePaper from '../../components/InvoicePaper';
 import { Save, Printer, Plus, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useLanguage } from '../context/LanguageContext';
-import { getIndustryFields } from '../config/industryFields';
+import { useLanguage } from '../../context/LanguageContext';
+import { getIndustryFields } from '../../config/industryFields';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 

@@ -41,17 +41,29 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const checkDbHealth = async () => {
     if (!supabase) return { success: false, error: 'Client not initialized' };
     try {
-        // Use a timeout for the health check itself
-        const checkPromise = supabase.from('users').select('count', { count: 'exact', head: true }).limit(0);
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 5000));
+        // Use a 15s timeout for the health check itself (DB might be cold/sleeping)
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 15000));
+
+        // Try a very simple query. We don't check 'users' as it likely has strict RLS.
+        // Queries like 'company_settings' are also RLS protected but we only need a head request.
+        const checkPromise = supabase.from('company_settings').select('count', { count: 'exact', head: true }).limit(0);
 
         const { error } = await Promise.race([checkPromise, timeoutPromise]);
+
         if (error) {
+            // Ignore row level security errors as they still indicate the DB is alive
+            if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
+                return { success: true, note: 'Alive (RLS Restricted)' };
+            }
             console.error('[Supabase Doctor] Health check error:', error);
             return { success: false, error: error.message };
         }
         return { success: true };
     } catch (e) {
+        if (e.message === 'DB Timeout') {
+            console.warn('[Supabase Doctor] Connection is slow or DB is sleeping.');
+            return { success: false, error: 'Timeout' };
+        }
         console.error('[Supabase Doctor] Diagnostic error:', e);
         return { success: false, error: e.message };
     }

@@ -74,22 +74,27 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
     };
 
     // Icon Selector based on industry and service name
-    const getServiceIcon = (name = '') => {
+    const getServiceIcon = (name = '', savedIcon = null) => {
+        // If user selected a specific icon, prioritize it
+        if (savedIcon) {
+            const icons = { Sparkles, Scissors, Car, Droplet, Wind, Zap, Briefcase, Disc, CircleDot, Wrench, Utensils, Stethoscope, Heart, ShoppingBag };
+            return icons[savedIcon] || Sparkles;
+        }
+
         const lower = name.toLowerCase();
-        if (isBeauty) {
-            if (lower.includes('kesim') || lower.includes('saç')) return Scissors;
-            return Sparkles;
-        }
-        if (isGastronomy) {
-            return Utensils;
-        }
-        if (isHealthcare) {
-            if (lower.includes('kontrol') || lower.includes('muayene')) return Stethoscope;
-            return Heart;
-        }
-        if (isRetail) return ShoppingBag;
+        if (lower.includes('motor') || lower.includes('mekanik') || lower.includes('tamir')) return Wrench;
+        if (lower.includes('lastik') || lower.includes('jant') || lower.includes('balans')) return CircleDot;
+        if (lower.includes('fren') || lower.includes('disk')) return Disc;
+        if (lower.includes('klima') || lower.includes('gaz') || lower.includes('havalandırma')) return Wind;
+        if (lower.includes('yağ') || lower.includes('sıvı') || lower.includes('yıkama') || lower.includes('temiz')) return Droplet;
+        if (lower.includes('akü') || lower.includes('elektrik') || lower.includes('şarj') || lower.includes('lamba')) return Zap;
+        if (lower.includes('kaporta') || lower.includes('boya')) return Car;
+        if (lower.includes('saç') || lower.includes('sakal') || lower.includes('kesim') || lower.includes('bakım')) return Scissors;
+        if (lower.includes('danışman') || lower.includes('muhasebe') || lower.includes('görüşme')) return Briefcase;
+
         return Sparkles;
     };
+
 
     const BrandIcon = isBeauty ? Star : isGastronomy ? Utensils : isHealthcare ? Heart : ShoppingBag;
 
@@ -349,10 +354,22 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                             background: DS.surface, borderRadius: DS.radius, padding: '40px', textAlign: 'center', transition: 'all 0.3s',
                             boxShadow: DS.shadow, border: `1px solid ${DS.border}`, display: 'flex', flexDirection: 'column'
                         }}>
-                            <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'white', margin: '0 auto 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.primary, boxShadow: DS.shadow }}>
-                                {React.createElement(getServiceIcon(service.name), { size: 28 })}
-                            </div>
+                            {service.image_url ? (
+                                <div style={{ width: '100%', height: '160px', borderRadius: '16px', overflow: 'hidden', marginBottom: '24px' }}>
+                                    <img src={service.image_url} alt={service.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                            ) : (
+                                <div style={{
+                                    width: '64px', height: '64px', borderRadius: '20px',
+                                    background: service.color ? `${service.color}15` : 'white',
+                                    margin: '0 auto 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: service.color || DS.primary, boxShadow: DS.shadow
+                                }}>
+                                    {React.createElement(getServiceIcon(service.name, service.icon), { size: 28 })}
+                                </div>
+                            )}
                             <h4 style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.5rem', marginBottom: '16px' }}>{service.name}</h4>
+
                             <p style={{ color: DS.textSecondary, marginBottom: 'auto', fontSize: '0.95rem', lineHeight: '1.6' }}>
                                 {service.description || (isBeauty ? `${service.duration} dakikalık profesyonel uygulama.` : isGastronomy ? 'Özel tarifimizle hazırlanan eşsiz lezzet.' : isHealthcare ? 'Uzman kadromuz tarafından sunulan sağlık hizmeti.' : 'Kaliteli ve güvenilir ürün seçeneği.')}
                             </p>

@@ -1,12 +1,12 @@
 import React, { useRef, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useInvoice } from '../context/InvoiceContext';
-import InvoicePaper from '../components/InvoicePaper';
+import { useInvoice } from '../../context/InvoiceContext';
+import InvoicePaper from '../../components/InvoicePaper';
 import { Printer, ArrowLeft, Trash2, ArrowRightCircle, Edit, MessageCircle } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { emailService } from '../lib/EmailService';
+import { emailService } from '../../lib/EmailService';
 import { Mail, Loader2 } from 'lucide-react';
 
 const InvoiceView = ({ type = 'invoice' }) => {

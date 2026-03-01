@@ -56,7 +56,12 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
     const isCrafts = industry === 'crafts';
 
     // Helper to select icon based on service name
-    const getServiceIcon = (serviceName) => {
+    const getServiceIcon = (serviceName = '', savedIcon = null) => {
+        if (savedIcon) {
+            const icons = { Sparkles, Scissors, Car, Zap, Briefcase, Disc, CircleDot, Wrench, Utensils, Stethoscope, Heart, ShoppingBag, Wind, Droplet };
+            return icons[savedIcon] || Sparkles;
+        }
+
         const lower = serviceName.toLowerCase();
         if (lower.includes('motor') || lower.includes('mekanik') || lower.includes('tamir')) return Wrench;
         if (lower.includes('lastik') || lower.includes('jant') || lower.includes('balans')) return CircleDot;
@@ -70,6 +75,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
 
         return Sparkles;
     };
+
 
     // Dynamic Font Loading
     useEffect(() => {
@@ -546,15 +552,22 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                                             e.currentTarget.style.borderColor = DS.border;
                                         }}
                                     >
-                                        <div style={{
-                                            width: '64px', height: '64px',
-                                            background: service.color ? `${service.color}15` : `${DS.primary}10`,
-                                            borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: service.color || DS.primary, marginBottom: '32px'
-                                        }}>
-                                            <ServiceIcon size={32} strokeWidth={1.5} />
-                                        </div>
+                                        {service.image_url ? (
+                                            <div style={{ width: '100%', height: '180px', borderRadius: '16px', overflow: 'hidden', marginBottom: '32px' }}>
+                                                <img src={service.image_url} alt={service.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            </div>
+                                        ) : (
+                                            <div style={{
+                                                width: '64px', height: '64px',
+                                                background: service.color ? `${service.color}15` : `${DS.primary}10`,
+                                                borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: service.color || DS.primary, marginBottom: '32px'
+                                            }}>
+                                                {React.createElement(getServiceIcon(service.name, service.icon || null), { size: 32, strokeWidth: 1.5 })}
+                                            </div>
+                                        )}
                                         <h3 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '16px', color: DS.primary }}>{service.name}</h3>
+
                                         <p style={{ color: DS.textSecondary, marginBottom: '32px', flex: 1, fontSize: '1rem', lineHeight: '1.6' }}>
                                             {service.description || 'Bu hizmet için detaylı bilgi ve randevu seçenekleri aşağıda sunulmuştur.'}
                                         </p>

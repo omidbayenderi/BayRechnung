@@ -301,45 +301,79 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
             </section>
 
             {/* Services Grid */}
-            <section id="services" style={{ padding: '100px 24px', maxWidth: '1280px', margin: '0 auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '60px' }}>
-                    <div>
-                        <span style={{ color: DS.primary, fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', fontSize: '0.8rem' }}>{t('theme_cons_what_we_do')}</span>
-                        <h3 style={{ fontFamily: '"Roboto Slab", serif', fontSize: '2.5rem', fontWeight: '800', margin: '12px 0 0 0' }}>{t('theme_cta_services')}</h3>
-                    </div>
-                    <div style={{ width: '200px', height: '1px', background: DS.border, marginBottom: '20px' }} />
-                </div>
-
-                <div className="product-grid" style={{ display: 'grid', gap: '32px' }}>
-                    {(products || []).map(product => (
-                        <div key={product.id} style={{ background: 'white', border: `1px solid ${DS.border}`, transition: 'all 0.3s', position: 'relative' }}>
-                            <div style={{ height: '280px', background: '#f5f5f4', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderBottom: `4px solid ${DS.primary}` }}>
-                                {product.image ? (
-                                    <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                    <div style={{ textAlign: 'center' }}>
-                                        {isEducation ? <Book size={64} color="#d6d3d1" /> : isConsulting ? <TrendingUp size={64} color="#d6d3d1" /> : <Building size={64} color="#d6d3d1" />}
-                                        <div style={{ marginTop: '12px', color: '#d6d3d1', fontWeight: 'bold', fontSize: '0.7rem', letterSpacing: '2px' }}>{isEducation ? 'EĞİTİM MATERYALİ' : isConsulting ? 'HİZMET GÖRSELİ' : 'PROJE GÖRSELİ'}</div>
-                                    </div>
-                                )}
-                            </div>
-                            <div style={{ padding: '40px' }}>
-                                <div style={{ background: DS.primary, width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.buttonText, marginTop: '-60px', position: 'relative', zIndex: 1, boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
-                                    {isEducation ? <GraduationCap size={20} /> : isConsulting ? <TrendingUp size={20} /> : <Hammer size={20} />}
-                                </div>
-                                <h4 style={{ fontFamily: '"Roboto Slab", serif', fontSize: '1.5rem', margin: '20px 0 16px 0', fontWeight: '700' }}>{product.name}</h4>
-                                <p style={{ color: DS.textSecondary, lineHeight: '1.7', marginBottom: '32px', fontSize: '0.95rem' }}>{product.description || (isEducation ? t('theme_cons_hero_desc_edu') : isConsulting ? t('theme_cons_hero_desc_consul') : t('theme_cons_hero_desc_const'))}</p>
-                                <button
-                                    onClick={() => addToCart(product)}
-                                    style={{ background: 'transparent', border: `1px solid ${DS.border}`, padding: '12px 24px', color: DS.text, fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', textTransform: 'uppercase', fontSize: '0.85rem' }}
-                                >
-                                    {t('theme_cons_btn_offer')} <ArrowRight size={16} />
-                                </button>
-                            </div>
+            {siteData.appointmentSettings?.services?.length > 0 && (
+                <section id="services" style={{ padding: '100px 24px', maxWidth: '1280px', margin: '0 auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '60px' }}>
+                        <div>
+                            <span style={{ color: DS.primary, fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase', fontSize: '0.8rem' }}>{t('theme_cons_what_we_do')}</span>
+                            <h3 style={{ fontFamily: '"Roboto Slab", serif', fontSize: '2.5rem', fontWeight: '800', margin: '12px 0 0 0' }}>{t('theme_cta_services')}</h3>
                         </div>
-                    ))}
-                </div>
-            </section>
+                        <div style={{ width: '200px', height: '1px', background: DS.border, marginBottom: '20px' }} />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
+                        {siteData.appointmentSettings.services.map(service => (
+                            <div key={service.id} style={{ background: 'white', border: `1px solid ${DS.border}`, transition: 'all 0.3s', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ height: '240px', background: '#f5f5f4', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderBottom: `4px solid ${service.color || DS.primary}` }}>
+                                    {service.image_url ? (
+                                        <img src={service.image_url} alt={service.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ textAlign: 'center', color: service.color || DS.primary }}>
+                                            {isEducation ? <GraduationCap size={64} /> : isConsulting ? <Briefcase size={64} /> : <HardHat size={64} />}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ padding: '30px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                    <h4 style={{ fontFamily: '"Roboto Slab", serif', fontSize: '1.4rem', margin: '0 0 16px 0', fontWeight: '700' }}>{service.name}</h4>
+                                    <p style={{ color: DS.textSecondary, lineHeight: '1.6', marginBottom: '24px', fontSize: '0.9rem', flex: 1 }}>{service.description || t('theme_service_default_desc')}</p>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', borderTop: `1px solid ${DS.border}` }}>
+                                        <div style={{ fontWeight: '800', fontSize: '1.2rem' }}>{Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
+                                        <Link to={`/booking?domain=${siteData.domain || 'demo'}&service=${service.id}`} style={{ background: DS.primary, color: 'white', padding: '10px 20px', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                                            {t('theme_cta_book')}
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {/* Products Grid */}
+            {products && products.length > 0 && (
+                <section id="products" style={{ padding: '100px 24px', maxWidth: '1280px', margin: '0 auto', background: '#f9f9f9' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+                        <h3 style={{ fontFamily: '"Roboto Slab", serif', fontSize: '2.5rem', fontWeight: '800' }}>{t('theme_nav_products')}</h3>
+                    </div>
+                    <div className="product-grid" style={{ display: 'grid', gap: '32px' }}>
+                        {products.map(product => (
+                            <div key={product.id} style={{ background: 'white', border: `1px solid ${DS.border}`, transition: 'all 0.3s' }}>
+                                <div style={{ height: '280px', background: '#f5f5f4', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                    {product.image ? (
+                                        <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <Building size={64} color="#d6d3d1" />
+                                    )}
+                                </div>
+                                <div style={{ padding: '30px' }}>
+                                    <h4 style={{ fontFamily: '"Roboto Slab", serif', fontSize: '1.3rem', margin: '0 0 12px 0', fontWeight: '700' }}>{product.name}</h4>
+                                    <p style={{ color: DS.textSecondary, marginBottom: '20px', fontSize: '0.9rem' }}>{product.description}</p>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontWeight: '800', fontSize: '1.1rem' }}>{Number(product.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
+                                        <button
+                                            onClick={() => addToCart(product)}
+                                            style={{ background: 'transparent', border: `1px solid ${DS.primary}`, color: DS.primary, padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer' }}
+                                        >
+                                            {t('theme_btn_add_to_cart')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
+
 
             {/* Footer */}
             <footer style={{ background: DS.accent, color: '#a8a29e', padding: '100px 24px 60px' }}>

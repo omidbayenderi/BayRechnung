@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInvoice } from '../context/InvoiceContext';
-import { useLanguage } from '../context/LanguageContext';
+import { useInvoice } from '../../context/InvoiceContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Eye, Trash2, Edit, Wand2, Download } from 'lucide-react';
-import { getIndustryFields } from '../config/industryFields';
-import ConfirmDialog from '../components/ConfirmDialog';
-import MagicImportModal from '../components/MagicImportModal';
+import { getIndustryFields } from '../../config/industryFields';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import MagicImportModal from '../../components/MagicImportModal';
 import '../index.css';
 
 const Archive = () => {

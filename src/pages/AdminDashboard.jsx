@@ -31,14 +31,14 @@ import { usePlanGuard } from '../hooks/usePlanGuard';
 // Import Panels
 import SystemOverview from './admin/SystemOverview';
 import SiteManagement from './admin/SiteManagement';
-import Settings from './Settings';
-import UserManagement from './UserManagement';
+import Settings from './settings/Settings';
+import UserManagement from './settings/UserManagement';
 import MessagesCenter from './MessagesCenter';
 import AdminMessagingView from '../components/admin/AdminMessagingView';
 import SubscriptionManagement from './admin/SubscriptionManagement';
 import IntegrationSettings from './admin/IntegrationSettings';
 import Reports from './admin/Reports';
-import Dashboard from './Dashboard';
+import Dashboard from './accounting/Dashboard';
 
 const AdminDashboard = () => {
     const { t } = useLanguage();

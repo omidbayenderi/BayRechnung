@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useLanguage } from '../context/LanguageContext';
-import { useInvoice } from '../context/InvoiceContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { useInvoice } from '../../context/InvoiceContext';
 import { motion } from 'framer-motion';
 import { Search, UserPlus, Mail, Shield, Building, Edit2, Trash2, MoreVertical, X, Check, Users } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import ConfirmDialog from '../components/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 const UserManagement = () => {
     const { t } = useLanguage();

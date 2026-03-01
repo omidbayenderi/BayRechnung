@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAppointments } from '../../context/AppointmentContext';
 import {
     Calendar, Clock, User, CheckCircle, ChevronLeft, ArrowLeft, Home,
-    Wrench, Car, Droplet, Wind, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot, CreditCard, Wallet
+    Wrench, Car, Droplet, Wind, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot, CreditCard, Wallet,
+    Utensils, Stethoscope, Heart, ShoppingBag
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useWebsite } from '../../context/WebsiteContext';
@@ -63,7 +64,12 @@ const PublicBookingPage = () => {
     };
 
     // Helper to select icon based on service name
-    const getServiceIcon = (serviceName) => {
+    const getServiceIcon = (serviceName = '', savedIcon = null) => {
+        if (savedIcon) {
+            const icons = { Sparkles, Scissors, Car, Droplet, Wind, Zap, Briefcase, Disc, CircleDot, Wrench, Utensils, Stethoscope, Heart, ShoppingBag };
+            return icons[savedIcon] || Sparkles;
+        }
+
         const lower = serviceName.toLowerCase();
         if (lower.includes('motor') || lower.includes('mekanik') || lower.includes('tamir')) return Wrench;
         if (lower.includes('lastik') || lower.includes('jant') || lower.includes('balans')) return CircleDot;
@@ -78,6 +84,7 @@ const PublicBookingPage = () => {
         return Sparkles;
     };
 
+
     // Load Fonts
     useEffect(() => {
         const link = document.createElement('link');
@@ -88,11 +95,28 @@ const PublicBookingPage = () => {
 
     // FETCH TENANT DATA IF PUBLIC
     useEffect(() => {
-        if (domainFromUrl && contextServices.length === 0) {
-            const fetchTenant = async () => {
+        const fetchTenant = async () => {
+            const hostname = window.location.hostname;
+            const platformDomain = 'bayzenit.com';
+            let effectiveSlug = domainFromUrl;
+
+            // 1. Detect Slug from Hostname (Subdomain Support)
+            const platformDomains = ['bayzenit.com', 'bayrechnung.com', 'vercel.app'];
+            if (!effectiveSlug) {
+                const matchedPlatform = platformDomains.find(d => hostname.includes(d) && hostname !== d);
+                if (matchedPlatform) {
+                    effectiveSlug = hostname.split(`.${matchedPlatform}`)[0].replace('www.', '');
+                }
+            }
+
+            if (!effectiveSlug && !contextServices.length) {
+                console.error('🛑 [Booking] Could not determine tenant slug from URL or Hostname.');
+                return;
+            }
+
+            if (effectiveSlug && contextServices.length === 0) {
                 setLoading(true);
                 try {
-                    const platformDomain = 'bayzenit.com';
                     const slugify = (text) => {
                         if (!text) return '';
                         return text.toString().toLowerCase().trim()
@@ -109,8 +133,9 @@ const PublicBookingPage = () => {
                     const { data: config } = await supabase
                         .from('website_configs')
                         .select('user_id')
-                        .or(`domain.eq.${domainFromUrl},slug.eq.${domainFromUrl},slug.eq.${effectiveSlug},slug.eq.${cleanEffective}`)
+                        .or(`domain.eq."${effectiveSlug}",slug.eq."${effectiveSlug}",slug.eq."${cleanEffective}"`)
                         .maybeSingle();
+
 
                     if (config?.user_id) {
                         userId = config.user_id;
@@ -120,10 +145,11 @@ const PublicBookingPage = () => {
                         if (profiles) {
                             const match = profiles.find(p => {
                                 const s = slugify(p.company_name);
-                                return s === cleanEffective || s === effectiveSlug.toLowerCase() || p.user_id === domainFromUrl;
+                                return s === cleanEffective || s === effectiveSlug.toLowerCase() || p.user_id === effectiveSlug;
                             });
                             if (match) userId = match.user_id;
                         }
+
                     }
 
                     if (userId) {
@@ -155,7 +181,12 @@ const PublicBookingPage = () => {
                         } : null;
 
                         setPublicData({
-                            services: svcRes.data || [],
+                            services: (svcRes.data || []).map(s => ({
+                                ...s,
+                                color: s.color || null,
+                                icon: s.icon || null,
+                                image_url: s.image_url || null
+                            })),
                             staff: staffRes.data || [],
                             userId: userId,
                             settings: mappedSettings
@@ -414,53 +445,70 @@ const PublicBookingPage = () => {
                                 <h2 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '8px', color: DS.primary }}>{t('booking_select_service_title')}</h2>
                                 <p style={{ fontSize: '0.9rem', color: DS.textSecondary }}>{t('booking_select_service_desc')}</p>
                             </div>
-                            <div style={{ display: 'grid', gap: '16px' }}>
-                                {services.map(service => {
-                                    const ServiceIcon = getServiceIcon(service.name);
-                                    return (
-                                        <div
-                                            key={service.id}
-                                            onClick={() => handleServiceSelect(service.id)}
-                                            style={{
-                                                border: '1px solid ' + DS.border,
-                                                borderRadius: '16px',
-                                                padding: '24px',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                background: 'white',
-                                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.borderColor = DS.accent;
-                                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                                e.currentTarget.style.boxShadow = DS.shadow;
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.borderColor = DS.border;
-                                                e.currentTarget.style.transform = 'translateY(0)';
-                                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                                <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: service.color ? `${service.color}10` : `${DS.primary}08`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: service.color || DS.primary }}>
-                                                    <ServiceIcon size={28} strokeWidth={1.5} />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: '800', fontSize: '1.1rem', color: DS.primary, marginBottom: '4px' }}>{service.name}</div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.85rem', color: DS.textSecondary }}>
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} style={{ color: DS.accent }} /> {service.duration} Dakika</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontWeight: '900', color: DS.primary, fontSize: '1.4rem', letterSpacing: '-0.5px' }}>{Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
-                                            </div>
+                            <div
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                                    gap: '20px'
+                                }}
+                            >
+                                {services.map(service => (
+                                    <div
+                                        key={service.id}
+                                        onClick={() => {
+                                            setBookingData({ ...bookingData, serviceId: service.id });
+                                            setStep(2);
+                                        }}
+                                        style={{
+                                            background: DS.surface,
+                                            padding: '24px',
+                                            borderRadius: DS.radius,
+                                            border: '2px solid',
+                                            borderColor: bookingData.serviceId === service.id ? DS.accent : DS.border,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            boxShadow: DS.shadow,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            textAlign: 'center'
+                                        }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.transform = 'translateY(-4px)';
+                                            e.currentTarget.style.boxShadow = DS.shadowHover;
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = DS.shadow;
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '64px',
+                                            height: '64px',
+                                            background: service.color ? `${service.color}15` : DS.bg,
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: service.color || DS.primary,
+                                            marginBottom: '16px',
+                                            overflow: 'hidden'
+                                        }}>
+                                            {service.image_url ? (
+                                                <img src={service.image_url} alt={service.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ) : (
+                                                React.createElement(getServiceIcon(service.name, service.icon || null), { size: 28 })
+                                            )}
                                         </div>
-                                    );
-                                })}
+                                        <h3 style={{ fontWeight: '700', marginBottom: '8px', color: DS.text }}>{service.name}</h3>
+                                        <div style={{ color: DS.textSecondary, fontSize: '0.9rem', marginBottom: '16px' }}>
+                                            {service.duration} {t('unit_min')}
+                                        </div>
+                                        <div style={{ fontWeight: '800', fontSize: '1.2rem', color: DS.accent, marginTop: 'auto' }}>
+                                            {Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}

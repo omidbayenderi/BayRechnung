@@ -9,15 +9,17 @@
 - [x] Offline-First Synchronization Architecture
 - [x] Multi-Role User Management
 - [x] Advanced Reporting & Analytics (Report Hub fully localized)
+- [x] **Subdomain & Custom Domain Support (Fully Integrated)**
 - [ ] Export features (DATEV) (Planned)
 
 ## Current Status
 - **Core Engine**: Stable. Sync reliability fixed for Recurring Invoices.
 - **UI/UX**: Premium glassmorphism maintained. All core modules are now fully localized in 5 languages (DE, EN, TR, FR, ES).
-- **Resilience**: Component-level crashes (User Management, Messages) resolved.
+- **Resilience**: Component-level crashes (User Management, Messages) resolved. Fixed hostname logging loop in `App.jsx`.
+- **Subdomain Routing**: Successfully implemented seamless switching between `bayzenit.com/s/slug` and `slug.bayzenit.com`.
 
 ## Known Issues
-- Missing database columns (`services.description`, `products.supplier_info`) are currently handled by the UI/Sync safety layer but should be migrated properly.
+- Missing database columns (`services.color`, `services.icon`, `services.image_url`, `products.image_url`) are currently handled by the UI/Sync safety layer but should be migrated in Supabase SQL.
 - Audit logging table availability needs verification.
 
 ## Evolutionary History

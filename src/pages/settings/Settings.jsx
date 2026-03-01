@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInvoice } from '../context/InvoiceContext';
-import { useAuth } from '../context/AuthContext';
+import { useInvoice } from '../../context/InvoiceContext';
+import { useAuth } from '../../context/AuthContext';
 import { Save, Languages, User, Camera, LayoutDashboard, Mail, Shield, ChevronRight, XCircle, Trash2, X, Palette, RotateCcw, Check, Zap, Lock } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { AnimatePresence } from 'framer-motion';
-import PremiumUpgradeModal from '../components/admin/PremiumUpgradeModal';
+import PremiumUpgradeModal from '../../components/admin/PremiumUpgradeModal';
 
 const Settings = () => {
     const navigate = useNavigate();

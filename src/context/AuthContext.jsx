@@ -117,6 +117,9 @@ export const AuthProvider = ({ children }) => {
                     email: email,
                     name: cachedName,
                     role: isAdmin ? 'admin' : 'worker',
+                    plan: isAdmin ? 'premium' : 'free',
+                    industry: 'general',
+                    companyName: 'My Company',
                     isSkeleton: false,
                     authMode: 'cloud',
                     isTimeout: true

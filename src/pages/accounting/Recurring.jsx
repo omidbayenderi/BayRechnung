@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useInvoice } from '../context/InvoiceContext';
+import { useInvoice } from '../../context/InvoiceContext';
 import { Plus, Trash2, Calendar, RefreshCcw } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const Recurring = () => {
     const { recurringTemplates, saveRecurringTemplate, deleteRecurringTemplate } = useInvoice();

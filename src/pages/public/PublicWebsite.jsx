@@ -8,8 +8,9 @@ import {
 import CustomerPanel from './components/common/CustomerPanel'; // Moved to common
 import CheckoutModal from './components/common/CheckoutModal';
 import BeautyTheme from './themes/BeautyTheme';
-import ServiceTheme from './themes/ServiceTheme';
 import ConstructionTheme from './themes/ConstructionTheme';
+import ServiceTheme from './themes/ServiceTheme';
+
 import { generateTheme } from './utils/ColorEngine';
 import { getCategoryFromThemeId, getVariantFromThemeId } from './themes/themeConfig';
 import SeoAgent from '../../components/SeoAgent';
@@ -17,8 +18,33 @@ import PublicAIAgent from './components/common/PublicAIAgent';
 import { supabase } from '../../lib/supabase';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import {
+    Wrench, CircleDot, Disc, Wind, Droplet, Zap, Car, Scissors, Briefcase, Sparkles,
+    Utensils, Stethoscope, Heart, ShoppingBag, CheckCircle
+} from 'lucide-react';
 
-// Remote Data Fetcher (Supabase)
+const getServiceIconComponent = (serviceName = '', savedIcon = null) => {
+    const icons = {
+        Wrench, CircleDot, Disc, Wind, Droplet, Zap, Car, Scissors, Briefcase, Sparkles,
+        Utensils, Stethoscope, Heart, ShoppingBag, CheckCircle
+    };
+
+    if (savedIcon && icons[savedIcon]) return icons[savedIcon];
+
+    const lower = serviceName.toLowerCase();
+    if (lower.includes('motor') || lower.includes('mekanik') || lower.includes('tamir')) return Wrench;
+    if (lower.includes('lastik') || lower.includes('jant') || lower.includes('balans')) return CircleDot;
+    if (lower.includes('fren') || lower.includes('disk')) return Disc;
+    if (lower.includes('klima') || lower.includes('gaz') || lower.includes('havalandırma')) return Wind;
+    if (lower.includes('yağ') || lower.includes('sıvı') || lower.includes('yıkama') || lower.includes('temiz')) return Droplet;
+    if (lower.includes('akü') || lower.includes('elektrik') || lower.includes('şarj') || lower.includes('lamba')) return Zap;
+    if (lower.includes('kaporta') || lower.includes('boya')) return Car;
+    if (lower.includes('saç') || lower.includes('sakal') || lower.includes('kesim') || lower.includes('bakım')) return Scissors;
+    if (lower.includes('danışman') || lower.includes('muhasebe') || lower.includes('görüşme')) return Briefcase;
+
+    return CheckCircle;
+};
+
 const fetchPublicSiteData = async (domainOrSlug) => {
     try {
         const slugify = (text) => {
@@ -31,14 +57,15 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         };
 
         console.warn('🔍 [Public] Starting fetch for:', domainOrSlug);
-        const platformDomain = 'bayzenit.com';
+        // 1. Detect if it's a platform subdomain (e.g. firma.bayzenit.com)
+        const platformDomains = ['bayzenit.com', 'bayrechnung.com', 'vercel.app'];
         let effectiveSlug = domainOrSlug;
 
-        // 1. Detect if it's a platform subdomain (e.g. firma.bayzenit.com)
-        if (domainOrSlug && domainOrSlug.includes(platformDomain) && domainOrSlug !== platformDomain) {
-            effectiveSlug = domainOrSlug.split(`.${platformDomain}`)[0].replace('www.', '');
+        const matchedPlatform = platformDomains.find(d => domainOrSlug && domainOrSlug.includes(d) && domainOrSlug !== d);
+        if (matchedPlatform) {
+            effectiveSlug = domainOrSlug.split(`.${matchedPlatform}`)[0].replace('www.', '');
             console.warn('🔹 [Public] Platform subdomain detected:', effectiveSlug);
-        } else if (domainOrSlug && domainOrSlug.includes('.')) {
+        } else if (domainOrSlug && domainOrSlug.includes('.') && !domainOrSlug.includes('localhost')) {
             // Probably a custom domain, use the first part as slug fallback or exact
             effectiveSlug = domainOrSlug.split('.')[0].replace('www.', '');
         }
@@ -131,13 +158,22 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         // 5. Normalize Appointment Settings
         const rawSettings = settingsRes.data || {};
         const normalizedSettings = {
-            services: svcRes.data || [],
+            services: (svcRes.data || []).map(s => ({
+                ...s,
+                color: s.color || null,
+                icon: s.icon || null,
+                image_url: s.image_url || null
+            })),
             staff: staffRes.data || [],
             workingHours: {
                 start: rawSettings.working_hours_start || '09:00',
                 end: rawSettings.working_hours_end || '18:00'
             },
             workingDays: rawSettings.working_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+            workingHoursWeekend: {
+                start: rawSettings.working_hours_weekend_start || '10:00',
+                end: rawSettings.working_hours_weekend_end || '16:00'
+            }
         };
 
         return {
@@ -157,12 +193,16 @@ const fetchPublicSiteData = async (domainOrSlug) => {
                 zip: profileData.postal_code || profileData.zip || '',
                 street: profileData.street || profileData.address || '',
                 houseNum: profileData.house_num || profileData.houseNum || '',
+                brand_palette: profileData.brand_palette || null,
+                user_id: userId
             },
+            userId,
             products: (prodRes.data || []).map(p => ({
                 ...p,
                 image: p.image_url // Map image_url for templates
             })),
             appointmentSettings: normalizedSettings
+
         };
     } catch (err) {
         console.error('[Public] Error in fetchPublicSiteData:', err);
@@ -524,6 +564,7 @@ const PublicWebsite = ({ customDomain }) => {
     const brandColor = siteData.config?.theme?.primaryColor
         || siteData.customization?.primaryColor
         || siteData.config?.primaryColor
+        || siteData.profile?.brand_palette
         || siteData.profile?.brandColor
         || siteData.profile?.logoColor
         || '#3b82f6';
@@ -619,17 +660,23 @@ const PublicWebsite = ({ customDomain }) => {
         education: ConstructionTheme,
     };
 
+
     const MatchedTheme = THEME_MAP[category];
 
     if (MatchedTheme) {
+
         return (
             <ErrorBoundary>
                 <SeoAgent websiteData={{ sections: siteData.sections, hero: siteData.sections.find(s => s.type === 'hero')?.data, config: siteData.config }} profile={siteData.profile} />
-                <MatchedTheme {...themeProps} />
+                <MatchedTheme
+                    key={`${slug}-${siteData?.userId}-${themeColors.primary}`}
+                    {...themeProps}
+                />
                 {renderOverlays()}
             </ErrorBoundary>
         );
     }
+
 
     // --- STANDARD THEME ---
     const { config, sections, profile, products } = siteData;
@@ -875,6 +922,7 @@ const PublicWebsite = ({ customDomain }) => {
                                 borderBottom: '1px solid #f1f5f9'
                             }}
                         >
+
                             <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
                                 {/* HERO SECTION */}
                                 {section.id === 'hero' && (
@@ -1060,26 +1108,35 @@ const PublicWebsite = ({ customDomain }) => {
                                         ) : (
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
                                                 {siteData.appointmentSettings?.services && siteData.appointmentSettings.services.length > 0 ? (
-                                                    siteData.appointmentSettings.services.map(service => (
-                                                        <div key={service.id} style={{ padding: '30px', borderRadius: '16px', background: '#fff', border: '1px solid #e2e8f0', transition: 'transform 0.2s', cursor: 'default', display: 'flex', flexDirection: 'column' }}>
-                                                            <div style={{
-                                                                width: '60px', height: '60px',
-                                                                background: service.color ? `${service.color}15` : `${theme.primaryColor}10`,
-                                                                borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                color: service.color || theme.primaryColor, marginBottom: '20px'
-                                                            }}>
-                                                                <CheckCircle size={32} />
+                                                    siteData.appointmentSettings.services.map(service => {
+                                                        const ServiceIcon = getServiceIconComponent(service.name, service.icon);
+                                                        return (
+                                                            <div key={service.id} style={{ padding: '30px', borderRadius: '16px', background: '#fff', border: '1px solid #e2e8f0', transition: 'transform 0.2s', cursor: 'default', display: 'flex', flexDirection: 'column' }}>
+                                                                {service.image_url ? (
+                                                                    <div style={{ width: '100%', height: '140px', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px' }}>
+                                                                        <img src={service.image_url} alt={service.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div style={{
+                                                                        width: '60px', height: '60px',
+                                                                        background: service.color ? `${service.color}15` : `${theme.primaryColor}10`,
+                                                                        borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                        color: service.color || theme.primaryColor, marginBottom: '20px'
+                                                                    }}>
+                                                                        <ServiceIcon size={32} />
+                                                                    </div>
+                                                                )}
+                                                                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '10px', color: '#1e293b' }}>{service.name}</h3>
+                                                                <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.6, flex: 1 }}>{service.description || 'Bu hizmet için bir açıklama bulunmuyor.'}</p>
+                                                                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+                                                                    <span style={{ fontWeight: '700', color: theme.primaryColor }}>
+                                                                        {Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                                                                    </span>
+                                                                    <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{service.duration} dk</span>
+                                                                </div>
                                                             </div>
-                                                            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '10px', color: '#1e293b' }}>{service.name}</h3>
-                                                            <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.6, flex: 1 }}>{service.description || 'Bu hizmet için bir açıklama bulunmuyor.'}</p>
-                                                            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
-                                                                <span style={{ fontWeight: '700', color: theme.primaryColor }}>
-                                                                    {Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-                                                                </span>
-                                                                <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{service.duration} dk</span>
-                                                            </div>
-                                                        </div>
-                                                    ))
+                                                        );
+                                                    })
                                                 ) : (
                                                     [1, 2, 3].map(i => (
                                                         <div key={i} style={{ padding: '30px', borderRadius: '16px', background: '#fff', border: '1px solid #e2e8f0', transition: 'transform 0.2s', cursor: 'default' }}>

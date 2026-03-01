@@ -42,6 +42,14 @@ export const PanelProvider = ({ children }) => {
 
     const allModules = [
         {
+            id: 'admin',
+            name: t('module_admin_name'),
+            icon: shieldProps => <Shield {...shieldProps} />,
+            desc: t('module_admin_desc'),
+            color: '#ef4444', // Red
+            premium: false
+        },
+        {
             id: 'accounting',
             name: t('module_accounting_name'),
             icon: commandProps => <Command {...commandProps} />,
@@ -72,14 +80,6 @@ export const PanelProvider = ({ children }) => {
             desc: t('module_website_desc'),
             color: '#f59e0b', // Amber
             premium: true
-        },
-        {
-            id: 'admin',
-            name: t('module_admin_name'),
-            icon: shieldProps => <Shield {...shieldProps} />,
-            desc: t('module_admin_desc'),
-            color: '#ef4444', // Red
-            premium: false
         }
     ];
 

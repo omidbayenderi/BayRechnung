@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { useStripeCheckout } from '../hooks/useStripeCheckout.js'; // fixed import path
+import { useStripeCheckout } from '../../hooks/useStripeCheckout.js'; // fixed import path
 
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, Building2, CheckCircle2 } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
-import BrandLogo from '../components/Branding/BrandLogo';
+import { useLanguage } from '../../context/LanguageContext';
+import BrandLogo from '../../components/Branding/BrandLogo';
 
 const Register = () => {
     const { register, isAuthenticated } = useAuth();

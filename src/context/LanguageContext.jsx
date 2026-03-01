@@ -773,6 +773,8 @@ const translations = {
                 deleteSignature: 'Signatur löschen',
                 deleteSignatureDesc: 'Permanent aus dem System entfernen',
                 confirmDeleteSignature: 'Möchten Sie die Signatur wirklich löschen?',
+                seo_tip_meta_desc: 'Kurze Meta-Beschreibung verbessern, um Google-Ranking zu steigern.',
+                brand_value_about_section: 'Fügen Sie einen "Über uns" Bereich hinzu, um Vertrauen bei Kunden zu wecken.',
 
                 // Auth
                 login: 'Anmelden',
@@ -3438,6 +3440,8 @@ const translations = {
                 deleteSignature: 'İmzayı Sil',
                 deleteSignatureDesc: 'Sistemden kalıcı olarak kaldırın',
                 confirmDeleteSignature: 'İmzayı silmek istediğinize emin misiniz?',
+                seo_tip_meta_desc: 'Google sıralamasını artırmak için kısa meta açıklamasını iyileştirin.',
+                brand_value_about_section: 'Müşterilerde güven uyandırmak için bir "Hakkımızda" bölümü ekleyin.',
 
                 // Auth
                 login: 'Giriş Yap',

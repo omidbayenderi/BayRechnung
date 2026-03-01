@@ -2,8 +2,8 @@ import { supabase, isSupabaseConfigured, checkDbHealth } from './supabase';
 import { syncService as syncServiceInstance } from './SyncService'; // Avoid circular if needed, but here we define the class
 
 const TABLE_SCHEMAS = {
-    services: ['id', 'user_id', 'name', 'price', 'created_at'],
-    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'sites', 'role', 'created_at'],
+    services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'image_url', 'color', 'icon', 'created_at'],
+    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'sites', 'role', 'image_url', 'color', 'created_at'],
 
     recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
     projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
@@ -14,7 +14,7 @@ const TABLE_SCHEMAS = {
         'working_days', 'slot_duration', 'buffer_time', 'holidays', 'breaks'
     ],
     website_configs: ['id', 'user_id', 'config', 'domain', 'slug', 'is_published', 'updated_at'],
-    products: ['id', 'user_id', 'name', 'category', 'price', 'stock', 'min_stock', 'sku', 'image_url', 'supplier_info', 'created_at'],
+    products: ['id', 'user_id', 'name', 'description', 'category', 'price', 'stock', 'min_stock', 'sku', 'image_url', 'supplier_info', 'created_at'],
     sales: ['id', 'user_id', 'customer_name', 'total', 'payment_method', 'items', 'status', 'created_at'],
     stock_movements: ['id', 'user_id', 'product_id', 'quantity_change', 'type', 'reason', 'created_at'],
     invoices: [
@@ -44,6 +44,7 @@ const TABLE_SCHEMAS = {
 class SyncService {
     constructor() {
         this.queue = [];
+        this.errors = [];
         this.isProcessing = false;
         this.listeners = [];
         this.lastSuccess = isSupabaseConfigured() ? Date.now() : 0;
@@ -128,12 +129,13 @@ class SyncService {
         this.queue.push(item);
         this.saveQueue();
 
-        if (this.processTimer) clearTimeout(this.processTimer);
-        this.processTimer = setTimeout(() => {
-            if (navigator.onLine) {
-                this.processQueue();
-            }
-        }, 500);
+        // 1. DYNAMISM: If online, trigger process immediately (High Priority)
+        // 2. FALLBACK: If offline, it stays in queue until 'online' event or interval
+        if (navigator.onLine) {
+            if (this.processTimer) clearTimeout(this.processTimer);
+            // Non-blocking immediate attempt (50ms for UI thread breathing room)
+            this.processTimer = setTimeout(() => this.processQueue(), 50);
+        }
     }
 
     patchUserId(newUserId) {
@@ -201,14 +203,28 @@ class SyncService {
                 if (success) {
                     this.queue = this.queue.filter(q => q.id !== item.id);
                 } else {
+                    // Check if it's a schema error (400 Bad Request / missing column)
+                    // These errors will NEVER succeed without a database migration.
+                    const lastError = this.errors[this.errors.length - 1];
+                    const isSchemaError = lastError && lastError.timestamp === new Date().toISOString() &&
+                        (lastError.message?.includes('column') || lastError.message?.includes('not found'));
+
                     item.retryCount = (item.retryCount || 0) + 1;
                     this.queue = this.queue.filter(q => q.id !== item.id);
 
-                    if (item.retryCount > 20) {
-                        console.error("[Sync] Item reached max retries:", item);
+                    if (item.retryCount > 10 || isSchemaError) {
+                        console.error("[Sync] Item retired (Permanent Error or Max Retries):", item);
                         const deadQueue = JSON.parse(localStorage.getItem('bay_dead_sync_queue') || '[]');
-                        deadQueue.push({ ...item, retiredAt: new Date().toISOString() });
+                        deadQueue.push({
+                            ...item,
+                            retiredAt: new Date().toISOString(),
+                            reason: isSchemaError ? 'SCHEMA_MISMATCH' : 'MAX_RETRIES'
+                        });
                         localStorage.setItem('bay_dead_sync_queue', JSON.stringify(deadQueue.slice(-50)));
+
+                        if (isSchemaError) {
+                            console.warn(`🛑 [Sync] Critical schema mismatch on ${item.table}. Migration required!`);
+                        }
                     } else {
                         this.queue.push(item);
                     }
@@ -268,6 +284,22 @@ class SyncService {
             const { error } = await query;
             if (error) {
                 console.error(`🛑 [Sync] Error on ${table} (${action}):`, error.message, '| Payload:', finalData || targetId);
+
+                // Track user-visible error (ignore common network things)
+                const errorMsg = error.message || "Unknown error";
+                if (!errorMsg.includes('FetchError') && !errorMsg.includes('Network Error')) {
+                    if (!this.errors.find(e => e.message === errorMsg)) {
+                        this.errors.push({
+                            id: Date.now(),
+                            table,
+                            action,
+                            message: errorMsg,
+                            timestamp: new Date().toISOString()
+                        });
+                        this.notifyListeners();
+                    }
+                }
+
                 if (error.message?.includes('FetchError') || error.message?.includes('Network Error')) {
                     this.lastSuccess = 0;
                 }
@@ -283,6 +315,15 @@ class SyncService {
             this.notifyListeners();
             return false;
         }
+    }
+
+    getErrors() {
+        return this.errors || [];
+    }
+
+    clearErrors() {
+        this.errors = [];
+        this.notifyListeners();
     }
 
     notifyListeners() {

@@ -614,8 +614,8 @@ const SystemOverview = () => {
                             ))}
                         </div>
                     </div>
-                    <div style={{ height: '300px', width: '100%' }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div style={{ height: '300px', width: '100%', minHeight: '300px' }}>
+                        <ResponsiveContainer width="99%" height={300}>
                             <AreaChart data={chartData}>
                                 <defs>
                                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -644,9 +644,9 @@ const SystemOverview = () => {
                 {/* Expense Distribution Pie Chart */}
                 <div style={{ background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
                     <h3 style={{ margin: '0 0 24px 0', fontSize: '1rem', fontWeight: '700', color: '#1e293b' }}>{t('expense_distribution') || 'Gider Dağılımı'}</h3>
-                    <div style={{ height: '300px', width: '100%', display: 'flex', alignItems: 'center' }}>
+                    <div style={{ height: '300px', width: '100%', display: 'flex', alignItems: 'center', minHeight: '300px' }}>
                         {pieData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="99%" height={300}>
                                 <PieChart>
                                     <Pie
                                         data={pieData}
@@ -825,7 +825,7 @@ const SystemOverview = () => {
                                 {todaysAppointments.slice(0, 3).map((apt, idx) => (
                                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
                                         <div style={{ fontWeight: '600', color: 'var(--primary)', minWidth: '45px' }}>
-                                            {new Date(apt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {apt.date ? new Date(apt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                                         </div>
                                         <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {apt.clientName || 'Client'}

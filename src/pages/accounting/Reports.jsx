@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useInvoice } from '../context/InvoiceContext';
+import { useInvoice } from '../../context/InvoiceContext';
 import { Download, TrendingUp, TrendingDown, AlertCircle, Receipt, BarChart3 } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell

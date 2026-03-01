@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInvoice } from '../context/InvoiceContext';
-import { useLanguage } from '../context/LanguageContext';
+import { useInvoice } from '../../context/InvoiceContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Eye, Trash2, Edit, ArrowRightCircle, FileInput, Share2 } from 'lucide-react';
-import { getIndustryFields } from '../config/industryFields';
-import ConfirmDialog from '../components/ConfirmDialog';
+import { getIndustryFields } from '../../config/industryFields';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import '../index.css';
 
 const Quotes = () => {

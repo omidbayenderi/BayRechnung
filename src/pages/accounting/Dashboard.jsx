@@ -1,19 +1,19 @@
 import React from 'react';
-import { useInvoice } from '../context/InvoiceContext';
-import { useAppointments } from '../context/AppointmentContext';
+import { useInvoice } from '../../context/InvoiceContext';
+import { useAppointments } from '../../context/AppointmentContext';
 import { motion } from 'framer-motion';
 import {
     FileText, TrendingUp, TrendingDown, Users, Clock, Send, BarChart3,
     Sparkles, ArrowRight, LayoutDashboard, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useLanguage } from '../context/LanguageContext';
-import DashboardChart from '../components/DashboardChart';
-import QuickAddAppointmentModal from '../components/QuickAddAppointmentModal';
-import QuickAddExpenseModal from '../components/QuickAddExpenseModal';
-import AiInsights from '../components/dashboard/AiInsights';
-import { usePlanGuard } from '../hooks/usePlanGuard';
-import { aiService } from '../services/AiService';
+import { useLanguage } from '../../context/LanguageContext';
+import DashboardChart from '../../components/DashboardChart';
+import QuickAddAppointmentModal from '../../components/QuickAddAppointmentModal';
+import QuickAddExpenseModal from '../../components/QuickAddExpenseModal';
+import AiInsights from '../../components/dashboard/AiInsights';
+import { usePlanGuard } from '../../hooks/usePlanGuard';
+import { aiService } from '../../services/AiService';
 
 const StatCard = ({ title, value, icon: Icon, color }) => (
     <motion.div
