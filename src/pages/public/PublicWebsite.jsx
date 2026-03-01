@@ -149,13 +149,14 @@ const fetchPublicSiteData = async (domainOrSlug) => {
                 companyName: profileData.company_name || 'BayZenit Üyesi İşletme',
                 email: profileData.email || '',
                 phone: profileData.phone || '',
-                address: profileData.address || `${profileData.street || ''} ${profileData.house_num || profileData.houseNum || ''}`.trim(),
+                address: profileData.address || '',
+                logo: profileData.logo_url || null,
+                social: profileData.social_links || {},
                 industry: profileData.industry || 'general',
                 city: profileData.city || '',
                 zip: profileData.postal_code || profileData.zip || '',
                 street: profileData.street || profileData.address || '',
                 houseNum: profileData.house_num || profileData.houseNum || '',
-                logo: profileData.logo_url || ''
             },
             products: (prodRes.data || []).map(p => ({
                 ...p,

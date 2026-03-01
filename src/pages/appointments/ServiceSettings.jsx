@@ -16,8 +16,26 @@ const ServiceSettings = () => {
         description: '',
         price: '',
         duration: 30,
-        color: '#3b82f6'
+        color: '#3b82f6',
+        image_url: '',
+        icon: 'Sparkles'
     });
+
+    const ICONS = {
+        Wrench: Wrench,
+        CircleDot: CircleDot,
+        Disc: Disc,
+        Wind: Wind,
+        Droplet: Droplet,
+        Zap: Zap,
+        Car: Car,
+        Scissors: Scissors,
+        Briefcase: Briefcase,
+        Sparkles: Sparkles,
+        Clock: Clock,
+        DollarSign: DollarSign
+    };
+
 
     // Helper to select icon based on service name
     const getServiceIcon = (serviceName) => {
@@ -42,7 +60,9 @@ const ServiceSettings = () => {
             description: '',
             price: '',
             duration: 30,
-            color: '#3b82f6'
+            color: '#3b82f6',
+            image_url: '',
+            icon: 'Sparkles'
         });
         setShowModal(true);
     };
@@ -236,7 +256,40 @@ const ServiceSettings = () => {
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('color_tag', 'Renk Etiketi')}</label>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('image_url', 'Resim URL')}</label>
+                                <input
+                                    type="text"
+                                    value={formData.image_url || ''}
+                                    onChange={e => setFormData({ ...formData, image_url: e.target.value })}
+                                    placeholder="https://..."
+                                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('icon', 'İkon')} & {t('color_tag', 'Renk')}</label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                                    {Object.keys(ICONS).map(iconName => {
+                                        const IconComp = ICONS[iconName];
+                                        return (
+                                            <button
+                                                key={iconName}
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, icon: iconName })}
+                                                style={{
+                                                    width: '40px', height: '40px', borderRadius: '8px',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    border: formData.icon === iconName ? `2px solid ${formData.color}` : '1px solid #e2e8f0',
+                                                    background: formData.icon === iconName ? `${formData.color}15` : 'white',
+                                                    color: formData.icon === iconName ? formData.color : '#64748b',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <IconComp size={20} />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                                 <div style={{ display: 'flex', gap: '12px' }}>
                                     {['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'].map(color => (
                                         <button
@@ -253,6 +306,7 @@ const ServiceSettings = () => {
                                     ))}
                                 </div>
                             </div>
+
 
                             <button
                                 type="submit"
