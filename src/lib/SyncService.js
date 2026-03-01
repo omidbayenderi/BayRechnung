@@ -2,8 +2,9 @@ import { supabase, isSupabaseConfigured, checkDbHealth } from './supabase';
 import { syncService as syncServiceInstance } from './SyncService'; // Avoid circular if needed, but here we define the class
 
 const TABLE_SCHEMAS = {
-    services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'color', 'created_at'],
-    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'sites', 'role', 'color', 'created_at'],
+    services: ['id', 'user_id', 'name', 'description', 'price', 'created_at'],
+    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'sites', 'role', 'created_at'],
+
     recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
     projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
     messages: ['id', 'sender_id', 'receiver_id', 'content', 'category', 'type', 'title', 'metadata', 'is_read', 'created_at'],
