@@ -263,7 +263,7 @@ const WebsiteSettings = () => {
         <div className="page-container" style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <button onClick={() => navigate('/website/dashboard')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '50%', background: '#f1f5f9' }}>
+                <button onClick={() => navigate('/website/dashboard')} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '50%' }}>
                     <ArrowLeft size={20} />
                 </button>
                 <h1 style={{ margin: 0, fontSize: '1.5rem' }}>{t('site_settings_seo_title') || 'Site Ayarları & SEO'}</h1>
@@ -340,7 +340,7 @@ const WebsiteSettings = () => {
                     </div>
 
                     <div className="form-group" style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed var(--border)' }}>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ display: 'flex', marginBottom: '8px', fontWeight: '500', alignItems: 'center', gap: '8px' }}>
                             <BarChart2 size={16} color="#eab308" /> {t('google_analytics_id') || 'Google Analytics ID'}
                         </label>
                         <input
@@ -712,7 +712,7 @@ const WebsiteSettings = () => {
 
                     {invoiceCustomization?.brandPalette?.length > 0 && (
                         <div className="form-group" style={{ marginBottom: '20px' }}>
-                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <label style={{ display: 'flex', marginBottom: '8px', fontWeight: '500', alignItems: 'center', gap: '6px' }}>
                                 <Image size={16} color="#db2777" /> {t('logo_suggested_colors') || 'Logodan Önerilen Renkler'}
                             </label>
                             <div style={{ display: 'flex', gap: '12px' }}>
@@ -873,7 +873,7 @@ const WebsiteSettings = () => {
 
                     {/* Font Selector */}
                     <div className="form-group" style={{ paddingTop: '20px', borderTop: '1px dashed var(--border)' }}>
-                        <label style={{ display: 'block', marginBottom: '12px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ display: 'flex', marginBottom: '12px', fontWeight: '500', alignItems: 'center', gap: '8px' }}>
                             <Type size={16} color="#6366f1" /> {t('font_family_label') || 'Yazı Tipi (Font)'}
                         </label>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

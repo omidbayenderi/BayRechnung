@@ -121,7 +121,6 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
             fontFamily: DS.fontPrimary,
             background: DS.bg,
             color: DS.text,
-            color: DS.text,
             minHeight: '100vh',
             overflowX: 'hidden'
         }}>

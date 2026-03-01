@@ -767,7 +767,7 @@ const POS = () => {
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                                 <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-main)' }}>{t('paymentMethod') || 'Ödeme Yöntemi'}</h2>
-                                <button onClick={() => setShowCheckout(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '50%', background: '#f1f5f9' }}><X size={24} /></button>
+                                <button onClick={() => setShowCheckout(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '50%' }}><X size={24} /></button>
                             </div>
 
                             {paymentStep === 'select' ? (

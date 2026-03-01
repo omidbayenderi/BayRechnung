@@ -223,7 +223,7 @@ const ProductList = () => {
                             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-main)' }}>
                                 {editingProduct ? (t('editProduct') || 'Ürünü Düzenle') : (t('addProduct') || 'Yeni Ürün Ekle')}
                             </h2>
-                            <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '50%', background: '#f1f5f9' }}>
+                            <button onClick={() => setIsModalOpen(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '50%' }}>
                                 <X size={24} />
                             </button>
                         </div>
@@ -298,7 +298,7 @@ const ProductList = () => {
                             {/* Conditional Inputs Based on Type */}
                             {formData.type === 'digital' && (
                                 <div className="form-group" style={{ marginBottom: '20px', padding: '16px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <label style={{ marginBottom: '8px', fontWeight: '500', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <Link size={16} />
                                         {t('downloadLink', 'İndirme Linki')}
                                     </label>
