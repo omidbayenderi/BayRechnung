@@ -6,7 +6,7 @@ import { Eye, Trash2, Edit, Wand2, Download } from 'lucide-react';
 import { getIndustryFields } from '../../config/industryFields';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import MagicImportModal from '../../components/MagicImportModal';
-import '../index.css';
+import '../../index.css';
 
 const Archive = () => {
     const { invoices, deleteInvoice, updateInvoiceStatus, STATUSES, companyProfile, importInvoices, exportToDATEV } = useInvoice();

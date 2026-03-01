@@ -5,7 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { Eye, Trash2, Edit, ArrowRightCircle, FileInput, Share2 } from 'lucide-react';
 import { getIndustryFields } from '../../config/industryFields';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import '../index.css';
+import '../../index.css';
 
 const Quotes = () => {
     const { quotes, deleteQuote, updateQuote, saveInvoice, companyProfile, generatePortalLink, STATUSES } = useInvoice(); // Use quotes array

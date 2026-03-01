@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Phone, Mail, MapPin, Calendar, ArrowRight, CheckCircle,
-    Facebook, Instagram, Linkedin, Twitter, Menu, X, ShoppingBag, CreditCard, Trash2, User, LogIn, ChevronLeft, Clock
+    Facebook, Instagram, Linkedin, Twitter, Menu, X, ShoppingBag, CreditCard, Trash2, User, LogIn, ChevronLeft, Clock,
+    Wrench, CircleDot, Disc, Wind, Droplet, Zap, Car, Scissors, Briefcase, Sparkles,
+    Utensils, Stethoscope, Heart
 } from 'lucide-react';
 
 import CustomerPanel from './components/common/CustomerPanel'; // Moved to common
@@ -18,10 +20,6 @@ import PublicAIAgent from './components/common/PublicAIAgent';
 import { supabase } from '../../lib/supabase';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import {
-    Wrench, CircleDot, Disc, Wind, Droplet, Zap, Car, Scissors, Briefcase, Sparkles,
-    Utensils, Stethoscope, Heart, ShoppingBag, CheckCircle
-} from 'lucide-react';
 
 const getServiceIconComponent = (serviceName = '', savedIcon = null) => {
     const icons = {
