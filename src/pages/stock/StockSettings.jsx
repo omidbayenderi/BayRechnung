@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { Plus, Trash2, Edit2, Check, X, Tag, Store, CreditCard, AlertCircle, Save, Database, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const StockSettings = () => {
     const { categories, addCategory, updateCategory, deleteCategory, settings, updateSettings, clearSales, factoryReset } = useStock();
     const { t } = useLanguage();
+    const { showNotification } = useNotification();
 
     // Local state for form handling to prevent excessive context updates
     const [formData, setFormData] = useState({
@@ -42,8 +44,11 @@ const StockSettings = () => {
     const handleSaveSettings = () => {
         updateSettings(formData);
         setIsDirty(false);
-        // Optional: Show success toast
-        alert(t('settingsSaved', 'Ayarlar kaydedildi!'));
+        showNotification({
+            type: 'success',
+            title: t('saved') || 'Gespeichert',
+            message: t('settingsSaved', 'Ayarlar başarıyla kaydedildi!')
+        });
     };
 
     // Category Management State

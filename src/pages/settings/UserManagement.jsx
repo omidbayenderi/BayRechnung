@@ -4,10 +4,12 @@ import { useInvoice } from '../../context/InvoiceContext';
 import { motion } from 'framer-motion';
 import { Search, UserPlus, Mail, Shield, Building, Edit2, Trash2, MoreVertical, X, Check, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
 const UserManagement = () => {
     const { t } = useLanguage();
+    const { showNotification } = useNotification();
     const invoiceContext = useInvoice();
     const { companyProfile = {}, employees = [], saveEmployee, deleteEmployee, updateEmployee } = invoiceContext || {};
     const [searchQuery, setSearchQuery] = useState('');
@@ -77,6 +79,11 @@ const UserManagement = () => {
     const handleConfirmDelete = () => {
         if (deleteConfirm) {
             deleteEmployee(deleteConfirm.id);
+            showNotification({
+                type: 'success',
+                title: t('deleted') || 'Gelöscht',
+                message: t('user_deleted_success') || 'Benutzer wurde erfolgreich gelöscht.'
+            });
             setDeleteConfirm(null);
         }
     };
@@ -93,8 +100,18 @@ const UserManagement = () => {
 
         if (isEditing && editId) {
             updateEmployee(editId, employeeData);
+            showNotification({
+                type: 'success',
+                title: t('updated') || 'Aktualisiert',
+                message: t('user_updated_success') || 'Benutzerdaten wurden erfolgreich aktualisiert.'
+            });
         } else {
             saveEmployee(employeeData);
+            showNotification({
+                type: 'success',
+                title: t('saved') || 'Gespeichert',
+                message: t('user_saved_success') || 'Neuer Benutzer wurde erfolgreich hinzugefügt.'
+            });
         }
 
         setShowModal(false);

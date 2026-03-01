@@ -4,6 +4,7 @@ import { useInvoice } from '../../context/InvoiceContext';
 import InvoicePaper from '../../components/InvoicePaper';
 import { Save, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { getIndustryFields } from '../../config/industryFields';
 
 const InvoiceEdit = ({ type = 'invoice' }) => {
@@ -11,6 +12,7 @@ const InvoiceEdit = ({ type = 'invoice' }) => {
     const navigate = useNavigate(); // Added navigate to imports above if missing? No, it's there.
     const { invoices, quotes, companyProfile, updateInvoice, updateQuote } = useInvoice();
     const { t, appLanguage } = useLanguage();
+    const { showNotification } = useNotification();
     const invoiceRef = useRef();
 
     // Get industry-specific fields configuration from current settings
@@ -116,7 +118,11 @@ const InvoiceEdit = ({ type = 'invoice' }) => {
             ...totals,
             senderSnapshot: companyProfile
         });
-        alert(type === 'quote' ? t('quote_updated') : t('invoice_updated'));
+        showNotification({
+            type: 'success',
+            title: t('updated') || 'Aktualisiert',
+            message: type === 'quote' ? t('quote_updated') : t('invoice_updated')
+        });
         navigate(type === 'quote' ? '/quotes' : '/archive');
     };
 

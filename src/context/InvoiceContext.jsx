@@ -191,6 +191,7 @@ export const InvoiceProvider = ({ children }) => {
         if (!msg) return null;
         return {
             ...msg,
+            category: msg.category || msg.metadata?.category || 'internal',
             status: msg.is_read ? 'read' : 'unread' // Compatibility for components using .status
         };
     };
@@ -890,10 +891,13 @@ export const InvoiceProvider = ({ children }) => {
             sender_id: currentUser.id,
             receiver_id: msgData.receiverId || null,
             content: msgData.message,
-            category: msgData.category || 'internal',
+            // category: msgData.category || 'internal', // Removed due to missing Supabase column
             type: msgData.type || 'message',
             title: msgData.title || null,
-            metadata: msgData.metadata || {},
+            metadata: {
+                ...(msgData.metadata || {}),
+                category: msgData.category || 'internal' // Store safely in metadata
+            },
             is_read: false,
             created_at: new Date().toISOString()
         };

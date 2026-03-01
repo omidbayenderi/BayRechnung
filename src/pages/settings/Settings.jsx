@@ -4,6 +4,7 @@ import { useInvoice } from '../../context/InvoiceContext';
 import { useAuth } from '../../context/AuthContext';
 import { Save, Languages, User, Camera, LayoutDashboard, Mail, Shield, ChevronRight, XCircle, Trash2, X, Palette, RotateCcw, Check, Zap, Lock } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { AnimatePresence } from 'framer-motion';
 import PremiumUpgradeModal from '../../components/admin/PremiumUpgradeModal';
 
@@ -12,6 +13,7 @@ const Settings = () => {
     const { companyProfile, updateProfile, invoiceCustomization, updateCustomization } = useInvoice();
     const { currentUser, updateUser } = useAuth();
     const { appLanguage, setAppLanguage, invoiceLanguage, setInvoiceLanguage, t, LANGUAGES } = useLanguage();
+    const { showNotification } = useNotification();
     const [formData, setFormData] = useState(companyProfile);
     const [customizationData, setCustomizationData] = useState(invoiceCustomization);
     const [managedItem, setManagedItem] = useState(null); // 'logo' or 'signature'
@@ -154,7 +156,11 @@ const Settings = () => {
     const handleSave = () => {
         updateProfile(formData);
         updateCustomization(customizationData);
-        alert(t('saveSuccessful') || 'Erfolgreich gespeichert!');
+        showNotification({
+            type: 'success',
+            title: t('saved') || 'Gespeichert!',
+            message: t('saveSuccessful') || 'Ihre Änderungen wurden erfolgreich übernommen.'
+        });
     };
 
     const handleLanguageChange = (code) => {

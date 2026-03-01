@@ -4,6 +4,7 @@ import InvoicePaper from '../../components/InvoicePaper';
 import { Save, Printer, Plus, Trash2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { getIndustryFields } from '../../config/industryFields';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -11,6 +12,7 @@ import jsPDF from 'jspdf';
 const NewInvoice = () => {
     const { companyProfile, saveInvoice } = useInvoice();
     const { t, appLanguage } = useLanguage();
+    const { showNotification } = useNotification();
     const navigate = useNavigate();
     const location = useLocation();
     const invoiceRef = useRef();
@@ -145,11 +147,21 @@ const NewInvoice = () => {
             });
 
             // Check if successful
-            alert(t('draftSaved') || 'Taslak kaydedildi!');
+            // Check if successful
+            showNotification({
+                type: 'success',
+                title: t('saved') || 'Gespeichert',
+                message: t('draftSaved') || 'Taslak başarıyla kaydedildi!'
+            });
             navigate('/archive');
         } catch (error) {
             console.error("Error saving draft:", error);
-            alert("Fehler beim Speichern des Entwurfs.");
+            console.error("Error saving draft:", error);
+            showNotification({
+                type: 'error',
+                title: 'Error',
+                message: "Fehler beim Speichern des Entwurfs."
+            });
         }
     };
 
@@ -165,9 +177,12 @@ const NewInvoice = () => {
             });
 
             // 2. Navigate to Invoice Details View with autoprint flag
-            // Check for ID, if available navigate, otherwise fallback to archive
             if (newInvoice && newInvoice.id) {
-                alert(t('saveSuccessful') || 'Başarıyla kaydedildi!');
+                showNotification({
+                    type: 'success',
+                    title: t('saved') || 'Gespeichert',
+                    message: t('saveSuccessful') || 'Başarıyla kaydedildi!'
+                });
                 navigate(`/invoice/${newInvoice.id}?autoprint=true`);
             } else {
                 // If ID is missing (e.g. offline sync pending), we can't open details immediately
@@ -177,7 +192,11 @@ const NewInvoice = () => {
             }
         } catch (error) {
             console.error("Error saving invoice:", error);
-            alert(t('error_saving') || "Hata oluştu / Error saving");
+            showNotification({
+                type: 'error',
+                title: 'Error',
+                message: t('error_saving') || "Hata oluştu / Error saving"
+            });
         }
     };
 

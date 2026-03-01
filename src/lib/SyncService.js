@@ -7,7 +7,7 @@ const TABLE_SCHEMAS = {
 
     recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
     projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
-    messages: ['id', 'sender_id', 'receiver_id', 'content', 'category', 'type', 'title', 'metadata', 'is_read', 'created_at'],
+    messages: ['id', 'sender_id', 'receiver_id', 'content', 'type', 'title', 'metadata', 'is_read', 'created_at'],
     appointment_settings: [
         'id', 'user_id', 'working_hours_start', 'working_hours_end',
         'working_hours_weekend_start', 'working_hours_weekend_end',
@@ -38,7 +38,8 @@ const TABLE_SCHEMAS = {
         'paypal_client_id', 'paypal_secret', 'logo_display_mode', 'plan'
     ],
     stock_settings: ['id', 'user_id', 'tax_rate', 'currency', 'store_name', 'store_address', 'store_phone', 'default_low_stock', 'categories'],
-    invoice_customization: ['id', 'user_id', 'primary_color', 'accent_color', 'signature_url', 'footer_text', 'quote_validity_days', 'brand_palette']
+    invoice_customization: ['id', 'user_id', 'primary_color', 'accent_color', 'signature_url', 'footer_text', 'quote_validity_days', 'brand_palette'],
+    daily_reports: ['id', 'user_id', 'content', 'site_id', 'status', 'created_at']
 };
 
 class SyncService {

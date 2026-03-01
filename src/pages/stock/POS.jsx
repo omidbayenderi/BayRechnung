@@ -4,6 +4,7 @@ import { Search, ShoppingCart, Package, AlertTriangle, ChevronRight, X, Trash2, 
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useNotification } from '../../context/NotificationContext';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 
 // --- Icons for Categories ---
@@ -163,6 +164,7 @@ const POS = () => {
     const { t } = useLanguage();
     const { currentUser } = useAuth();
     const { companyProfile } = useInvoice();
+    const { showNotification } = useNotification();
 
     // Defensive check: Ensure products are valid before deriving cart total
     const safeCart = useMemo(() => {
@@ -310,16 +312,28 @@ const POS = () => {
             const sale = await completeSale(paymentMethod);
             if (sale) {
                 playSuccessSound();
-                alert(t('saleComplete') || 'Satış Tamamlandı!');
+                showNotification({
+                    type: 'success',
+                    title: t('saleComplete') || 'Satış Tamamlandı!',
+                    message: t('sale_success_msg') || 'İşlem başarıyla kaydedildi ve stok güncellendi.'
+                });
                 setShowCheckout(false);
                 setPaymentStep('select');
                 setLastAddedCategory(null);
             } else {
-                alert(t('saleFailed') || 'Satış işlemi kaydedilemedi. Lütfen bağlantınızı kontrol edin.');
+                showNotification({
+                    type: 'error',
+                    title: t('error') || 'Hata',
+                    message: t('saleFailed') || 'Satış işlemi kaydedilemedi. Lütfen bağlantınızı kontrol edin.'
+                });
             }
         } catch (err) {
             console.error('Confirm payment error:', err);
-            alert('Ödeme onayı sırasında bir hata oluştu: ' + err.message);
+            showNotification({
+                type: 'error',
+                title: 'Payment Error',
+                message: 'Ödeme onayı sırasında bir hata oluştu: ' + err.message
+            });
         }
     };
 

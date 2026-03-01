@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useWebsite } from '../../context/WebsiteContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { Save, Globe, Palette, Search, ArrowLeft, MapPin, CheckCircle, ExternalLink, RefreshCw, Facebook, Instagram, Linkedin, Twitter, Image, Video, ShoppingBag, LayoutTemplate, Play, BarChart2, Type, Plus, Copy, AlertCircle, Info, Sparkles } from 'lucide-react';
 import { getThemesForIndustry } from '../public/themes/themeConfig';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +13,7 @@ const WebsiteSettings = () => {
     const { siteConfig, updateSiteConfig } = useWebsite();
     const { companyProfile, invoiceCustomization } = useInvoice();
     const { t } = useLanguage();
+    const { showNotification } = useNotification();
     const navigate = useNavigate();
 
     // Local Configuration State - Changes are only applied on "Save & Exit"
@@ -24,7 +26,11 @@ const WebsiteSettings = () => {
 
     const handleSaveAndExit = () => {
         updateSiteConfig(localConfig);
-        alert(t('settings_saved_success') || 'Ayarlar başarıyla kaydedildi!');
+        showNotification({
+            type: 'success',
+            title: t('saved') || 'Gespeichert',
+            message: t('settings_saved_success') || 'Ayarlar başarıyla kaydedildi!'
+        });
         navigate('/website/dashboard');
     };
 
@@ -106,7 +112,11 @@ const WebsiteSettings = () => {
 
     const copyToClipboard = (text, label) => {
         navigator.clipboard.writeText(text);
-        alert(`${label} ${t('copied') || 'kopyalandı!'}`);
+        showNotification({
+            type: 'success',
+            title: t('copied') || 'Kopyalandı',
+            message: `${label} ${t('copied_msg' || 'başarıyla kopyalandı!')}`
+        });
     };
 
     const handleVerifyDns = async () => {
@@ -133,16 +143,28 @@ const WebsiteSettings = () => {
 
             if (hasCorrectA || hasCorrectCname) {
                 setDnsStatus('verified');
-                alert(t('dns_verify_success_start_ssl') || 'DNS Doğrulama Başarılı! SSL Sertifikası oluşturuluyor...');
+                showNotification({
+                    type: 'success',
+                    title: 'DNS Verified',
+                    message: t('dns_verify_success_start_ssl') || 'DNS Doğrulama Başarılı! SSL Sertifikası oluşturuluyor...'
+                });
                 // Trigger hypothetical SSL generation here
             } else {
                 setDnsStatus('partial');
-                alert(t('dns_verify_partial') || 'DNS kayıtları algılandı ancak tam yayılma gerçekleşmedi veya hatalı. Lütfen bir süre sonra tekrar deneyin.');
+                showNotification({
+                    type: 'warning',
+                    title: 'Propagation Pending',
+                    message: t('dns_verify_partial') || 'DNS kayıtları algılandı ancak tam yayılma gerçekleşmedi veya hatalı. Lütfen bir süre sonra tekrar deneyin.'
+                });
             }
         } catch (e) {
             console.error('Pro DNS Check Failed:', e);
             setDnsStatus('pending');
-            alert(t('dns_check_error') || 'DNS kontrolü sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.');
+            showNotification({
+                type: 'error',
+                title: 'DNS Error',
+                message: t('dns_check_error') || 'DNS kontrolü sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edin.'
+            });
         } finally {
             setIsVerifying(false);
         }
