@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
 import {
     Plus, Trash2, Edit2, Save, X, Wrench, Clock, DollarSign,
-    Car, Droplet, Wind, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot
+    Car, Droplet, Wind, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot,
+    Upload, Image as ImageIcon, Loader2
 } from 'lucide-react';
 import { useAppointments } from '../../context/AppointmentContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { storageService } from '../../lib/StorageService';
+import { useAuth } from '../../context/AuthContext';
+
 
 const ServiceSettings = () => {
     const { t } = useLanguage();
+    const { currentUser } = useAuth();
     const { services, addService, updateService, deleteService } = useAppointments();
     const [showModal, setShowModal] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [editingService, setEditingService] = useState(null);
+
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -53,19 +60,36 @@ const ServiceSettings = () => {
         return Sparkles; // Default generic icon
     };
 
-    const handleAddClick = () => {
-        setEditingService(null);
-        setFormData({
-            name: '',
-            description: '',
-            price: '',
-            duration: 30,
-            color: '#3b82f6',
-            image_url: '',
-            icon: 'Sparkles'
-        });
-        setShowModal(true);
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !currentUser) return;
+
+        // Validation
+        const isImage = file.type.startsWith('image/');
+        if (!isImage) {
+            alert(t('invalid_image_type', 'Lütfen geçerli bir resim dosyası seçin.'));
+            return;
+        }
+
+        try {
+            setIsUploading(true);
+            const fileExt = file.name.split('.').pop();
+            const filePath = `${currentUser.id}/service_${Date.now()}.${fileExt}`;
+
+            const res = await storageService.uploadFile('attachments', filePath, file);
+
+            if (res.success) {
+                setFormData(prev => ({ ...prev, image_url: res.url }));
+            } else {
+                alert(t('upload_failed', 'Resim yüklenemedi: ') + res.error);
+            }
+        } catch (err) {
+            console.error('Upload catch:', err);
+        } finally {
+            setIsUploading(false);
+        }
     };
+
 
     const handleEditClick = (service) => {
         setEditingService(service);
@@ -256,15 +280,48 @@ const ServiceSettings = () => {
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('image_url', 'Resim URL')}</label>
-                                <input
-                                    type="text"
-                                    value={formData.image_url || ''}
-                                    onChange={e => setFormData({ ...formData, image_url: e.target.value })}
-                                    placeholder="https://..."
-                                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
-                                />
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('service_image', 'Hizmet Resmi')}</label>
+
+                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                    {/* Preview */}
+                                    <div style={{
+                                        width: '100px', height: '100px', borderRadius: '12px',
+                                        background: '#f1f5f9', border: '2px dashed #cbd5e1',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        overflow: 'hidden', position: 'relative'
+                                    }}>
+                                        {formData.image_url ? (
+                                            <img src={formData.image_url} alt="Service" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <ImageIcon size={32} color="#94a3b8" />
+                                        )}
+
+                                        {isUploading && (
+                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Loader2 className="animate-spin" size={24} color="#3b82f6" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Upload Button */}
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                            padding: '10px 16px', background: 'white', border: '1px solid #cbd5e1',
+                                            borderRadius: '8px', fontSize: '14px', fontWeight: '600', color: '#475569',
+                                            cursor: 'pointer', transition: 'all 0.2s'
+                                        }}>
+                                            <Upload size={18} />
+                                            {isUploading ? t('uploading', 'Yükleniyor...') : t('choose_image', 'Resim Seç')}
+                                            <input type="file" hidden accept="image/*" onChange={handleFileChange} disabled={isUploading} />
+                                        </label>
+                                        <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>
+                                            {t('image_hint', 'PNG, JPG Max 5MB. Kare resim tercih edilir.')}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
+
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('icon', 'İkon')} & {t('color_tag', 'Renk')}</label>
