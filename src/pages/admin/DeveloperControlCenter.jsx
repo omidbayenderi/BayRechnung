@@ -3,6 +3,8 @@ import { Shield, Zap, Bug, Users, Activity, Lock, Terminal, AlertTriangle, Check
 import FeatureManagementView from '../../components/admin/FeatureManagementView';
 import UserLogsView from '../../components/admin/UserLogsView';
 import LandingPageDashboardView from '../../components/admin/LandingPageDashboardView';
+import AgentMonitoringView from '../../components/admin/AgentMonitoringView';
+import MtdRotationsView from '../../components/admin/MtdRotationsView';
 import { useBayGuard } from '../../context/BayGuardContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -14,8 +16,9 @@ import { supabase } from '../../lib/supabase';
 const DeveloperControlCenter = () => {
     const { logs: localLogs, interventions, mtdState, rotateMtdTargets, addLog, clearLogs } = useBayGuard();
     const { currentUser, logSecurityAction } = useAuth();
-    const [activeTab, setActiveTab] = useState('overview'); // overview, security, users, logs, testing
+    const [activeTab, setActiveTab] = useState('overview'); // overview, security, users, logs, testing, agent-matrix
     const [statFlash, setStatFlash] = useState(false);
+    const [showMtdAnalytics, setShowMtdAnalytics] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [testStatus, setTestStatus] = useState('Idle');
@@ -205,15 +208,30 @@ const DeveloperControlCenter = () => {
         );
     }
 
-    const StatCard = ({ icon: Icon, label, value, color, trend }) => (
-        <div style={{
-            background: 'rgba(30, 41, 59, 0.5)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            padding: '24px',
-            borderRadius: '16px',
-            color: 'white'
-        }}>
+    const StatCard = ({ icon: Icon, label, value, color, trend, onClick }) => (
+        <div
+            onClick={onClick}
+            style={{
+                background: 'rgba(30, 41, 59, 0.5)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '24px',
+                borderRadius: '16px',
+                color: 'white',
+                cursor: onClick ? 'pointer' : 'default',
+                position: 'relative',
+                overflow: 'hidden'
+            }}
+        >
+            {onClick && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    whileHover={{ opacity: 1 }}
+                    style={{ position: 'absolute', top: 0, right: 0, padding: '8px', color: '#64748b' }}
+                >
+                    <ChevronRight size={14} />
+                </motion.div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <div style={{ background: `${color}20`, color: color, padding: '10px', borderRadius: '12px' }}>
                     <Icon size={24} />
@@ -295,6 +313,12 @@ const DeveloperControlCenter = () => {
                     <button onClick={() => handleTabChange('testing')} style={tabStyle('testing')}>
                         <Bug size={16} /> Testing
                     </button>
+                    <button onClick={() => handleTabChange('agent')} style={tabStyle('agent')}>
+                        <Zap size={16} /> Agent Tests
+                    </button>
+                    <button onClick={() => handleTabChange('agent-matrix')} style={tabStyle('agent-matrix')}>
+                        <Activity size={16} /> Agent Matrix
+                    </button>
                     <button onClick={() => handleTabChange('landing')} style={tabStyle('landing')}>
                         <Globe size={16} /> Landing Page
                     </button>
@@ -302,11 +326,103 @@ const DeveloperControlCenter = () => {
 
                 <div style={{ position: 'relative' }}>
                     <AnimatePresence mode="wait">
-                        {activeTab === 'overview' && (
+                        {activeTab === 'agent' && (
+                            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} key="agent">
+                                <div style={{ background: 'rgba(30, 41, 59, 0.3)', borderRadius: '24px', padding: '32px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                    <div style={{ marginBottom: '32px' }}>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '700' }}>DB Agent Architecture Diagnostics</h3>
+                                        <p style={{ color: '#94a3b8', marginTop: '8px' }}>Test the End-to-End flow: User &rarr; Outbox &rarr; Worker &rarr; Final Table.</p>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '32px' }}>
+                                        <div style={{ padding: '24px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                                <div style={{ padding: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: '12px' }}>
+                                                    <Database size={20} />
+                                                </div>
+                                                <h4 style={{ fontWeight: '700', fontSize: '1.1rem' }}>Step 1: Enqueue Event</h4>
+                                            </div>
+                                            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px' }}>
+                                                Inserts a test invoice creation event into <code>db_outbox_events</code>.
+                                            </p>
+                                            <button
+                                                className="primary-btn"
+                                                onClick={async () => {
+                                                    try {
+                                                        const { runDbAgentTest } = await import('../../testDbAgent');
+                                                        const result = await runDbAgentTest(currentUser.id);
+                                                        if (result?.success) {
+                                                            setTestStatus(`Event enqueued: ${result.eventId}`);
+                                                            addLog(new Error(`AGENT_ENQUEUE_SUCCESS: ${result.eventId}`), { severity: 'info' });
+                                                        }
+                                                    } catch (err) {
+                                                        setTestStatus(`Enqueue Failed: ${err.message}`);
+                                                    }
+                                                }}
+                                                style={{ width: '100%', height: '48px', borderRadius: '12px' }}
+                                            >
+                                                Run Enqueue Test
+                                            </button>
+                                        </div>
+
+                                        <div style={{ padding: '24px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                                <div style={{ padding: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '12px' }}>
+                                                    <Zap size={20} />
+                                                </div>
+                                                <h4 style={{ fontWeight: '700', fontSize: '1.1rem' }}>Step 2: Trigger Worker</h4>
+                                            </div>
+                                            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px' }}>
+                                                Triggers <code>/api/db-worker</code> to process pending outbox events.
+                                            </p>
+                                            <button
+                                                className="primary-btn"
+                                                onClick={async () => {
+                                                    const isLocal = window.location.hostname === 'localhost';
+                                                    if (isLocal) {
+                                                        setTestStatus("Terminal Instruction: Run 'npm run run-worker' in your IDE console.");
+                                                        return;
+                                                    }
+
+                                                    setTestStatus("Triggering worker...");
+                                                    try {
+                                                        const res = await fetch('/api/db-worker');
+                                                        const data = await res.json();
+                                                        setTestStatus(`Worker Result: ${data.processedCount} processed, ${data.errors?.length || 0} errors.`);
+                                                        addLog(new Error(`WORKER_TRIGGER_RESULT: ${data.processedCount} processed`), { severity: 'info' });
+                                                    } catch (err) {
+                                                        setTestStatus(`Worker Failed: ${err.message}`);
+                                                    }
+                                                }}
+                                                style={{ width: '100%', height: '48px', borderRadius: '12px', background: '#10b981' }}
+                                            >
+                                                {window.location.hostname === 'localhost' ? 'Show Terminal Command' : 'Run Worker Trigger'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: '16px', background: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6', boxShadow: '0 0 10px #3b82f6' }} />
+                                            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Agent Protocol Status:</span>
+                                            <span style={{ fontSize: '0.85rem', color: 'white', fontWeight: '700' }}>{testStatus}</span>
+                                        </div>
+                                        <span style={{ fontSize: '0.75rem', color: '#475569', fontFamily: 'monospace' }}>DB_AGENT_DIAGNOSTICS_v1.1</span>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                        {activeTab === 'overview' && !showMtdAnalytics && (
                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} key="overview">
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '40px' }}>
                                     <StatCard icon={Users} label="Total Users" value={userRegistry.length || 0} color="#3b82f6" trend={12} />
-                                    <StatCard icon={Shield} label="MTD Rotations" value={mtdState.rotationCount} color="#6366f1" />
+                                    <StatCard
+                                        icon={Shield}
+                                        label="MTD Rotations"
+                                        value={mtdState.rotationCount}
+                                        color="#6366f1"
+                                        onClick={() => setShowMtdAnalytics(true)}
+                                    />
                                     <StatCard icon={AlertTriangle} label="Detected Threats" value={interventions.length} color="#f59e0b" />
                                     <StatCard icon={Terminal} label="Persistent Protocols" value={persistentLogCount} color="#ef4444" />
                                 </div>
@@ -530,6 +646,12 @@ const DeveloperControlCenter = () => {
                             </motion.div>
                         )}
 
+                        {activeTab === 'agent-matrix' && (
+                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} key="agent-matrix">
+                                <AgentMonitoringView />
+                            </motion.div>
+                        )}
+
                         {activeTab === 'testing' && (
                             <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} key="testing">
                                 <div style={{ background: 'rgba(30, 41, 59, 0.3)', borderRadius: '24px', padding: '32px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
@@ -584,6 +706,14 @@ const DeveloperControlCenter = () => {
                                     </div>
                                 </div>
                             </motion.div>
+                        )}
+
+                        {showMtdAnalytics && activeTab === 'overview' && (
+                            <MtdRotationsView
+                                mtdState={mtdState}
+                                interventions={interventions}
+                                onBack={() => setShowMtdAnalytics(false)}
+                            />
                         )}
                     </AnimatePresence>
                 </div>

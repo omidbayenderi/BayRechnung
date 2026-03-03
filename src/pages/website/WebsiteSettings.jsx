@@ -3,7 +3,7 @@ import { useWebsite } from '../../context/WebsiteContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNotification } from '../../context/NotificationContext';
-import { Save, Globe, Palette, Search, ArrowLeft, MapPin, CheckCircle, ExternalLink, RefreshCw, Facebook, Instagram, Linkedin, Twitter, Image, Video, ShoppingBag, LayoutTemplate, Play, BarChart2, Type, Plus, Copy, AlertCircle, Info, Sparkles } from 'lucide-react';
+import { Save, Globe, Palette, Search, ArrowLeft, ArrowRight, MapPin, CheckCircle, ExternalLink, RefreshCw, Facebook, Instagram, Linkedin, Twitter, Image, Video, ShoppingBag, LayoutTemplate, Play, BarChart2, Type, Plus, Copy, AlertCircle, Info, Sparkles } from 'lucide-react';
 import { getThemesForIndustry } from '../public/themes/themeConfig';
 import { useNavigate } from 'react-router-dom';
 
@@ -356,142 +356,148 @@ const WebsiteSettings = () => {
                     </div>
                 </div>
 
-                {/* 2. Domain Settings */}
-                <div className="card" style={{ padding: '24px', background: 'white', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
-                        <div style={{ padding: '8px', background: '#f0fdf4', borderRadius: '8px', color: '#16a34a' }}><Globe size={20} /></div>
-                        <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{t('domain_settings_title') || 'Alan Adı (Domain)'}</h2>
+                {/* 2. Domain Settings - Wizard Style */}
+                <div style={{ padding: '32px', background: 'white', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.04)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+                        <div style={{ width: '48px', height: '48px', background: '#f0fdf4', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
+                            <Globe size={24} />
+                        </div>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>{t('domain_management') || 'Domain Yönetimi'}</h2>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{t('domain_subtitle') || 'İşletmenizi kendi alan adınızla dünya çapında duyurun.'}</p>
+                        </div>
+                    </div>
+
+                    {/* Simple Step Indicator */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', padding: '16px', background: '#f8fafc', borderRadius: '16px' }}>
+                        {[
+                            { step: 1, label: t('step_select') || 'Alan Adı Seç' },
+                            { step: 2, label: t('step_connect') || 'Bağlantı Kur' },
+                            { step: 3, label: t('step_verify') || 'Tamamla' }
+                        ].map((s, idx) => (
+                            <React.Fragment key={s.step}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                                    <div style={{
+                                        width: '24px', height: '24px', borderRadius: '50%', background: s.step === 1 ? 'var(--primary)' : '#cbd5e1',
+                                        color: 'white', fontSize: '0.75rem', fontWeight: 'bold', display: s.step <= 1 ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center'
+                                    }}>
+                                        {s.step === 1 && connectionStatus === 'success' ? <CheckCircle size={14} /> : s.step}
+                                    </div>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: s.step === 1 ? 'var(--text-main)' : '#94a3b8' }}>{s.label}</span>
+                                </div>
+                                {idx < 2 && <div style={{ width: '20px', height: '1px', background: '#e2e8f0', alignSelf: 'center' }} />}
+                            </React.Fragment>
+                        ))}
                     </div>
 
                     {/* Mode Toggle Tabs */}
-                    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '12px', marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '14px', marginBottom: '24px' }}>
                         <button
                             onClick={() => setDomainMode('search')}
                             style={{
-                                flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                                flex: 1, padding: '12px', borderRadius: '11px', border: 'none',
                                 background: domainMode === 'search' ? 'white' : 'transparent',
                                 color: domainMode === 'search' ? 'var(--primary)' : '#64748b',
-                                fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                boxShadow: domainMode === 'search' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                boxShadow: domainMode === 'search' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
                                 transition: 'all 0.2s'
                             }}
                         >
-                            <Search size={16} /> {t('buy_new_domain') || 'Yeni Alan Adı Al'}
+                            <Search size={16} /> {t('buy_new_domain') || 'Yeni Kayıt'}
                         </button>
                         <button
                             onClick={() => setDomainMode('connect')}
                             style={{
-                                flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                                flex: 1, padding: '12px', borderRadius: '11px', border: 'none',
                                 background: domainMode === 'connect' ? 'white' : 'transparent',
                                 color: domainMode === 'connect' ? 'var(--primary)' : '#64748b',
-                                fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                boxShadow: domainMode === 'connect' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                boxShadow: domainMode === 'connect' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
                                 transition: 'all 0.2s'
                             }}
                         >
-                            <Globe size={16} /> {t('connect_existing_domain') || 'Kendi Alan Adımı Bağla'}
+                            <Globe size={16} /> {t('connect_existing_domain') || 'Mevcut Domain'}
                         </button>
                     </div>
 
                     {domainMode === 'search' ? (
-                        <div className="form-group" style={{ marginBottom: '24px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <label style={{ display: 'block', marginBottom: '12px', fontWeight: '600', color: '#334155' }}>
-                                {t('check_domain_availability') || 'Alan Adı Müsaitlik Sorgula'}
-                            </label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ marginBottom: '24px', animation: 'fadeIn 0.3s' }}>
+                            <div style={{ display: 'flex', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                                 <input
                                     className="form-input"
                                     value={domainQuery}
                                     onChange={(e) => setDomainQuery(e.target.value)}
                                     placeholder={t('check_domain_placeholder') || "isletmeadi"}
-                                    style={{ flex: 1, padding: '10px 16px', borderRadius: '10px', border: '1px solid #cbd5e1' }}
+                                    style={{ flex: 1, border: 'none', background: 'transparent', padding: '8px 12px', fontSize: '1.1rem', fontWeight: '500' }}
                                 />
+                                <div style={{ width: '1px', background: '#e2e8f0', margin: '8px 0' }} />
                                 <select
                                     value={selectedTld}
                                     onChange={(e) => setSelectedTld(e.target.value)}
-                                    style={{ padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', background: 'white' }}
+                                    style={{ border: 'none', background: 'transparent', fontWeight: 'bold', color: 'var(--primary)', cursor: 'pointer', padding: '0 12px' }}
                                 >
                                     <option value="com">.com</option>
                                     <option value="net">.net</option>
                                     <option value="de">.de</option>
                                     <option value="org">.org</option>
-                                    <option value="info">.info</option>
                                 </select>
                                 <button
                                     onClick={checkDomainAvailability}
                                     disabled={isSearching || !domainQuery}
                                     style={{
-                                        padding: '10px 20px',
+                                        padding: '0 24px',
                                         background: 'var(--primary)',
                                         color: 'white',
                                         border: 'none',
-                                        borderRadius: '10px',
+                                        borderRadius: '12px',
                                         cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px'
+                                        fontWeight: '700',
+                                        boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)'
                                     }}
                                 >
-                                    {isSearching ? '...' : <Search size={16} />}
-                                    {t('check_now') || 'Sorgula'}
+                                    {isSearching ? '...' : <ArrowRight size={18} />}
                                 </button>
                             </div>
 
                             {searchResult && (
-                                <div style={{ marginTop: '16px', padding: '12px', borderRadius: '10px', background: searchResult.available ? '#f0fdf4' : '#fef2f2', border: searchResult.available ? '1px solid #bbf7d0' : '1px solid #fecaca' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: searchResult.available ? '#166534' : '#991b1b', fontWeight: '600' }}>
-                                        {searchResult.available ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-                                        {searchResult.domain} {searchResult.available ? (t('is_available') || 'müsait!') : (t('is_taken') || 'dolu.')}
-                                    </div>
-
-                                    {searchResult.available && (
-                                        <button
-                                            onClick={() => setLocalConfig({ ...localConfig, domain: searchResult.domain })}
-                                            style={{ marginTop: '8px', background: 'none', border: 'none', color: 'var(--primary)', fontWeight: '600', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
-                                        >
-                                            {t('use_this_domain') || 'Bu alan adını kullan'}
-                                        </button>
-                                    )}
-
-                                    {searchResult.suggestions?.length > 0 && !searchResult.available && (
-                                        <div style={{ marginTop: '12px' }}>
-                                            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '8px' }}>{t('alternatives') || 'Alternatifler:'}</p>
-                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                {searchResult.suggestions.slice(0, 3).map(alt => (
-                                                    <button
-                                                        key={alt.domain}
-                                                        onClick={() => setLocalConfig({ ...localConfig, domain: alt.domain })}
-                                                        style={{ padding: '6px 12px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', fontSize: '0.8rem', cursor: 'pointer' }}
-                                                    >
-                                                        {alt.domain}
-                                                    </button>
-                                                ))}
-                                            </div>
+                                <div style={{ marginTop: '16px', padding: '16px', borderRadius: '16px', background: searchResult.available ? '#f0fdf4' : '#fef2f2', border: searchResult.available ? '1px solid #bbf7d0' : '1px solid #fecaca' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: searchResult.available ? '#166534' : '#991b1b', fontWeight: '700' }}>
+                                            {searchResult.available ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+                                            {searchResult.domain} {searchResult.available ? (t('is_available') || 'müsait!') : (t('is_taken') || 'dolu.')}
                                         </div>
-                                    )}
+                                        {searchResult.available && (
+                                            <button
+                                                onClick={() => {
+                                                    setLocalConfig({ ...localConfig, domain: searchResult.domain });
+                                                    setDomainMode('connect');
+                                                }}
+                                                style={{ background: 'white', border: '1px solid #bbf7d0', padding: '6px 16px', borderRadius: '8px', color: '#166534', fontWeight: 'bold', cursor: 'pointer' }}
+                                            >
+                                                {t('continue_with_this') || 'Bununla Devam Et'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div style={{ marginBottom: '24px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <label style={{ display: 'block', marginBottom: '12px', fontWeight: '600', color: '#334155' }}>
-                                {t('select_domain_provider') || 'Alan Adı Sağlayıcınızı Seçin'}
-                            </label>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' }}>
+                        <div style={{ animation: 'fadeIn 0.3s' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
                                 {[
                                     { id: 'hostinger', name: 'Hostinger' },
                                     { id: 'godaddy', name: 'GoDaddy' },
-                                    { id: 'other', name: t('provider_other') || 'Diğer' }
+                                    { id: 'other', name: 'Diğer' }
                                 ].map(provider => (
                                     <button
                                         key={provider.id}
                                         onClick={() => setSelectedProvider(provider.id)}
                                         style={{
-                                            padding: '12px', borderRadius: '10px',
-                                            border: selectedProvider === provider.id ? '2px solid var(--primary)' : '1px solid #cbd5e1',
+                                            padding: '16px 8px', borderRadius: '14px',
+                                            border: selectedProvider === provider.id ? '2px solid var(--primary)' : '1px solid #e2e8f0',
                                             background: selectedProvider === provider.id ? '#eff6ff' : 'white',
                                             color: selectedProvider === provider.id ? 'var(--primary)' : '#64748b',
-                                            fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s'
+                                            fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem'
                                         }}
                                     >
                                         {provider.name}
@@ -499,144 +505,94 @@ const WebsiteSettings = () => {
                                 ))}
                             </div>
 
-                            <div style={{ padding: '16px', background: 'white', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Info size={16} color="var(--primary)" /> {getProviderGuide().name} {t('connection_guide') || 'Bağlantı Rehberi'}
-                                </h4>
-                                <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.85rem', color: '#475569', lineHeight: '1.6' }}>
-                                    {getProviderGuide().steps.map((step, idx) => (
-                                        <li key={idx} style={{ marginBottom: '4px' }}>{step}</li>
-                                    ))}
-                                </ul>
-                                {getProviderGuide().link && (
-                                    <a
-                                        href={getProviderGuide().link} target="_blank" rel="noreferrer"
-                                        style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--primary)', fontWeight: '600', textDecoration: 'none' }}
-                                    >
-                                        {getProviderGuide().name} {t('go_to_panel') || 'Paneline Git'} <ExternalLink size={14} />
-                                    </a>
-                                )}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ positon: 'relative' }}>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: 'var(--text-main)' }}>{t('your_custom_domain') || 'Bağlanacak Alan Adı'}</label>
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <input
+                                            className="form-input"
+                                            value={localConfig.domain || ''}
+                                            onChange={(e) => setLocalConfig({ ...localConfig, domain: e.target.value })}
+                                            placeholder="www.isletmeniz.com"
+                                            style={{ flex: 1, padding: '14px 20px', borderRadius: '16px', border: '1px solid #cbd5e1', fontSize: '1rem' }}
+                                        />
+                                        <button
+                                            className="primary-btn"
+                                            onClick={handleConnectDomain}
+                                            disabled={isConnecting || !localConfig.domain}
+                                            style={{
+                                                padding: '0 32px',
+                                                background: connectionStatus === 'success' ? '#10b981' : 'var(--primary)',
+                                                borderRadius: '16px',
+                                                fontSize: '1rem',
+                                                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)'
+                                            }}
+                                        >
+                                            {isConnecting ? '...' : (connectionStatus === 'success' ? <CheckCircle size={20} /> : (t('connect_btn') || 'Bağla'))}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    <div className="form-group" style={{ marginBottom: '24px' }}>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>{t('custom_domain_label') || 'Özel Alan Adı'}</label>
-                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '12px', lineHeight: '1.5' }}>
-                            {t('custom_domain_help') || 'Alan adınızı girin ve "Bağla" butonuna tıklayın. Size vermemiz gereken DNS (A ve CNAME) kayıtlarını, alan adı sağlayıcınızın paneline girmeniz gerekecektir.'}
-                        </p>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <input
-                                className="form-input"
-                                value={localConfig.domain || ''}
-                                onChange={(e) => setLocalConfig({ ...localConfig, domain: e.target.value })}
-                                placeholder="www.ornekisletme.com"
-                                style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)' }}
-                            />
-                            <button
-                                className="primary-btn"
-                                onClick={handleConnectDomain}
-                                disabled={isConnecting || !localConfig.domain}
-                                style={{
-                                    minWidth: '100px',
-                                    background: connectionStatus === 'success' ? '#10b981' : 'var(--primary)',
-                                    color: 'white',
-                                    opacity: !localConfig.domain ? 0.5 : 1,
-                                    cursor: !localConfig.domain ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                {isConnecting ? '...' : (connectionStatus === 'success' ? (t('connected_success') || 'Bağlandı!') : (t('connect_button') || 'Bağla'))}
-                            </button>
-                        </div>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
-                            {t('current_address_label') || 'Şu anki adresiniz:'} <strong style={{ color: 'var(--primary)' }}>{localConfig.domain || 'demo.bayzenit.com'}</strong>
-                        </p>
-                    </div>
-
-                    {/* Enhanced DNS Instructions Card */}
-                    {showDnsInstructions && (
-                        <div style={{ marginTop: '24px', padding: '24px', background: '#eff6ff', borderRadius: '16px', border: '1px solid #bfdbfe' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                                <div>
-                                    <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e40af' }}>
-                                        <Globe size={18} /> {t('dns_setup_title') || 'DNS Kurulum Bilgileri'}
-                                    </h3>
-                                    <p style={{ fontSize: '0.85rem', color: '#1e40af', margin: 0 }}>
-                                        {t('dns_setup_desc') || 'Alan adınızın aktif olması için aşağıdaki DNS kayıtlarını alan adı sağlayıcınızın paneline ekleyin:'}
-                                    </p>
+                    {/* Detailed DNS Card - Only shows when connection requested or in progress */}
+                    {(showDnsInstructions || localConfig.domain) && (
+                        <div style={{ marginTop: '32px', padding: '24px', background: 'linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)', borderRadius: '20px', border: '1px solid #dbeafe', animation: 'slideUp 0.4s' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Shield size={20} color="#1e40af" />
+                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#1e40af' }}>{t('required_dns_records') || 'Gerekli DNS Kayıtları'}</h3>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: dnsStatus === 'verified' ? '#dcfce7' : (dnsStatus === 'partial' ? '#fef9c3' : '#dbeafe'), padding: '6px 12px', borderRadius: '20px', border: '1px solid opacity 0.2' }}>
-                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dnsStatus === 'verified' ? '#22c55e' : (dnsStatus === 'partial' ? '#eab308' : '#3b82f6') }}></div>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: dnsStatus === 'verified' ? '#15803d' : (dnsStatus === 'partial' ? '#854d0e' : '#1e40af') }}>
-                                        {dnsStatus === 'verified' ? (t('status_verified') || 'Doğrulandı') : (dnsStatus === 'partial' ? (t('status_partial') || 'Kısmi Yayılma') : (t('status_pending') || 'Bekliyor'))}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: dnsStatus === 'verified' ? '#dcfce7' : '#dbeafe', padding: '6px 12px', borderRadius: '12px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dnsStatus === 'verified' ? '#22c55e' : '#3b82f6', animation: dnsStatus !== 'verified' ? 'pulse 2s infinite' : 'none' }}></div>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: dnsStatus === 'verified' ? '#15803d' : '#1e40af' }}>
+                                        {dnsStatus === 'verified' ? (t('verified') || 'Doğrulandı') : (t('waiting_propagation') || 'Yayılma Bekleniyor')}
                                     </span>
                                 </div>
                             </div>
 
-                            <div style={{ display: 'grid', gap: '16px' }}>
-                                <div style={{ background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid #dbeafe', position: 'relative' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginBottom: '8px', fontWeight: '600' }}>
-                                        <span style={{ width: '60px' }}>{t('dns_type') || 'Type'}</span>
-                                        <span style={{ width: '60px' }}>{t('dns_host') || 'Host'}</span>
-                                        <span style={{ flex: 1, textAlign: 'right' }}>{t('dns_value') || 'Value'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'monospace', fontSize: '0.95rem' }}>
-                                        <span style={{ width: '60px', color: '#ec4899', fontWeight: 'bold' }}>A</span>
-                                        <span style={{ width: '60px' }}>@</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ color: '#1e293b', fontWeight: 'bold' }}>76.76.21.21</span>
-                                            <button onClick={() => copyToClipboard('76.76.21.21', 'A Kaydı')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><Copy size={16} /></button>
+                            <div style={{ display: 'grid', gap: '12px' }}>
+                                {[
+                                    { type: 'A', host: '@', value: '76.76.21.21' },
+                                    { type: 'CNAME', host: 'www', value: 'cname.bayzenit.com' }
+                                ].map((dns, i) => (
+                                    <div key={i} style={{ background: 'white', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                            <span style={{ width: '50px', fontSize: '0.75rem', fontWeight: '900', color: i === 0 ? '#ec4899' : '#3b82f6', background: i === 0 ? '#fdf2f8' : '#eff6ff', padding: '4px 8px', borderRadius: '6px', textAlign: 'center' }}>{dns.type}</span>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'bold' }}>{t('dns_host') || 'HOST'}</span>
+                                                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>{dns.host}</span>
+                                            </div>
+                                        </div>
+                                        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'bold' }}>{t('dns_value') || 'DEĞER'}</span>
+                                                <span style={{ fontWeight: '700', fontSize: '0.95rem', fontFamily: 'monospace' }}>{dns.value}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => copyToClipboard(dns.value, dns.type)}
+                                                style={{ padding: '8px', background: '#f1f5f9', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#64748b' }}
+                                            >
+                                                <Copy size={16} />
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div style={{ background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid #dbeafe' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginBottom: '8px', fontWeight: '600' }}>
-                                        <span style={{ width: '60px' }}>{t('dns_type') || 'Type'}</span>
-                                        <span style={{ width: '60px' }}>{t('dns_host') || 'Host'}</span>
-                                        <span style={{ flex: 1, textAlign: 'right' }}>{t('dns_value') || 'Value'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'monospace', fontSize: '0.95rem' }}>
-                                        <span style={{ width: '60px', color: '#3b82f6', fontWeight: 'bold' }}>CNAME</span>
-                                        <span style={{ width: '60px' }}>www</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ color: '#1e293b', fontWeight: 'bold' }}>cname.bayzenit.com</span>
-                                            <button onClick={() => copyToClipboard('cname.bayzenit.com', 'CNAME Kaydı')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><Copy size={16} /></button>
-                                        </div>
-                                    </div>
-                                </div>
+                                ))}
                             </div>
 
-                            <div style={{ marginTop: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <div style={{ marginTop: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
                                 <button
                                     onClick={handleVerifyDns}
                                     disabled={isVerifying}
                                     style={{
-                                        padding: '10px 20px', background: '#1e40af', color: 'white', border: 'none', borderRadius: '8px',
-                                        fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem'
+                                        flex: 1, padding: '14px', background: '#1e40af', color: 'white', border: 'none', borderRadius: '14px',
+                                        fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontSize: '0.95rem'
                                     }}
                                 >
-                                    {isVerifying ? <RefreshCw size={16} className="spin" /> : <RefreshCw size={16} />}
-                                    {t('verify_now') || 'Şimdi Doğrula'}
+                                    {isVerifying ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                                    {t('verify_connection') || 'Bağlantıyı Şimdi Doğrula'}
                                 </button>
-                                <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', flex: 1, fontStyle: 'italic' }}>
-                                    * {t('dns_warning') || 'Değişikliklerin aktif olması 24-48 saat sürebilir.'}
-                                </p>
-                            </div>
-
-                            {/* Professional Verification Tools */}
-                            <div style={{ marginTop: '20px', padding: '16px', background: 'white', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#64748b', marginBottom: '8px' }}>
-                                    {t('external_tools_label') || 'Harici Kontrol Araçları (Advanced)'}
-                                </label>
-                                <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem' }}>
-                                    <a href={`https://dnschecker.org/#A/${localConfig.domain}`} target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        DNSChecker.org <ExternalLink size={12} />
-                                    </a>
-                                    <a href={`https://www.whatsmydns.net/#A/${localConfig.domain}`} target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        WhatsMyDNS.net <ExternalLink size={12} />
-                                    </a>
-                                </div>
                             </div>
                         </div>
                     )}

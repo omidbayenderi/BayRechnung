@@ -51,7 +51,7 @@ const Dashboard = () => {
     const formatCurr = (val) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(val);
 
     // Filter appointments for Today
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
     const todaysAppointments = appointments
         .filter(app => app.date === today && app.status !== 'cancelled')
         .sort((a, b) => a.time.localeCompare(b.time));
@@ -85,7 +85,7 @@ const Dashboard = () => {
     // 1. Date is today or in the past
     // 2. Status is 'confirmed' (assuming confirmed means the job is active/done)
     // 3. PaymentStatus is 'unpaid'
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toLocaleDateString('sv-SE');
     const unpaidJobs = appointments.filter(app => {
         return app.status === 'confirmed' &&
             app.paymentStatus === 'unpaid' &&

@@ -71,9 +71,17 @@ const NewInvoice = () => {
         }));
     };
 
-    // Merge Profile + Invoice Data for the Paper
-    const fullData = {
-        // Map Context Profile to Paper Props
+    // Memoize calculations (Scenario 1 Optimization)
+    const totals = React.useMemo(() => {
+        const subtotal = (invoiceData.items || []).reduce((sum, item) => sum + (parseFloat(item.quantity || 0) * parseFloat(item.price || 0)), 0);
+        const effectiveTaxRate = companyProfile.taxExempt ? 0 : parseFloat(invoiceData.taxRate || 0);
+        const tax = subtotal * (effectiveTaxRate / 100);
+        const total = subtotal + tax;
+        return { subtotal, tax, total };
+    }, [invoiceData.items, invoiceData.taxRate, companyProfile.taxExempt]);
+
+    // Merge Profile + Invoice Data for the Paper (Memoized)
+    const fullData = React.useMemo(() => ({
         logo: companyProfile.logo,
         senderCompany: companyProfile.companyName,
         senderStreet: companyProfile.street,
@@ -84,33 +92,17 @@ const NewInvoice = () => {
         senderEmail: companyProfile.email,
         senderTaxId: companyProfile.taxId,
         senderVatId: companyProfile.vatId,
-        senderBank: companyProfile.bankName, // Paper might need update if keys differ
+        senderBank: companyProfile.bankName,
         senderIban: companyProfile.iban,
         senderBic: companyProfile.bic,
         paypalMe: companyProfile.paypalMe,
         stripeLink: companyProfile.stripeLink,
         industry: companyProfile.industry || 'automotive',
         logoDisplayMode: companyProfile.logoDisplayMode || 'both',
-
-        // Footer Data from Profile
         footerPayment: `Bank: ${companyProfile.bankName}\\nIBAN: ${companyProfile.iban}\\n${companyProfile.paymentTerms}`,
-
-        // Invoice Specifics
         ...invoiceData,
-        // Flatten industryData for paper
         ...invoiceData.industryData
-    };
-
-    // Calculate totals for UI
-    const calculateTotals = () => {
-        const subtotal = invoiceData.items.reduce((sum, item) => sum + (parseFloat(item.quantity || 0) * parseFloat(item.price || 0)), 0);
-        // If taxExempt is true, tax is always 0
-        const effectiveTaxRate = companyProfile.taxExempt ? 0 : parseFloat(invoiceData.taxRate || 0);
-        const tax = subtotal * (effectiveTaxRate / 100);
-        const total = subtotal + tax;
-        return { subtotal, tax, total };
-    };
-    const totals = calculateTotals();
+    }), [companyProfile, invoiceData]);
 
     const handleDownloadPdf = async () => {
         const element = invoiceRef.current;

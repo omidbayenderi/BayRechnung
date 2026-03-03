@@ -216,8 +216,9 @@ export const AppointmentProvider = ({ children }) => {
                             user_id: a.user_id,
                             date: startTimeStr.split('T')[0],
                             time: startTimeStr.includes('T') ? startTimeStr.split('T')[1].substring(0, 5) : '00:00',
-                            customerName: a.customer_name,
-                            customerPhone: a.customer_phone || '',
+                            customerName: a.customer_name || a.client_name,
+                            customerPhone: a.customer_phone || a.client_phone || '',
+                            customerEmail: a.customer_email || a.client_email || '',
                             serviceId: a.service_id,
                             staffId: a.staff_id,
                             status: a.status,
@@ -226,7 +227,9 @@ export const AppointmentProvider = ({ children }) => {
                             notes: a.notes,
                             type: a.type || 'appointment',
                             startTime: a.start_time,
-                            endTime: a.end_time
+                            endTime: a.end_time,
+                            reminded: a.reminded || false,
+                            processedByAI: a.processed_by_ai || false
                         };
                     };
                     setAppointments(mergeWithLocalQueue(apptRes.data, 'appointments', normalizeAppt));
@@ -458,10 +461,14 @@ export const AppointmentProvider = ({ children }) => {
         setAppointments(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
 
         const dbUpdates = {};
-        if (updates.customerName) dbUpdates.customer_name = updates.customerName;
-        if (updates.customerEmail) dbUpdates.customer_email = updates.customerEmail;
-        if (updates.status) dbUpdates.status = updates.status;
+        if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
+        if (updates.customerEmail !== undefined) dbUpdates.customer_email = updates.customerEmail;
+        if (updates.customerPhone !== undefined) dbUpdates.customer_phone = updates.customerPhone;
+        if (updates.status !== undefined) dbUpdates.status = updates.status;
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+        if (updates.reminded !== undefined) dbUpdates.reminded = updates.reminded;
+        if (updates.processedByAI !== undefined) dbUpdates.processed_by_ai = updates.processedByAI;
+
         if (updates.date && updates.time) {
             dbUpdates.start_time = `${updates.date}T${updates.time}:00Z`;
         }
@@ -578,12 +585,17 @@ export const AppointmentProvider = ({ children }) => {
         return result;
     };
 
+    const pendingCount = useMemo(() =>
+        appointments.filter(a => a.status === 'pending').length,
+        [appointments]);
+
     const appointmentValue = useMemo(() => ({
         appointments,
         services,
         staff,
         settings,
         loading,
+        pendingCount,
         addAppointment,
         addBlock,
         updateAppointment,
@@ -598,7 +610,7 @@ export const AppointmentProvider = ({ children }) => {
         updateSettings,
         createPublicBooking,
         syncStatus: syncService.getStatus()
-    }), [appointments, services, staff, settings, loading]);
+    }), [appointments, services, staff, settings, loading, pendingCount]);
 
     return (
         <AppointmentContext.Provider value={appointmentValue}>

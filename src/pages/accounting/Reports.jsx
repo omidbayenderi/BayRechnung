@@ -7,9 +7,12 @@ import {
     PieChart, Pie, Cell
 } from 'recharts';
 
+import { useStock } from '../../context/StockContext';
+
 const Reports = () => {
-    const { invoices, expenses, exportToCSV } = useInvoice();
+    const { invoices, expenses, exportToCSV, dailyReports } = useInvoice();
     const { t } = useLanguage();
+    const { getLowStockProducts, products } = useStock();
 
     const [activeTab, setActiveTab] = useState('financial');
     const [dateRange, setDateRange] = useState('thisMonth');
@@ -326,22 +329,26 @@ const Reports = () => {
                     <div className="card">
                         <h3>{t('dailyReports') || 'Günlük Raporlar'}</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {[
-                                { user: 'Ahmet Y.', site: 'Skyline Plaza', status: 'Tamamlandı', time: '14:20' },
-                                { user: 'Mehmet K.', site: 'Harbor View', status: 'Devam Ediyor', time: '11:05' },
-                                { user: 'Can D.', site: 'Skyline Plaza', status: 'Gecikme', time: '09:15' },
-                            ].map((rep, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
-                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                        <div style={{ fontWeight: '600' }}>{rep.user}</div>
-                                        <div style={{ color: 'var(--text-muted)' }}>{rep.site}</div>
+                            {dailyReports && dailyReports.length > 0 ? (
+                                dailyReports.map((rep, i) => (
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <div style={{ fontWeight: '600' }}>{rep.technician_name || rep.user_name || 'Mitarbeiter'}</div>
+                                            <div style={{ color: 'var(--text-muted)' }}>{rep.site_name || rep.title || 'Baustelle'}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.8rem', color: rep.status === 'completed' ? '#10b981' : '#f59e0b' }}>
+                                                {t(rep.status) || rep.status}
+                                            </span>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                                {new Date(rep.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '0.8rem', color: rep.status === 'Tamamlandı' ? '#10b981' : '#f59e0b' }}>{rep.status}</span>
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{rep.time}</span>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <p style={{ color: '#94a3b8', textAlign: 'center' }}>{t('noData')}</p>
+                            )}
                         </div>
                     </div>
                 )}
@@ -351,21 +358,22 @@ const Reports = () => {
                         <div className="card">
                             <h3>{t('lowStock') || 'Kritik Stok'}</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {[
-                                    { name: 'Çimento (C30)', stock: '5 Palet', min: '10 Palet' },
-                                    { name: 'İskele Kelepçesi', stock: '45 Adet', min: '100 Adet' },
-                                ].map((item, i) => (
-                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid #f1f5f9' }}>
-                                        <span>{item.name}</span>
-                                        <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{item.stock}</span>
-                                    </div>
-                                ))}
+                                {getLowStockProducts().length > 0 ? (
+                                    getLowStockProducts().map((item, i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                                            <span>{item.name}</span>
+                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{item.stock} {item.unit || ''}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p style={{ color: '#94a3b8', textAlign: 'center' }}>{t('noLowStock') || 'Kritik stokta ürün yok'}</p>
+                                )}
                             </div>
                         </div>
                         <div className="card">
                             <h3>{t('inventoryOverview') || 'Envanter Özeti'}</h3>
                             <div style={{ padding: '20px', textAlign: 'center' }}>
-                                <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary)' }}>124</div>
+                                <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary)' }}>{products.length}</div>
                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('totalItems') || 'Toplam Kalem Ürün'}</div>
                             </div>
                         </div>

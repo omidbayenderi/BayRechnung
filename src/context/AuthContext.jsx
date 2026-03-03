@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }) => {
                 phone: companyRes.data?.phone,
                 address: companyRes.data?.address,
                 city: companyRes.data?.city,
-                zip: companyRes.data?.zip,
+                zip: companyRes.data?.postal_code || companyRes.data?.zip,
                 street: companyRes.data?.street,
                 house_num: companyRes.data?.house_num,
                 role: profileRes.data?.role || (isAdminEmail ? 'admin' : 'worker'),
@@ -280,6 +280,91 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: 'Invalid credentials' };
     };
 
+    const register = async (regData) => {
+        const email = regData.email.toLowerCase().trim();
+        const password = regData.password;
+
+        if (useSupabase) {
+            try {
+                console.log('[Auth] Attempting Supabase signup for:', email);
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            full_name: regData.name,
+                            company_name: regData.companyName,
+                            industry: regData.industry || 'general'
+                        }
+                    }
+                });
+
+                if (error) throw error;
+                if (!data?.user) throw new Error("No user returned from signup");
+
+                console.log('[Auth] Supabase Auth Signup Success:', data.user.id);
+
+                // Try to create profile tables, but don't let failure here block registration
+                // (Often these are handled by DB triggers, and might fail due to RLS before session is active)
+                try {
+                    await supabase.from('users').upsert({
+                        id: data.user.id,
+                        email: email,
+                        full_name: regData.name,
+                        role: 'admin'
+                    });
+                } catch (e) { console.warn('[Auth] users table upsert skipped/failed:', e.message); }
+
+                try {
+                    await supabase.from('company_settings').upsert({
+                        user_id: data.user.id,
+                        company_name: regData.companyName,
+                        industry: regData.industry || 'general',
+                        phone: regData.phone || '',
+                        street: regData.street || '',
+                        city: regData.city || '',
+                        postal_code: regData.zip || '',
+                        address: `${regData.street || ''} ${regData.city || ''}`.trim()
+                    });
+                } catch (e) { console.warn('[Auth] company_settings upsert skipped/failed:', e.message); }
+
+                try {
+                    await supabase.from('subscriptions').upsert({
+                        user_id: data.user.id,
+                        plan_type: regData.plan || 'standard',
+                        status: 'active'
+                    });
+                } catch (e) { console.warn('[Auth] subscriptions upsert skipped/failed:', e.message); }
+
+                return { success: true, data };
+            } catch (err) {
+                console.error('[Auth] Supabase Signup Error:', err.message);
+                return { success: false, error: err.message };
+            }
+        }
+
+        // Mock Registration
+        const newUser = {
+            id: crypto.randomUUID?.() || Math.random().toString(36).substring(2),
+            email: email,
+            password: password,
+            name: regData.name,
+            companyName: regData.companyName,
+            plan: regData.plan || 'standard',
+            role: 'admin',
+            industry: regData.industry || 'general'
+        };
+
+        const registeredUsers = JSON.parse(localStorage.getItem('bay_registered_users') || '[]');
+        registeredUsers.push(newUser);
+        localStorage.setItem('bay_registered_users', JSON.stringify(registeredUsers));
+
+        isMockSession.current = true;
+        setCurrentUser({ ...newUser, authMode: 'mock' });
+
+        return { success: true, data: { user: newUser } };
+    };
+
     const logout = async () => {
         if (useSupabase) await supabase.auth.signOut();
         isMockSession.current = false;
@@ -304,20 +389,23 @@ export const AuthProvider = ({ children }) => {
                     if (uploadRes.success) avatarUrl = uploadRes.url;
                 }
 
-                await supabase.auth.updateUser({ data: { full_name: updatedData.name, avatar: avatarUrl } });
+                // Auth Service metadata (Direct call recommended for security updates, but non-blocking)
+                supabase.auth.updateUser({ data: { full_name: updatedData.name, avatar: avatarUrl } }).catch(e => console.warn('[Auth] Metadata sync failed:', e));
 
                 const roleMap = { 'Administrator': 'admin', 'Manager': 'site_lead', 'Accountant': 'finance', 'Employee': 'worker' };
-                const normalizedRole = roleMap[updatedData.role] || updatedData.role || currentUser.role;
+                const normalizedRole = roleMap[updatedData.role] || updatedData.role || currentUser?.role;
 
-                await supabase.from('users').upsert({
+                // 1. Prepare User Table Update
+                const userUpdateItems = {
                     id: userId,
-                    email: updatedData.email || currentUser.email,
+                    email: updatedData.email || currentUser?.email,
                     full_name: updatedData.name,
                     avatar_url: avatarUrl,
                     role: normalizedRole
-                }, { onConflict: 'id' });
+                };
 
-                await supabase.from('company_settings').upsert({
+                // 2. Prepare Company Settings Update
+                const companyUpdateItems = {
                     user_id: userId,
                     company_name: updatedData.companyName,
                     industry: updatedData.industry,
@@ -330,12 +418,28 @@ export const AuthProvider = ({ children }) => {
                     stripe_public_key: updatedData.stripePublicKey,
                     stripe_secret_key: updatedData.stripeSecretKey,
                     paypal_client_id: updatedData.paypalClientId
-                }, { onConflict: 'user_id' });
+                };
 
-                const userData = await fetchUserData(userId, updatedData.email || currentUser.email);
-                if (userData) setCurrentUser({ ...userData, authMode: 'cloud' });
+                // 3. Enqueue to Sync Service (Offline Resilience)
+                const { syncService } = await import('../lib/SyncService');
+                syncService.enqueue('users', 'update', userUpdateItems, userId);
+                syncService.enqueue('company_settings', 'update', companyUpdateItems, userId);
+
+                // 4. Optimistic UI Update
+                const newUserData = {
+                    ...currentUser,
+                    ...updatedData,
+                    name: updatedData.name,
+                    avatar: avatarUrl,
+                    role: normalizedRole,
+                    id: userId
+                };
+                setCurrentUser(newUserData);
+
+                // No need to wait for fetchUserData anymore as we have a robust queue
                 return { success: true };
             } catch (error) {
+                console.error('[Auth] Local update failed:', error);
                 return { success: false, error: error.message };
             } finally {
                 isUpdating.current = false;
@@ -359,6 +463,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         updateUser,
+        register,
         isAuthenticated: !!currentUser,
         loading,
         useSupabase,
@@ -367,8 +472,22 @@ export const AuthProvider = ({ children }) => {
             const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
             return error ? { success: false, error: error.message } : { success: true };
         },
-        logSecurityAction: async (action, type) => {
-            console.log(`[Security] ${action} on ${type}`);
+        logSecurityAction: async (action, entityType = 'security', entityId = null, metadata = {}, severity = 'info') => {
+            console.log(`[Audit] ${action} on ${entityType}`);
+            if (!useSupabase || !currentUser) return;
+            try {
+                await supabase.from('audit_logs').insert({
+                    user_id: currentUser.id,
+                    action,
+                    entity_type: entityType,
+                    entity_id: entityId,
+                    metadata,
+                    severity,
+                    source: metadata.source || 'Standard_Auth_Logger'
+                });
+            } catch (err) {
+                console.warn('[Audit] Failed to persist log:', err);
+            }
         }
     }), [currentUser, session, loading, useSupabase]);
 

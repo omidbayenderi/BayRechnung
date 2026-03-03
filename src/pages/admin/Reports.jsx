@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { motion } from 'framer-motion';
@@ -72,16 +72,61 @@ const ReportCard = ({ title, date, size, type, author }) => (
 
 const Reports = () => {
     const { t } = useLanguage();
-    const { invoices, expenses, companyProfile, dailyReports, employees } = useInvoice(); // Get real data
+    const {
+        invoices: contextInvoices,
+        expenses: contextExpenses,
+        companyProfile,
+        dailyReports,
+        employees,
+        fetchFinancialDataByRange
+    } = useInvoice();
+
     const [activeTab, setActiveTab] = useState('daily');
     const [searchQuery, setSearchQuery] = useState('');
     const [dateRange, setDateRange] = useState('thisMonth');
+    const [extraData, setExtraData] = useState({ invoices: [], expenses: [] });
+    const [isFetching, setIsFetching] = useState(false);
 
-    // Filter Logic for Charts
-    const getFilteredData = () => {
+    // DB_AGENT_PATCH: Dynamic Range Fetcher
+    useEffect(() => {
+        const handleRangeFetch = async () => {
+            if (dateRange === 'allTime' || !fetchFinancialDataByRange) return;
+
+            const now = new Date();
+            let start = new Date(0);
+            let end = new Date();
+
+            if (dateRange === 'thisMonth') start = new Date(now.getFullYear(), now.getMonth(), 1);
+            else if (dateRange === 'lastMonth') {
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+            } else if (dateRange === 'thisYear') start = new Date(now.getFullYear(), 0, 1);
+
+            setIsFetching(true);
+            const data = await fetchFinancialDataByRange(start.toISOString(), end.toISOString());
+            if (data) setExtraData(data);
+            setIsFetching(false);
+        };
+
+        handleRangeFetch();
+    }, [dateRange, fetchFinancialDataByRange]);
+
+    // Combine context data with extra range-fetched data (Unique only)
+    const combinedInvoices = useMemo(() => {
+        const seen = new Set(contextInvoices.map(i => i.id));
+        return [...contextInvoices, ...extraData.invoices.filter(i => !seen.has(i.id))];
+    }, [contextInvoices, extraData.invoices]);
+
+    const combinedExpenses = useMemo(() => {
+        const seen = new Set(contextExpenses.map(e => e.id));
+        return [...contextExpenses, ...extraData.expenses.filter(e => !seen.has(e.id))];
+    }, [contextExpenses, extraData.expenses]);
+
+    // DB_AGENT_PATCH: Memoize heavy filtering using combined datasets
+    const { filteredInvoices, filteredExpenses } = useMemo(() => {
         const now = new Date();
-        let start = new Date(0); // Epoch
-        let end = new Date(); // Now
+        let start = new Date(0);
+        let end = new Date();
 
         if (dateRange === 'thisMonth') {
             start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -92,76 +137,95 @@ const Reports = () => {
             start = new Date(now.getFullYear(), 0, 1);
         }
 
-        const filteredInvoices = invoices.filter(inv => {
+        const fInvoices = combinedInvoices.filter(inv => {
             const d = new Date(inv.date);
             return d >= start && d <= end;
         });
 
-        const filteredExpenses = expenses.filter(exp => {
+        const fExpenses = combinedExpenses.filter(exp => {
             const d = new Date(exp.date || exp.created_at);
             return d >= start && d <= end;
         });
 
-        return { filteredInvoices, filteredExpenses };
-    };
+        return { filteredInvoices: fInvoices, filteredExpenses: fExpenses };
+    }, [combinedInvoices, combinedExpenses, dateRange]);
 
-    const { filteredInvoices, filteredExpenses } = getFilteredData();
+    const financialMetrics = useMemo(() => {
+        const income = filteredInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+        const expense = filteredExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
 
-    // Chart Data Calculations
-    const totalIncome = filteredInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const profit = totalIncome - totalExpenses;
+        const vatIn = filteredInvoices.reduce((sum, inv) => sum + (inv.tax || 0), 0);
+        const vatOut = filteredExpenses.reduce((sum, exp) => {
+            if (typeof exp.tax !== 'undefined' && exp.tax !== null) return sum + exp.tax;
+            return sum + (exp.amount - (exp.amount / 1.19));
+        }, 0);
 
-    const vatCollected = filteredInvoices.reduce((sum, inv) => sum + (inv.tax || 0), 0);
-    const vatPaid = filteredExpenses.reduce((sum, exp) => {
-        if (typeof exp.tax !== 'undefined') return sum + exp.tax;
-        return sum + (exp.amount - (exp.amount / 1.19));
-    }, 0);
-    const netVat = vatCollected - vatPaid;
+        const arrears = filteredInvoices.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0);
+        const debts = filteredExpenses.filter(exp => exp.status !== 'paid').reduce((sum, exp) => sum + (exp.amount || 0), 0);
 
-    // Prepare Bar Chart Data
-    const chartData = [];
-    const isMonthlyView = dateRange === 'thisMonth' || dateRange === 'lastMonth';
+        return {
+            totalIncome: income,
+            totalExpenses: expense,
+            profit: income - expense,
+            vatCollected: vatIn,
+            vatPaid: vatOut,
+            netVat: vatIn - vatOut,
+            receivables: arrears,
+            payables: debts
+        };
+    }, [filteredInvoices, filteredExpenses]);
 
-    if (isMonthlyView) {
-        const dataMap = {};
-        filteredInvoices.forEach(inv => {
-            const day = new Date(inv.date).getDate();
-            if (!dataMap[day]) dataMap[day] = { name: day, income: 0, expense: 0 };
-            dataMap[day].income += inv.total;
-        });
-        filteredExpenses.forEach(exp => {
-            const day = new Date(exp.date || exp.created_at).getDate();
-            if (!dataMap[day]) dataMap[day] = { name: day, income: 0, expense: 0 };
-            dataMap[day].expense += exp.amount;
-        });
-        Object.values(dataMap).sort((a, b) => a.name - b.name).forEach(d => chartData.push(d));
-    } else {
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const dataMap = {};
-        filteredInvoices.forEach(inv => {
-            const month = new Date(inv.date).getMonth();
-            if (!dataMap[month]) dataMap[month] = { name: months[month], income: 0, expense: 0, sortDetails: month };
-            dataMap[month].income += inv.total;
-        });
-        filteredExpenses.forEach(exp => {
-            const month = new Date(exp.date || exp.created_at).getMonth();
-            if (!dataMap[month]) dataMap[month] = { name: months[month], income: 0, expense: 0, sortDetails: month };
-            dataMap[month].expense += exp.amount;
-        });
-        Object.values(dataMap).sort((a, b) => a.sortDetails - b.sortDetails).forEach(d => chartData.push(d));
-    }
+    const { totalIncome, totalExpenses, profit, vatCollected, vatPaid, netVat, receivables, payables } = financialMetrics;
+
+    // DB_AGENT_PATCH: Memoize chart data preparation
+    const chartData = useMemo(() => {
+        const results = [];
+        const isMonthlyView = dateRange === 'thisMonth' || dateRange === 'lastMonth';
+
+        if (isMonthlyView) {
+            const dataMap = {};
+            filteredInvoices.forEach(inv => {
+                const day = new Date(inv.date).getDate();
+                if (!dataMap[day]) dataMap[day] = { name: day, income: 0, expense: 0 };
+                dataMap[day].income += inv.total;
+            });
+            filteredExpenses.forEach(exp => {
+                const day = new Date(exp.date || exp.created_at).getDate();
+                if (!dataMap[day]) dataMap[day] = { name: day, income: 0, expense: 0 };
+                dataMap[day].expense += exp.amount;
+            });
+            Object.values(dataMap).sort((a, b) => a.name - b.name).forEach(d => results.push(d));
+        } else {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const dataMap = {};
+            filteredInvoices.forEach(inv => {
+                const month = new Date(inv.date).getMonth();
+                if (!dataMap[month]) dataMap[month] = { name: months[month], income: 0, expense: 0, sortDetails: month };
+                dataMap[month].income += inv.total;
+            });
+            filteredExpenses.forEach(exp => {
+                const month = new Date(exp.date || exp.created_at).getMonth();
+                if (!dataMap[month]) dataMap[month] = { name: months[month], income: 0, expense: 0, sortDetails: month };
+                dataMap[month].expense += exp.amount;
+            });
+            Object.values(dataMap).sort((a, b) => a.sortDetails - b.sortDetails).forEach(d => results.push(d));
+        }
+        return results;
+    }, [filteredInvoices, filteredExpenses, dateRange]);
 
     // Pie Chart Data
-    const expenseCategories = filteredExpenses.reduce((acc, exp) => {
-        const cat = exp.category || 'Uncategorized';
-        acc[cat] = (acc[cat] || 0) + exp.amount;
-        return acc;
-    }, {});
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
-    const expenseChartData = Object.entries(expenseCategories).map(([name, value], index) => ({
-        name, value, color: COLORS[index % COLORS.length]
-    }));
+    const expenseChartData = useMemo(() => {
+        const expenseCategories = filteredExpenses.reduce((acc, exp) => {
+            const cat = exp.category || 'Uncategorized';
+            acc[cat] = (acc[cat] || 0) + exp.amount;
+            return acc;
+        }, {});
+
+        const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6366f1'];
+        return Object.entries(expenseCategories).map(([name, value], index) => ({
+            name, value, color: COLORS[index % COLORS.length]
+        }));
+    }, [filteredExpenses]);
 
     const formatCurr = (val) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(val);
 
@@ -181,8 +245,8 @@ const Reports = () => {
     }
 
     // Format Daily Reports from Supabase
-    const dailyReportsFormatted = dailyReports.map(report => {
-        const worker = employees.find(e => e.id === report.user_id);
+    const dailyReportsFormatted = (dailyReports || []).map(report => {
+        const worker = (employees || []).find(e => e.id === report.user_id);
         const date = new Date(report.created_at);
         return {
             id: report.id,
@@ -412,6 +476,24 @@ const Reports = () => {
                                         <h3 style={{ fontSize: '1.5rem', fontWeight: '700', color: profit >= 0 ? '#10b981' : '#ef4444', margin: '4px 0' }}>{formatCurr(profit)}</h3>
                                     </div>
                                     <div style={{ background: profit >= 0 ? '#dcfce7' : '#fee2e2', padding: '10px', borderRadius: '8px', color: profit >= 0 ? '#166534' : '#b91c1c' }}><Receipt size={20} /></div>
+                                </div>
+                            </div>
+                            <div className="card stat-card" style={{ padding: '20px', borderRadius: '12px', background: 'white', border: '1px solid #e2e8f0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div>
+                                        <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>{t('receivables') || 'Alacaklar'}</p>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#3b82f6', margin: '4px 0' }}>{formatCurr(receivables)}</h3>
+                                    </div>
+                                    <div style={{ background: '#dbeafe', padding: '10px', borderRadius: '8px', color: '#2563eb' }}><TrendingUp size={20} /></div>
+                                </div>
+                            </div>
+                            <div className="card stat-card" style={{ padding: '20px', borderRadius: '12px', background: 'white', border: '1px solid #e2e8f0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div>
+                                        <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>{t('payables') || 'Borçlar'}</p>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#f97316', margin: '4px 0' }}>{formatCurr(payables)}</h3>
+                                    </div>
+                                    <div style={{ background: '#ffedd5', padding: '10px', borderRadius: '8px', color: '#ea580c' }}><TrendingDown size={20} /></div>
                                 </div>
                             </div>
                         </div>

@@ -3,6 +3,84 @@ import { Calendar, ChevronLeft, ChevronRight, Clock, Plus, X, Lock } from 'lucid
 import { useAppointments } from '../../context/AppointmentContext';
 import { useLanguage } from '../../context/LanguageContext';
 
+const CalendarCell = React.memo(({ dayStr, time, isSelected, isDailyBreak, isClosed, slotItems, onClick, services, t, deleteAppointment, handleAddAppointmentClick, handleAddBlock }) => {
+    return (
+        <div
+            onClick={() => !isDailyBreak && !isClosed && onClick(dayStr, time)}
+            style={{
+                borderRight: '1px solid var(--border)',
+                borderBottom: '1px solid var(--border)',
+                position: 'relative',
+                background: isClosed ? '#f1f5f9' : isDailyBreak ? '#f3f4f6' : isSelected ? 'var(--primary-light)' : 'white',
+                cursor: (isDailyBreak || isClosed) ? 'not-allowed' : 'pointer',
+                minHeight: '60px'
+            }}
+        >
+            {isDailyBreak && (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '1px' }}>
+                    {t('break_time', 'MOLA')}
+                </div>
+            )}
+
+            {slotItems.map(item => {
+                if (item.type === 'block') {
+                    return (
+                        <div key={item.id} style={{
+                            position: 'absolute', top: 1, left: 1, right: 1, bottom: 1,
+                            background: '#e5e7eb', borderRadius: '4px', padding: '4px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', zIndex: 2
+                        }}>
+                            <Lock size={12} style={{ marginRight: '4px' }} /> {item.notes}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); deleteAppointment(item.id); }}
+                                style={{ position: 'absolute', top: 2, right: 2, border: 'none', background: 'none', cursor: 'pointer', padding: 2 }}
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+                    );
+                }
+
+                const service = services?.find(s => s.id === parseInt(item.serviceId));
+                return (
+                    <div key={item.id} style={{
+                        position: 'absolute', top: 1, left: 1, right: 1, bottom: 1,
+                        background: `${service?.color || 'var(--primary)'}20`,
+                        borderLeft: `3px solid ${service?.color || 'var(--primary)'}`,
+                        borderRadius: '4px', padding: '4px', fontSize: '0.75rem', overflow: 'hidden', zIndex: 3
+                    }}>
+                        <div style={{ fontWeight: '600' }}>{item.customerName}</div>
+                        <div>{service?.name}</div>
+                    </div>
+                );
+            })}
+
+            {isSelected && slotItems.length === 0 && !isDailyBreak && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                    background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderRadius: '8px', padding: '8px',
+                    zIndex: 20, minWidth: '140px', display: 'flex', flexDirection: 'column', gap: '4px'
+                }}>
+                    <button
+                        className="btn"
+                        style={{ fontSize: '0.8rem', justifyContent: 'flex-start' }}
+                        onClick={handleAddAppointmentClick}
+                    >
+                        <Plus size={14} /> {t('add_appointment', 'Randevu Ekle')}
+                    </button>
+                    <button
+                        className="btn"
+                        style={{ fontSize: '0.8rem', justifyContent: 'flex-start', color: '#ef4444' }}
+                        onClick={(e) => { e.stopPropagation(); handleAddBlock(); }}
+                    >
+                        <Lock size={14} /> {t('block_time', 'Saati Kapat')}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+});
+
 const AppointmentCalendar = () => {
     const { t } = useLanguage();
     const { appointments, services, settings, addAppointment, addBlock, deleteAppointment } = useAppointments();
@@ -26,8 +104,8 @@ const AppointmentCalendar = () => {
         setCurrentDate(newDate);
     };
 
-    const getWeekDays = (date) => {
-        const start = new Date(date);
+    const weekDays = React.useMemo(() => {
+        const start = new Date(currentDate);
         const day = start.getDay();
         const diff = start.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
         start.setDate(diff);
@@ -39,37 +117,43 @@ const AppointmentCalendar = () => {
             days.push(d);
         }
         return days;
-    };
+    }, [currentDate]);
 
-    const weekDays = getWeekDays(currentDate);
+    // O(1) Lookup Table (Optimized Scenario 1)
+    const appointmentsBySlot = React.useMemo(() => {
+        const map = {};
+        (appointments || []).forEach(apt => {
+            if (!apt.date || !apt.time) return;
+            const key = `${apt.date}_${apt.time}`;
+            if (!map[key]) map[key] = [];
+            map[key].push(apt);
+        });
+        return map;
+    }, [appointments]);
 
-    // Generate time slots based on the combined range of weekday and weekend hours
-    const wh = settings.workingHours || { start: '09:00', end: '18:00' };
-    const whw = settings.workingHoursWeekend || { start: '10:00', end: '16:00' };
+    const { timeSlots, workingHoursRange } = React.useMemo(() => {
+        const wh = settings.workingHours || { start: '09:00', end: '18:00' };
+        const whw = settings.workingHoursWeekend || { start: '10:00', end: '16:00' };
 
-    const startHour = Math.min(
-        parseInt(wh.start?.split(':')[0] || '9'),
-        parseInt(whw.start?.split(':')[0] || '10')
-    );
-    const endHour = Math.max(
-        parseInt(wh.end?.split(':')[0] || '18'),
-        parseInt(whw.end?.split(':')[0] || '16')
-    );
+        const s = Math.min(parseInt(wh.start?.split(':')[0] || '9'), parseInt(whw.start?.split(':')[0] || '10'));
+        const e = Math.max(parseInt(wh.end?.split(':')[0] || '18'), parseInt(whw.end?.split(':')[0] || '16'));
 
-    const timeSlots = [];
-    for (let i = startHour; i < endHour; i++) {
-        timeSlots.push(`${i.toString().padStart(2, '0')}:00`);
-        timeSlots.push(`${i.toString().padStart(2, '0')}:30`);
-    }
+        const slots = [];
+        for (let i = s; i < e; i++) {
+            slots.push(`${i.toString().padStart(2, '0')}:00`);
+            slots.push(`${i.toString().padStart(2, '0')}:30`);
+        }
+        return { timeSlots: slots, workingHoursRange: { startHour: s, endHour: e } };
+    }, [settings.workingHours, settings.workingHoursWeekend]);
 
-    const handleSlotClick = (dateStr, time) => {
+    const handleSlotClick = React.useCallback((dateStr, time) => {
         // Toggle selection
         if (selectedSlot?.date === dateStr && selectedSlot?.time === time) {
             setSelectedSlot(null);
         } else {
             setSelectedSlot({ date: dateStr, time });
         }
-    };
+    }, [selectedSlot]); // Dependency on selectedSlot to correctly toggle
 
     const handleAddBlock = () => {
         if (!selectedSlot) return;
@@ -130,7 +214,6 @@ const AppointmentCalendar = () => {
             </header>
 
             <div className="card" style={{ padding: '0', overflow: 'hidden', height: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column' }}>
-                {/* Calendar Controls */}
                 <div className="calendar-header" style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
                     <button onClick={handlePrev} className="icon-btn"><ChevronLeft /></button>
                     <h2 style={{ fontSize: '1.2rem', fontWeight: '600' }}>
@@ -140,129 +223,42 @@ const AppointmentCalendar = () => {
                     <button onClick={handleNext} className="icon-btn"><ChevronRight /></button>
                 </div>
 
-                {/* Calendar Grid */}
                 <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: '60px repeat(7, 1fr)', flex: 1, overflow: 'auto' }}>
-
-                    {/* Header Row (Days) */}
                     <div style={{ padding: '12px', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid var(--border)' }}></div>
-                    {weekDays.map((day, i) => {
-                        const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
-                        const isWorkingDay = settings.workingDays?.includes(dayName);
-                        return (
-                            <div key={i} style={{
-                                padding: '12px',
-                                background: '#f8fafc',
-                                textAlign: 'center',
-                                borderBottom: '1px solid var(--border)',
-                                borderRight: '1px solid var(--border)',
-                                position: 'sticky', top: 0, zIndex: 10,
-                                color: day.toDateString() === new Date().toDateString() ? 'var(--primary)' : 'inherit',
-                                opacity: isWorkingDay ? 1 : 0.5
-                            }}>
-                                <div style={{ fontWeight: '600' }}>{day.toLocaleDateString(t('locale', 'tr-TR'), { weekday: 'short' })}</div>
-                                <div style={{ fontSize: '1.2rem' }}>{day.getDate()}</div>
-                            </div>
-                        );
-                    })}
+                    {weekDays.map((day, i) => (
+                        <div key={i} style={{
+                            padding: '12px', background: '#f8fafc', textAlign: 'center', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)',
+                            position: 'sticky', top: 0, zIndex: 10, color: day.toDateString() === new Date().toDateString() ? 'var(--primary)' : 'inherit',
+                            opacity: settings.workingDays?.includes(day.toLocaleDateString('en-US', { weekday: 'short' })) ? 1 : 0.5
+                        }}>
+                            <div style={{ fontWeight: '600' }}>{day.toLocaleDateString(t('locale', 'tr-TR'), { weekday: 'short' })}</div>
+                            <div style={{ fontSize: '1.2rem' }}>{day.getDate()}</div>
+                        </div>
+                    ))}
 
-                    {/* Time Slots */}
                     {timeSlots.map(time => (
                         <React.Fragment key={time}>
-                            {/* Time Label */}
                             <div style={{ padding: '8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', borderBottom: '1px solid var(--border)', position: 'sticky', left: 0, background: 'white', zIndex: 5 }}>
                                 {time}
                             </div>
-
-                            {/* Day Cells */}
                             {weekDays.map((day, i) => {
                                 const dayStr = day.toISOString().split('T')[0];
-                                const isSelected = selectedSlot?.date === dayStr && selectedSlot?.time === time;
-                                const isDailyBreak = isBreakTime(time);
-
-                                // Find appointments or blocks
-                                const slotItems = appointments.filter(a => {
-                                    if (!a.date || !a.time) return false;
-                                    return a.date === dayStr && a.time === time; // Simplified exact match for now
-                                });
-
                                 return (
-                                    <div
-                                        key={i}
-                                        onClick={() => !isDailyBreak && !isClosed(day, time) && handleSlotClick(dayStr, time)}
-                                        style={{
-                                            borderRight: '1px solid var(--border)',
-                                            borderBottom: '1px solid var(--border)',
-                                            position: 'relative',
-                                            background: isClosed(day, time) ? '#f1f5f9' : isDailyBreak ? '#f3f4f6' : isSelected ? 'var(--primary-light)' : 'white',
-                                            cursor: (isDailyBreak || isClosed(day, time)) ? 'not-allowed' : 'pointer',
-                                            minHeight: '60px'
-                                        }}
-                                    >
-                                        {/* Daily Break Check */}
-                                        {isDailyBreak && (
-                                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '1px' }}>
-                                                {t('break_time', 'MOLA')}
-                                            </div>
-                                        )}
-
-                                        {/* Render items */}
-                                        {slotItems.map(item => {
-                                            if (item.type === 'block') {
-                                                return (
-                                                    <div key={item.id} style={{
-                                                        position: 'absolute', top: 1, left: 1, right: 1, bottom: 1,
-                                                        background: '#e5e7eb', borderRadius: '4px', padding: '4px',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', zIndex: 2
-                                                    }}>
-                                                        <Lock size={12} style={{ marginRight: '4px' }} /> {item.notes}
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); deleteAppointment(item.id); }}
-                                                            style={{ position: 'absolute', top: 2, right: 2, border: 'none', background: 'none', cursor: 'pointer', padding: 2 }}
-                                                        >
-                                                            <X size={12} />
-                                                        </button>
-                                                    </div>
-                                                );
-                                            }
-
-                                            const service = services?.find(s => s.id === parseInt(item.serviceId));
-                                            return (
-                                                <div key={item.id} style={{
-                                                    position: 'absolute', top: 1, left: 1, right: 1, bottom: 1,
-                                                    background: `${service?.color || 'var(--primary)'}20`,
-                                                    borderLeft: `3px solid ${service?.color || 'var(--primary)'}`,
-                                                    borderRadius: '4px', padding: '4px', fontSize: '0.75rem', overflow: 'hidden', zIndex: 3
-                                                }}>
-                                                    <div style={{ fontWeight: '600' }}>{item.customerName}</div>
-                                                    <div>{service?.name}</div>
-                                                </div>
-                                            );
-                                        })}
-
-                                        {/* Selection Popup */}
-                                        {isSelected && slotItems.length === 0 && !isDailyBreak && (
-                                            <div style={{
-                                                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-                                                background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderRadius: '8px', padding: '8px',
-                                                zIndex: 20, minWidth: '140px', display: 'flex', flexDirection: 'column', gap: '4px'
-                                            }}>
-                                                <button
-                                                    className="btn"
-                                                    style={{ fontSize: '0.8rem', justifyContent: 'flex-start' }}
-                                                    onClick={handleAddAppointmentClick}
-                                                >
-                                                    <Plus size={14} /> {t('add_appointment', 'Randevu Ekle')}
-                                                </button>
-                                                <button
-                                                    className="btn"
-                                                    style={{ fontSize: '0.8rem', justifyContent: 'flex-start', color: '#ef4444' }}
-                                                    onClick={(e) => { e.stopPropagation(); handleAddBlock(); }}
-                                                >
-                                                    <Lock size={14} /> {t('block_time', 'Saati Kapat')}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <CalendarCell
+                                        key={`${dayStr}_${time}`}
+                                        dayStr={dayStr}
+                                        time={time}
+                                        isSelected={selectedSlot?.date === dayStr && selectedSlot?.time === time}
+                                        isDailyBreak={isBreakTime(time)}
+                                        isClosed={isClosed(day, time)}
+                                        slotItems={appointmentsBySlot[`${dayStr}_${time}`] || []}
+                                        onClick={handleSlotClick}
+                                        services={services}
+                                        t={t}
+                                        deleteAppointment={deleteAppointment}
+                                        handleAddAppointmentClick={handleAddAppointmentClick}
+                                        handleAddBlock={handleAddBlock}
+                                    />
                                 );
                             })}
                         </React.Fragment>
@@ -270,79 +266,32 @@ const AppointmentCalendar = () => {
                 </div>
             </div>
 
-            {/* Quick Add Modal */}
             {showModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: 'white', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '400px',
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', position: 'relative'
-                    }}>
-                        <button
-                            onClick={() => { setShowModal(false); setSelectedSlot(null); }}
-                            style={{ position: 'absolute', top: '24px', right: '24px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
-                        >
-                            <X size={24} />
-                        </button>
-
-                        <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '24px', color: '#1e293b' }}>
-                            {t('add_appointment', 'Yeni Randevu Ekle')}
-                        </h2>
-
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div style={{ background: 'white', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
+                        <button onClick={() => { setShowModal(false); setSelectedSlot(null); }} style={{ position: 'absolute', top: '24px', right: '24px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={24} /></button>
+                        <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '24px', color: '#1e293b' }}>{t('add_appointment', 'Yeni Randevu Ekle')}</h2>
                         <form onSubmit={submitAppointment} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', fontSize: '14px', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
                                 <span>{selectedSlot?.date}</span>
                                 <span style={{ fontWeight: 'bold', color: '#0f172a' }}>{selectedSlot?.time}</span>
                             </div>
-
                             <div>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('customer_name', 'Müşteri Adı')}</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={newApptData.customerName}
-                                    onChange={e => setNewApptData({ ...newApptData, customerName: e.target.value })}
-                                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
-                                />
+                                <input type="text" required value={newApptData.customerName} onChange={e => setNewApptData({ ...newApptData, customerName: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }} />
                             </div>
-
                             <div>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('phone', 'Telefon')}</label>
-                                <input
-                                    type="text"
-                                    value={newApptData.customerPhone}
-                                    onChange={e => setNewApptData({ ...newApptData, customerPhone: e.target.value })}
-                                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
-                                />
+                                <input type="text" value={newApptData.customerPhone} onChange={e => setNewApptData({ ...newApptData, customerPhone: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }} />
                             </div>
-
                             <div>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>{t('service', 'Hizmet')}</label>
-                                <select
-                                    required
-                                    value={newApptData.serviceId}
-                                    onChange={e => setNewApptData({ ...newApptData, serviceId: e.target.value })}
-                                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
-                                >
+                                <select required value={newApptData.serviceId} onChange={e => setNewApptData({ ...newApptData, serviceId: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}>
                                     <option value="" disabled>{t('select_service', 'Hizmet Seçin...')}</option>
                                     {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.duration} dk)</option>)}
                                 </select>
                             </div>
-
-                            <button
-                                type="submit"
-                                style={{
-                                    marginTop: '8px',
-                                    background: '#0f172a', color: 'white', border: 'none',
-                                    padding: '16px', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px',
-                                    cursor: 'pointer', transition: 'background 0.2s', width: '100%'
-                                }}
-                            >
-                                {t('save', 'Kaydet')}
-                            </button>
+                            <button type="submit" style={{ marginTop: '8px', background: '#0f172a', color: 'white', border: 'none', padding: '16px', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', transition: 'background 0.2s', width: '100%' }}>{t('save', 'Kaydet')}</button>
                         </form>
                     </div>
                 </div>

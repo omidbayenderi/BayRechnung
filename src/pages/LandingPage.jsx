@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     ArrowRight, Check, FileText, TrendingUp, Globe, Shield, Smartphone,
-    Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star
+    Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star,
+    Layers, Cpu, Server, Lock, Github, Twitter, Linkedin
 } from 'lucide-react';
 import { useLanguage, detectUserLanguage } from '../context/LanguageContext';
 import { useStripeCheckout } from '../hooks/useStripeCheckout';
@@ -36,7 +37,34 @@ const LandingPage = () => {
                     supabase.from('landing_sections').select('*').order('display_order', { ascending: true })
                 ]);
 
-                if (!pRes.error) setPricingPlans(pRes.data);
+                if (!pRes.error && pRes.data?.length >= 2) {
+                    // Ensure VIP is present if not in DB
+                    let plans = [...pRes.data];
+                    if (!plans.find(p => p.plan_id === 'vip')) {
+                        plans.push({
+                            id: 'temp-vip',
+                            plan_id: 'vip',
+                            name_key: 'vip',
+                            price_monthly: 149,
+                            price_yearly: 1490,
+                            is_featured: false,
+                            features: ["everythingInPremium", "apiIntegrations", "googleAnalytics", "customDomain"]
+                        });
+                    }
+                    // Update prices for existing ones to match new request
+                    plans = plans.map(p => {
+                        if (p.plan_id === 'standard') return { ...p, price_monthly: 19.9, price_yearly: 199 };
+                        if (p.plan_id === 'premium') return { ...p, price_monthly: 79.9, price_yearly: 799, is_featured: true };
+                        return p;
+                    });
+                    setPricingPlans(plans);
+                } else {
+                    setPricingPlans([
+                        { id: 'f-std', plan_id: 'standard', name_key: 'standard', price_monthly: 19.9, price_yearly: 199, is_featured: false, features: ["unlimitedInvoices", "customerManagement", "basicStock", "multiLanguageInvoices", "emailSupport", "mobileAccess", "pdfExport", "dashboardOverview"] },
+                        { id: 'f-prm', plan_id: 'premium', name_key: 'premium', price_monthly: 79.9, price_yearly: 799, is_featured: true, features: ["everythingInStandard", "advancedReports", "fullStockPOS", "employeeManagement", "appointmentSystem", "websiteBuilder", "prioritySupport", "aiAssistant"] },
+                        { id: 'f-vip', plan_id: 'vip', name_key: 'vip', price_monthly: 149, price_yearly: 1490, is_featured: false, features: ["everythingInPremium", "apiIntegrations", "googleAnalytics", "customDomain"] }
+                    ]);
+                }
                 if (!vRes.error) setDynamicVideos(vRes.data);
                 if (!sRes.error) setDynamicSections(sRes.data);
             } catch (err) {
@@ -76,16 +104,15 @@ const LandingPage = () => {
 
     const heroImage = heroMain?.content?.image_url
         ? (heroMain.content.image_url.startsWith('http') ? heroMain.content.image_url : `${basePath}${heroMain.content.image_url.replace(/^\//, '')}`)
-        : `${basePath}dashboard_v2.png`;
+        : `${basePath}hero_unified.png`;
 
-    // Mapping DB model to UI model
     const plansUI = pricingPlans.map(p => ({
         name: t(p.name_key),
-        priceMonthly: `${p.price_monthly}€`,
-        priceYearly: `${p.price_yearly}€`,
+        priceMonthly: `${p.price_monthly.toLocaleString('de-DE')}€`,
+        priceYearly: `${p.price_yearly.toLocaleString('de-DE')}€`,
         savings: billingCycle === 'yearly' ? t('save17') || 'Save 17%' : null,
-        badge: p.is_featured ? t('mostPopular') || 'Most Popular' : null,
-        features: p.features.map(f => t(f) || f),
+        badge: p.is_featured ? t('mostPopular') || 'Most Popular' : (p.plan_id === 'vip' ? 'ENTERPRISE' : null),
+        features: (p.features || []).map(f => t(f) || f),
         cta: t('getStarted'),
         plan: p.plan_id
     }));
@@ -117,7 +144,7 @@ const LandingPage = () => {
                             onClick={() => heroAlert.content.link && (window.location.hash = heroAlert.content.link)}
                             style={{ cursor: 'pointer' }}
                         >
-                            <span className="highlight">{heroAlert.content.badge || 'New'}</span> {heroAlert.content.text}
+                            <span className="highlight">{heroAlert.content.badge || t('landing_new')}</span> {heroAlert.content.text}
                         </motion.div>
                     )}
 
@@ -126,8 +153,9 @@ const LandingPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
                         className="hero-title-modern"
+                        style={{ maxWidth: 900, margin: '0 auto 24px' }}
                     >
-                        {t('heroTitle') || 'Professional Invoices in Seconds'}
+                        {t('heroTitle')}
                     </motion.h1>
 
                     <motion.p
@@ -135,8 +163,9 @@ const LandingPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
                         className="hero-desc-modern"
+                        style={{ fontSize: '1.4rem' }}
                     >
-                        {t('heroSubtitle') || 'The operating system for your business. Invoices, Stock, Website, and AI in one place.'}
+                        {t('heroSubtitle')}
                     </motion.p>
 
                     <motion.div
@@ -153,22 +182,63 @@ const LandingPage = () => {
                         </a>
                     </motion.div>
 
-
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.4, duration: 0.8 }}
                         className="hero-visual-modern"
+                        style={{ position: 'relative' }}
                     >
-                        <img src={heroImage} alt="Dashboard Preview" />
+                        <img src={heroImage} alt="BayZenit Unified Platform" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
+                        <div className="hero-glow-overlay" style={{
+                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'radial-gradient(circle at center, rgba(56, 189, 248, 0.1) 0%, transparent 70%)',
+                            pointerEvents: 'none'
+                        }}></div>
+
+                        {/* 4-in-1 Floating Badge */}
+                        <div style={{
+                            position: 'absolute',
+                            top: '15%',
+                            right: '5%',
+                            background: 'rgba(15, 23, 42, 0.8)',
+                            backdropFilter: 'blur(12px)',
+                            padding: '16px 28px',
+                            borderRadius: '24px',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                            textAlign: 'center',
+                            zIndex: 20
+                        }}>
+                            <div style={{ fontSize: '1.8rem', fontWeight: 900, background: 'linear-gradient(135deg, #38bdf8 0%, #a855f7 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1 }}>4 IN 1</div>
+                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, marginTop: 4, letterSpacing: '1px' }}>BUSINESS ECOSYSTEM</div>
+                        </div>
                     </motion.div>
                 </section>
+
+                {/* Integration Bar */}
+                <div className="integration-bar" style={{
+                    padding: '40px 0',
+                    borderTop: '1px solid rgba(255,255,255,0.05)',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    textAlign: 'center',
+                    opacity: 0.6,
+                    background: 'rgba(255,255,255,0.02)'
+                }}>
+                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 24, letterSpacing: '2px', fontWeight: 700 }}>ENGINEERED FOR MODERN ENTERPRISES</p>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(20px, 5vw, 60px)', flexWrap: 'wrap', filter: 'grayscale(100%)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}><Layers size={20} /> ARCHITECTURE</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}><Cpu size={20} /> AUTOMATION</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}><Server size={20} /> INFRASTRUCTURE</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}><Lock size={20} /> ENTERPRISE SECURITY</div>
+                    </div>
+                </div>
 
                 {/* Video Highlights Section */}
                 <section className="video-highlights" id="action">
                     <div className="section-title-wrapper">
-                        <h2>See it in Action</h2>
-                        <p>Watch how BayZenit transforms your workflow.</p>
+                        <h2>{t('seeInAction') || 'See it in Action'}</h2>
+                        <p>{t('seeInActionDesc') || 'Watch how BayZenit transforms your workflow.'}</p>
                     </div>
 
                     <div className="video-grid">
@@ -210,7 +280,7 @@ const LandingPage = () => {
                                         </div>
                                         <div className="video-overlay">
                                             <div className="video-title">{video.title}</div>
-                                            <div className="video-duration">{video.description || 'Workflow Demo'}</div>
+                                            <div className="video-duration">{video.description || t('workflowDemo')}</div>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -219,11 +289,10 @@ const LandingPage = () => {
                     </div>
                 </section>
 
-
                 {/* Bento Grid Features */}
                 <section className="section-modern" id="features">
                     <div className="section-title-wrapper">
-                        <h2>Power Features</h2>
+                        <h2>{t('powerFeatures') || 'Power Features'}</h2>
                         <p>{t('featuresSubtitle') || 'Everything you need to run your business'}</p>
                     </div>
 
@@ -231,7 +300,6 @@ const LandingPage = () => {
                         {powerFeatures.length > 0 ? (
                             powerFeatures.map((feat, idx) => {
                                 const Icon = IconMap[feat.content.icon] || Zap;
-                                // Map display order/index to specific spans to keep the layout interesting
                                 const spanClass = idx === 0 ? 'span-8 card-gradient-1' : (idx === 1 ? 'span-4' : (idx === 2 ? 'span-4 row-span-2 card-gradient-2' : 'span-8'));
                                 return (
                                     <motion.div key={feat.id} className={`bento-card ${spanClass}`} whileHover={{ scale: 1.02 }}>
@@ -245,60 +313,61 @@ const LandingPage = () => {
                             })
                         ) : (
                             <>
-                                {/* Invoice - Large */}
-                                <motion.div
-                                    className="bento-card span-8 card-gradient-1"
-                                    whileHover={{ scale: 1.02 }}
-                                >
+                                <motion.div className="bento-card span-8 card-gradient-1" whileHover={{ scale: 1.02 }}>
                                     <div className="bento-content">
+                                        <div style={{ color: '#38bdf8', marginBottom: 12, fontWeight: 700, fontSize: '0.8rem', letterSpacing: '1px' }}>MODULE 01</div>
                                         <h3>{t('unlimitedInvoices')}</h3>
                                         <p>{t('easyInvoiceCreationDesc')}</p>
-                                    </div>
-                                    <FileText size={120} className="bento-icon-bg" />
-                                </motion.div>
-
-                                {/* Stock - Small */}
-                                <motion.div className="bento-card span-4" whileHover={{ scale: 1.02 }}>
-                                    <div className="bento-content">
-                                        <h3>{t('module_stock_name')}</h3>
-                                        <p>Track inventory & POS sales in real-time.</p>
-                                    </div>
-                                    <ShoppingCart size={100} className="bento-icon-bg" />
-                                </motion.div>
-
-                                {/* AI - Tall */}
-                                <motion.div className="bento-card span-4 row-span-2 card-gradient-2" whileHover={{ scale: 1.02 }}>
-                                    <div className="bento-content">
-                                        <h3>BayPilot AI</h3>
-                                        <p>Your personal AI assistant. "Create an invoice for John", "Check stock". Just ask.</p>
-                                        <div style={{ marginTop: 20, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 12 }}>
-                                            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                                                <Bot size={16} color="#a855f7" />
-                                                <span style={{ fontSize: '0.8rem', color: '#e2e8f0' }}>How can I help?</span>
-                                            </div>
-                                            <div style={{ background: '#3b82f6', padding: '6px 12px', borderRadius: '12px 12px 0 12px', fontSize: '0.8rem', marginLeft: 'auto', width: 'fit-content' }}>
-                                                Create invoice
-                                            </div>
+                                        <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
+                                            <span style={{ padding: '4px 12px', background: 'rgba(56, 189, 248, 0.1)', borderRadius: 100, fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>Multi-Currency</span>
+                                            <span style={{ padding: '4px 12px', background: 'rgba(56, 189, 248, 0.1)', borderRadius: 100, fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>Tax Automation</span>
                                         </div>
                                     </div>
+                                    <FileText size={120} className="bento-icon-bg" style={{ color: '#38bdf8', opacity: 0.1 }} />
                                 </motion.div>
 
-                                {/* Website - Medium */}
-                                <motion.div className="bento-card span-8" whileHover={{ scale: 1.02 }}>
+                                <motion.div className="bento-card span-4" whileHover={{ scale: 1.02 }}>
                                     <div className="bento-content">
-                                        <h3>{t('websiteBuilder')}</h3>
-                                        <p>No-code website builder. Get your business online with one click.</p>
+                                        <div style={{ color: '#10b981', marginBottom: 12, fontWeight: 700, fontSize: '0.8rem', letterSpacing: '1px' }}>MODULE 02</div>
+                                        <h3>{t('stockDashboard')}</h3>
+                                        <p>{t('stockTrackingDesc')}</p>
                                     </div>
-                                    <Globe size={120} className="bento-icon-bg" />
+                                    <ShoppingCart size={100} className="bento-icon-bg" style={{ color: '#10b981', opacity: 0.1 }} />
                                 </motion.div>
 
-                                {/* Appointments - Medium */}
+                                <motion.div className="bento-card span-4 row-span-2 card-gradient-2" whileHover={{ scale: 1.02 }}>
+                                    <div className="bento-content">
+                                        <div style={{ color: '#a855f7', marginBottom: 12, fontWeight: 700, fontSize: '0.8rem', letterSpacing: '1px' }}>ORCHESTRATOR</div>
+                                        <h3>BayPilot AI</h3>
+                                        <p>{t('bayPilotDesc')}</p>
+                                        <div style={{ marginTop: 24, background: 'rgba(0,0,0,0.3)', padding: 16, borderRadius: 16, border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+                                            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                                                <Bot size={18} color="#a855f7" />
+                                                <span style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 600 }}>{t('howCanIHelp')}</span>
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>"Generate Q3 revenue report..."</div>
+                                        </div>
+                                    </div>
+                                    <Bot size={120} className="bento-icon-bg" style={{ color: '#a855f7', opacity: 0.1 }} />
+                                </motion.div>
+
                                 <motion.div className="bento-card span-8 card-gradient-3" whileHover={{ scale: 1.02 }}>
-                                    <div className="bento-content">
-                                        <h3>{t('appointmentSystem')}</h3>
-                                        <p>Accept bookings 24/7. Auto-reminders via WhatsApp & SMS.</p>
+                                    <div className="bento-content" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 30 }}>
+                                        <div>
+                                            <div style={{ color: '#f59e0b', marginBottom: 12, fontWeight: 700, fontSize: '0.8rem', letterSpacing: '1px' }}>MODULE 03</div>
+                                            <h3>{t('appointmentSystem')}</h3>
+                                            <p>{t('appointmentSystemDesc')}</p>
+                                        </div>
+                                        <div>
+                                            <div style={{ color: '#ec4899', marginBottom: 12, fontWeight: 700, fontSize: '0.8rem', letterSpacing: '1px' }}>MODULE 04</div>
+                                            <h3>{t('websiteBuilder')}</h3>
+                                            <p>{t('websiteBuilderDesc')}</p>
+                                        </div>
                                     </div>
-                                    <Calendar size={120} className="bento-icon-bg" />
+                                    <div style={{ position: 'absolute', bottom: -20, right: 20, display: 'flex', gap: 20 }}>
+                                        <Calendar size={100} style={{ color: '#f59e0b', opacity: 0.1 }} />
+                                        <Globe size={100} style={{ color: '#ec4899', opacity: 0.1 }} />
+                                    </div>
                                 </motion.div>
                             </>
                         )}
@@ -339,7 +408,7 @@ const LandingPage = () => {
                     <div className="pricing-grid-modern" style={{ marginTop: 40 }}>
                         {plansUI.map((plan, i) => (
                             <motion.div
-                                className={`price-card-modern ${plan.badge ? 'featured' : ''}`}
+                                className={`price-card-modern ${plan.badge ? 'featured' : ''} ${plan.plan === 'vip' ? 'vip' : ''}`}
                                 initial={{ opacity: 0, y: 20 }}
                                 whileInView={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.1 }}
@@ -358,8 +427,13 @@ const LandingPage = () => {
                                     <h3>{plan.name}</h3>
                                     <div className="price-amount">
                                         {billingCycle === 'monthly' ? plan.priceMonthly : plan.priceYearly}
-                                        <span className="price-period">{billingCycle === 'monthly' ? '/mo' : '/yr'}</span>
+                                        <span className="price-period">{billingCycle === 'monthly' ? t('perMonth') : t('perYear')}</span>
                                     </div>
+                                    {billingCycle === 'yearly' && (
+                                        <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 600, marginTop: 4 }}>
+                                            {t('save17')}
+                                        </div>
+                                    )}
                                 </div>
                                 <button className={`btn-price-modern ${plan.badge ? 'primary' : ''}`} onClick={() => handleTrialSignup(plan.plan, billingCycle)}>
                                     {t('startFreeTrial') || 'Start 14-Day Free Trial'}
@@ -383,29 +457,35 @@ const LandingPage = () => {
                         <div style={{ maxWidth: 300 }}>
                             <h3 style={{ fontSize: '1.5rem', marginBottom: 16 }}>BayZenit</h3>
                             <p style={{ color: '#94a3b8' }}>{t('footerTagline')}</p>
-                            <p style={{ color: '#64748b', marginTop: 20 }}>© 2026 BayZenit. All rights reserved.</p>
+                            <div style={{ display: 'flex', gap: 16, marginTop: 24 }}>
+                                <Twitter size={20} style={{ color: '#94a3b8', cursor: 'pointer' }} />
+                                <Github size={20} style={{ color: '#94a3b8', cursor: 'pointer' }} />
+                                <Linkedin size={20} style={{ color: '#94a3b8', cursor: 'pointer' }} />
+                            </div>
+                            <p style={{ color: '#64748b', marginTop: 24 }}>© 2026 BayZenit. {t('allRightsReserved')}</p>
                         </div>
                         <div style={{ display: 'flex', gap: 60, flexWrap: 'wrap' }}>
                             <div>
-                                <h4 style={{ color: '#fff', marginBottom: 20 }}>Product</h4>
+                                <h4 style={{ color: '#fff', marginBottom: 20 }}>{t('product') || 'Product'}</h4>
                                 <ul style={{ listStyle: 'none', padding: 0, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <li><a href="#features" style={{ color: 'inherit', textDecoration: 'none' }}>Features</a></li>
-                                    <li><a href="#pricing" style={{ color: 'inherit', textDecoration: 'none' }}>Pricing</a></li>
-                                    <li><Link to="/login" style={{ color: 'inherit', textDecoration: 'none' }}>Login</Link></li>
+                                    <li><a href="#features" style={{ color: 'inherit', textDecoration: 'none' }}>{t('features') || 'Features'}</a></li>
+                                    <li><a href="#pricing" style={{ color: 'inherit', textDecoration: 'none' }}>{t('pricing') || 'Pricing'}</a></li>
+                                    <li><Link to="/login" style={{ color: 'inherit', textDecoration: 'none' }}>{t('signIn') || 'Login'}</Link></li>
                                 </ul>
                             </div>
                             <div>
-                                <h4 style={{ color: '#fff', marginBottom: 20 }}>Company</h4>
+                                <h4 style={{ color: '#fff', marginBottom: 20 }}>{t('company') || 'Company'}</h4>
                                 <ul style={{ listStyle: 'none', padding: 0, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>About</a></li>
-                                    <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Contact</a></li>
-                                    <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</a></li>
+                                    <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>{t('about') || 'About'}</a></li>
+                                    <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>{t('contact') || 'Contact'}</a></li>
+                                    <li><Link to="/privacy" style={{ color: 'inherit', textDecoration: 'none' }}>{t('privacy') || 'Privacy'}</Link></li>
                                 </ul>
                             </div>
                         </div>
                     </div>
                 </footer>
             </div>
+
             {/* Video Modal Overlay */}
             {activeVideo && (
                 <div style={{
@@ -418,7 +498,7 @@ const LandingPage = () => {
                             onClick={() => setActiveVideo(null)}
                             style={{ position: 'absolute', top: -40, right: 0, background: 'none', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer' }}
                         >
-                            &times; Close
+                            &times; {t('close') || 'Close'}
                         </button>
                         <iframe
                             src={activeVideo}

@@ -7,8 +7,8 @@ const DashboardChart = ({ revenue, profit, expenses }) => {
     const { t } = useLanguage();
     const { invoices = [], expenses: expenseList = [] } = useInvoice();
 
-    // 1. Calculate 6-month history properly for ALL metrics
-    const getLast6MonthsData = () => {
+    // 1. Calculate 6-month history properly for ALL metrics (Memoized)
+    const historyData = React.useMemo(() => {
         const today = new Date();
         const data = [];
         for (let i = 5; i >= 0; i--) {
@@ -42,26 +42,34 @@ const DashboardChart = ({ revenue, profit, expenses }) => {
             });
         }
         return data;
-    };
+    }, [invoices, expenseList]);
 
-    const historyData = getLast6MonthsData();
+    // Normalize data for SVG path (Memoized)
+    const { paths, getX, getY } = React.useMemo(() => {
+        const allValues = historyData.flatMap(d => [d.revenue, d.expenses, Math.abs(d.profit)]);
+        const maxVal = Math.max(...allValues, 100);
 
-    // Normalize data for SVG path
-    // Find absolute max value across all datasets to scale Y-axis properly
-    const allValues = historyData.flatMap(d => [d.revenue, d.expenses, Math.abs(d.profit)]);
-    const maxHistoryVal = Math.max(...allValues, 100);
+        const chartHeightLocal = 150;
+        const chartWidthLocal = 300;
+        const paddingLocal = 20;
 
-    const chartHeight = 150;
-    const chartWidth = 300; // viewBox width
-    const padding = 20;
+        const getXLocal = (index) => (index / (historyData.length - 1)) * (chartWidthLocal - 2 * paddingLocal) + paddingLocal;
+        const getYLocal = (value) => chartHeightLocal - (value / maxVal) * (chartHeightLocal - 2 * paddingLocal) - paddingLocal;
 
-    const getX = (index) => (index / (historyData.length - 1)) * (chartWidth - 2 * padding) + padding;
-    const getY = (value) => chartHeight - (value / maxHistoryVal) * (chartHeight - 2 * padding) - padding;
+        const generatePathString = (dataKey) => {
+            return historyData.map((d, i) => `${getXLocal(i)},${getYLocal(d[dataKey])}`).join(' ');
+        };
 
-    // Generate Path String Helper
-    const generatePath = (dataKey) => {
-        return historyData.map((d, i) => `${getX(i)},${getY(d[dataKey])}`).join(' ');
-    };
+        return {
+            paths: {
+                revenue: generatePathString('revenue'),
+                expenses: generatePathString('expenses'),
+                profit: generatePathString('profit')
+            },
+            getX: getXLocal,
+            getY: getYLocal
+        };
+    }, [historyData]);
 
     const formatCurrency = (val) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
 
@@ -79,6 +87,9 @@ const DashboardChart = ({ revenue, profit, expenses }) => {
         { key: 'profit', color: '#3b82f6', label: t('netProfit') },  // Blue
         { key: 'expenses', color: '#ef4444', label: t('expenses') } // Red
     ];
+
+    const chartWidth = 300;
+    const chartHeight = 150;
 
     return (
         <div className="card dashboard-stats-container" style={{ marginBottom: '2rem', padding: '0', overflow: 'hidden' }}>
@@ -158,7 +169,7 @@ const DashboardChart = ({ revenue, profit, expenses }) => {
                             {lines.map((line, idx) => (
                                 <React.Fragment key={line.key}>
                                     <motion.path
-                                        d={`M ${generatePath(line.key)}`}
+                                        d={`M ${paths[line.key]}`}
                                         fill="none"
                                         stroke={line.color}
                                         strokeWidth="2.5"

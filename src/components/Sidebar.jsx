@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, PlusCircle, Archive, BarChart3, Receipt, Repeat, X, LogOut, Users, Building, MessageSquare, Briefcase, Grid, Lock } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, PlusCircle, Archive, BarChart3, Receipt, Repeat, X, LogOut, Users, Building, MessageSquare, Briefcase, Grid, Lock, Clock, Calendar, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { usePanel } from '../context/PanelContext';
 import { useInvoice } from '../context/InvoiceContext';
+import { useAppointments } from '../context/AppointmentContext';
 import ConnectionDiagnostics from './Debug/ConnectionDiagnostics';
 
 const Sidebar = ({ isOpen, closeSidebar }) => {
@@ -15,7 +16,8 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     const { t, appLanguage } = useLanguage();
     const { currentUser, logout } = useAuth();
     const { activePanel, switchPanel, modules, getMenuItems } = usePanel();
-    const { companyProfile } = useInvoice(); // Using import
+    const { companyProfile } = useInvoice();
+    const { pendingCount } = useAppointments();
     const [showPanelSwitcher, setShowPanelSwitcher] = useState(false);
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
 
@@ -46,6 +48,20 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
 
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+
+            {/* Notification Badge Animation Component */}
+            <style>
+                {`
+                    @keyframes pulse-red {
+                        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+                        70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+                        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                    }
+                    .badge-pulse {
+                        animation: pulse-red 2s infinite;
+                    }
+                `}
+            </style>
 
             {/* Header with Panel Switcher Trigger */}
             <div className="sidebar-header" style={{ flexDirection: 'column', alignItems: 'flex-start', paddingBottom: '0' }}>
@@ -119,6 +135,14 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                                         >
                                             <div style={{ color: isActive ? 'white' : mod.color, position: 'relative' }}>
                                                 {mod.icon({ size: 18 })}
+                                                {mod.id === 'appointments' && pendingCount > 0 && (
+                                                    <div
+                                                        className="badge-pulse"
+                                                        style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '12px', height: '12px', fontSize: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid white' }}
+                                                    >
+                                                        {pendingCount}
+                                                    </div>
+                                                )}
                                                 {isLocked && (
                                                     <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#1e293b', color: 'white', borderRadius: '50%', padding: '2px', border: '1px solid white' }}>
                                                         <Lock size={8} />
@@ -147,10 +171,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                 </div>
                 {menuItems.map((item) => {
                     const currentFullPath = location.pathname + location.search;
-
-                    // Improved matching: 
-                    // 1. If path has query, match full path exactly OR if current path starts with it
-                    // 2. If path is simple, match pathname exactly
                     const isActive = item.path.includes('?')
                         ? (currentFullPath === item.path || (currentFullPath === '/admin' && item.path.includes('tab=overview')))
                         : (location.pathname === item.path && !location.search);
@@ -163,7 +183,22 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                             style={{ cursor: 'pointer' }}
                         >
                             <item.icon size={20} />
-                            <span>{item.label}</span>
+                            <span style={{ flex: 1 }}>{item.label}</span>
+                            {item.path.includes('bookings') && pendingCount > 0 && (
+                                <span
+                                    className="badge-pulse"
+                                    style={{
+                                        fontSize: '0.7rem',
+                                        background: '#ef4444',
+                                        color: 'white',
+                                        padding: '2px 6px',
+                                        borderRadius: '100px',
+                                        fontWeight: '700'
+                                    }}
+                                >
+                                    {pendingCount}
+                                </span>
+                            )}
                             {isActive && (
                                 <motion.div
                                     className="nav-active-indicator"
@@ -177,7 +212,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                 })}
             </nav>
 
-            {/* System Health Diagnostics in Sidebar (Admin Only) */}
             <ConnectionDiagnostics variant="sidebar" />
 
             <div className="sidebar-footer">
@@ -218,14 +252,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                         fontSize: '14px',
                         fontWeight: '500',
                         transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.target.style.background = 'rgba(239, 68, 68, 0.15)';
-                        e.target.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.target.style.background = 'rgba(239, 68, 68, 0.1)';
-                        e.target.style.borderColor = 'rgba(239, 68, 68, 0.2)';
                     }}
                 >
                     <LogOut size={16} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAppointments } from '../../context/AppointmentContext';
@@ -57,48 +57,57 @@ const SystemOverview = () => {
     // --- Aggregated Metrics ---
 
     // 1. Financials (Refined logic for Enterprise accuracy)
-    const activeInvoices = (invoices || []).filter(inv => inv && inv.status !== 'cancelled' && inv.status !== 'draft');
+    const activeInvoices = useMemo(() => (invoices || []).filter(inv => inv && inv.status !== 'cancelled' && inv.status !== 'draft'), [invoices]);
 
-    // Revenue is based on paid + pending (sent) invoices
-    const invoiceRevenue = activeInvoices.reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
-    const paidRevenue = (invoices || []).filter(inv => inv && inv.status === 'paid').reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
+    // 1. Financials (Memoized for Enterprise accuracy)
+    const { totalRevenue, cashInHand, totalExpenses, totalUnpaid, invoiceRevenue, paidRevenue, stockRevenue } = useMemo(() => {
+        const invRev = activeInvoices.reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
+        const paidRev = (invoices || []).filter(inv => inv && inv.status === 'paid').reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
+        const stRev = (sales || []).filter(s => s).reduce((sum, sale) => sum + (parseFloat(sale?.total) || 0), 0);
+        const tRev = invRev + stRev;
+        const cInHand = paidRev + stRev;
+        const tExp = (expenses || []).filter(e => e).reduce((sum, exp) => sum + (parseFloat(exp?.amount) || 0), 0);
+        const tUnpaid = (invoices || []).filter(inv => inv && (inv.status === 'sent' || inv.status === 'overdue')).reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
+        return { totalRevenue: tRev, cashInHand: cInHand, totalExpenses: tExp, totalUnpaid: tUnpaid, invoiceRevenue: invRev, paidRevenue: paidRev, stockRevenue: stRev };
+    }, [activeInvoices, invoices, sales, expenses]);
 
-    const stockRevenue = (sales || []).filter(s => s).reduce((sum, sale) => sum + (parseFloat(sale?.total) || 0), 0);
-    const totalRevenue = invoiceRevenue + stockRevenue; // Projected Ciro
-    const cashInHand = paidRevenue + stockRevenue;     // Actual Liquid Cash
-
-    const totalExpenses = (expenses || []).filter(e => e).reduce((sum, exp) => sum + (parseFloat(exp?.amount) || 0), 0);
-    const totalUnpaid = (invoices || []).filter(inv => inv && (inv.status === 'sent' || inv.status === 'overdue')).reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
     const netProfit = cashInHand - totalExpenses;
 
-    // 2. Operational
-    const activeStaff = (employees || []).filter(e => e).length;
-    const criticalStockItems = (products || []).filter(p => p && p.stock <= (p.minStock || 3));
-    const lowStockItems = criticalStockItems.length;
+    // 2. Operational (Memoized)
+    const activeStaff = useMemo(() => (employees || []).filter(e => e).length, [employees]);
+    const { lowStockItems, criticalStockItems } = useMemo(() => {
+        const items = (products || []).filter(p => p && p.stock <= (p.minStock || 3));
+        return { criticalStockItems: items, lowStockItems: items.length };
+    }, [products]);
 
-    // Filter appointments for TODAY only
-    const today = new Date();
-    const todaysAppointments = (appointments || []).filter(a => {
-        if (!a || !a.date) return false;
-        const appDate = new Date(a.date);
-        return appDate.getDate() === today.getDate() &&
-            appDate.getMonth() === today.getMonth() &&
-            appDate.getFullYear() === today.getFullYear();
-    }).sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort by time
+    // Filter appointments for TODAY only (Memoized)
+    const todaysAppointments = useMemo(() => {
+        const todayAtStart = new Date();
+        todayAtStart.setHours(0, 0, 0, 0);
+        const todayAtEnd = new Date();
+        todayAtEnd.setHours(23, 59, 59, 999);
+
+        return (appointments || []).filter(a => {
+            if (!a || !a.date) return false;
+            const d = new Date(a.date);
+            return d >= todayAtStart && d <= todayAtEnd;
+        }).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }, [appointments]);
 
     const upcomingAppointments = todaysAppointments.length;
-
-    // Online Sales Calculation (Mocking 'online' source if not explicit, or using Stock Sales)
-    // Assuming 'sales' from useStock() contains online orders. 
-    // If not distinguished, we'll treat all stock sales as potential online/POS mix.
-    const onlineSalesTotal = sales.reduce((sum, sale) => sum + (sale.total || 0), 0);
+    const onlineSalesTotal = useMemo(() => sales.reduce((sum, sale) => sum + (sale.total || 0), 0), [sales]);
     const onlineOrdersCount = sales.length;
-
-    // Website Status
     const isWebsiteLive = siteConfig?.isPublished;
 
-    // --- Trend Calculations (Real vs Mock) ---
-    const calculateTrend = (data, valueKey, dateKey = 'date') => {
+    // --- Trend Calculations (Memoized Helpers) ---
+    const revenueData = useMemo(() => [
+        ...invoices.map(inv => ({ total: inv.total, date: inv.date })),
+        ...sales.map(sale => ({ total: sale.total, date: sale.createdAt || sale.created_at }))
+    ], [invoices, sales]);
+
+    const expenseData = useMemo(() => expenses.map(exp => ({ amount: exp.amount, date: exp.date || exp.created_at })), [expenses]);
+
+    const calculateTrendValue = (data, valueKey, dateKey = 'date') => {
         const now = new Date();
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(now.getDate() - 30);
@@ -119,90 +128,63 @@ const SystemOverview = () => {
         return parseFloat(((currentPeriod - previousPeriod) / previousPeriod * 100).toFixed(1));
     };
 
-    // Prepare combined data for profit trend
-    const revenueData = [
-        ...invoices.map(inv => ({ total: inv.total, date: inv.date })),
-        ...sales.map(sale => ({ total: sale.total, date: sale.createdAt || sale.created_at }))
-    ];
+    const revenueTrend = useMemo(() => calculateTrendValue(revenueData, 'total'), [revenueData]);
+    const expenseTrend = useMemo(() => calculateTrendValue(expenseData, 'amount'), [expenseData]);
 
-    const expenseData = expenses.map(exp => ({ amount: exp.amount, date: exp.date || exp.created_at }));
-
-    const revenueTrend = calculateTrend(revenueData, 'total');
-    const expenseTrend = calculateTrend(expenseData, 'amount');
-
-    // Mathematically correct profit trend
-    const profitTrend = (() => {
+    const profitTrend = useMemo(() => {
         const now = new Date();
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(now.getDate() - 30);
-        const sixtyDaysAgo = new Date();
-        sixtyDaysAgo.setDate(now.getDate() - 60);
+        const t30 = new Date(); t30.setDate(now.getDate() - 30);
+        const t60 = new Date(); t60.setDate(now.getDate() - 60);
 
-        const currentRev = revenueData.filter(item => {
-            const d = new Date(item.date);
-            return d >= thirtyDaysAgo && d <= now;
-        }).reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
+        const currentRev = revenueData.filter(i => { const d = new Date(i.date); return d >= t30 && d <= now; }).reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
+        const currentExp = expenseData.filter(i => { const d = new Date(i.date); return d >= t30 && d <= now; }).reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+        const prevRev = revenueData.filter(i => { const d = new Date(i.date); return d >= t60 && d < t30; }).reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
+        const prevExp = expenseData.filter(i => { const d = new Date(i.date); return d >= t60 && d < t30; }).reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
 
-        const currentExp = expenseData.filter(item => {
-            const d = new Date(item.date);
-            return d >= thirtyDaysAgo && d <= now;
-        }).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+        const currentP = currentRev - currentExp;
+        const prevP = prevRev - prevExp;
 
-        const prevRev = revenueData.filter(item => {
-            const d = new Date(item.date);
-            return d >= sixtyDaysAgo && d < thirtyDaysAgo;
-        }).reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
-
-        const prevExp = expenseData.filter(item => {
-            const d = new Date(item.date);
-            return d >= sixtyDaysAgo && d < thirtyDaysAgo;
-        }).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-
-        const currentProfit = currentRev - currentExp;
-        const prevProfit = prevRev - prevExp;
-
-        if (prevProfit === 0) return currentProfit > 0 ? 100 : 0;
-        return parseFloat(((currentProfit - prevProfit) / Math.abs(prevProfit) * 100).toFixed(1));
-    })();
+        if (prevP === 0) return currentP > 0 ? 100 : 0;
+        return parseFloat(((currentP - prevP) / Math.abs(prevP) * 100).toFixed(1));
+    }, [revenueData, expenseData]);
 
     const profitMargin = totalRevenue > 0 ? parseFloat(((netProfit / totalRevenue) * 100).toFixed(1)) : 0;
     const expenseRatio = totalRevenue > 0 ? parseFloat(((totalExpenses / totalRevenue) * 100).toFixed(1)) : 0;
 
-    // --- Expense Breakdown Calculation ---
-    const expenseBreakdown = expenses.reduce((acc, exp) => {
-        const cat = exp.category || t('others') || 'Diğer';
-        acc[cat] = (acc[cat] || 0) + (parseFloat(exp.amount) || 0);
-        return acc;
-    }, {});
+    // --- Expense Breakdown (Memoized) ---
+    const pieData = useMemo(() => {
+        const breakdown = expenses.reduce((acc, exp) => {
+            const cat = exp.category || t('others') || 'Diğer';
+            acc[cat] = (acc[cat] || 0) + (parseFloat(exp.amount) || 0);
+            return acc;
+        }, {});
+        return Object.entries(breakdown)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 8);
+    }, [expenses, t]);
 
     const PIE_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#64748b'];
-    const pieData = Object.entries(expenseBreakdown)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 8); // Top 8 categories
 
-    // --- Strategic Insights ---
-    const estimatedTax = totalRevenue * (1 - (1 / (1 + (parseFloat(companyProfile?.taxRate || 19) / 100))));
-    const cashReserveHealth = cashInHand > totalExpenses * 1.5 ? 'healthy' : (cashInHand > totalExpenses ? 'warning' : 'critical');
+    // --- Strategic Insights (Memoized) ---
+    const estimatedTax = useMemo(() => totalRevenue * (1 - (1 / (1 + (parseFloat(companyProfile?.taxRate || 19) / 100)))), [totalRevenue, companyProfile?.taxRate]);
+    const cashReserveHealth = useMemo(() => cashInHand > totalExpenses * 1.5 ? 'healthy' : (cashInHand > totalExpenses ? 'warning' : 'critical'), [cashInHand, totalExpenses]);
 
-    // --- Chart Data Preparation (Connecting to real historical data) ---
-    const generateChartData = () => {
+    // --- Chart Data Preparation (Memoized) ---
+    const chartData = useMemo(() => {
         const data = [];
         const now = new Date();
         const points = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 12;
 
-        // Generate buckets
         for (let i = points - 1; i >= 0; i--) {
             const bucketDate = new Date();
-            if (timeRange === 'week') bucketDate.setDate(now.getDate() - i);
-            else if (timeRange === 'month') bucketDate.setDate(now.getDate() - i);
+            if (timeRange === 'week' || timeRange === 'month') bucketDate.setDate(now.getDate() - i);
             else if (timeRange === 'year') bucketDate.setMonth(now.getMonth() - i);
 
             const label = timeRange === 'week' ? bucketDate.toLocaleDateString(undefined, { weekday: 'short' }) :
                 timeRange === 'month' ? bucketDate.getDate().toString() :
                     bucketDate.toLocaleDateString(undefined, { month: 'short' });
 
-            // Filter data for this bucket
             const bucketRev = revenueData.filter(item => {
                 const d = new Date(item.date);
                 if (timeRange === 'year') return d.getMonth() === bucketDate.getMonth() && d.getFullYear() === bucketDate.getFullYear();
@@ -215,35 +197,19 @@ const SystemOverview = () => {
                 return d.getDate() === bucketDate.getDate() && d.getMonth() === bucketDate.getMonth() && d.getFullYear() === bucketDate.getFullYear();
             }).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
-            data.push({
-                name: label,
-                revenue: Math.round(bucketRev),
-                expenses: Math.round(bucketExp),
-                profit: Math.round(bucketRev - bucketExp)
-            });
+            data.push({ name: label, revenue: Math.round(bucketRev), expenses: Math.round(bucketExp), profit: Math.round(bucketRev - bucketExp) });
         }
 
-        // If data is too empty, fallback to simple distribution of totals for visual balance
         const hasData = data.some(d => d.revenue > 0 || d.expenses > 0);
         if (!hasData && (totalRevenue > 0 || totalExpenses > 0)) {
             return data.map((d, i) => {
                 const revStep = totalRevenue / points;
                 const expStep = totalExpenses / points;
-                const cumulativeRev = revStep * (i + 1);
-                const cumulativeExp = expStep * (i + 1);
-                return {
-                    ...d,
-                    revenue: Math.round(cumulativeRev),
-                    expenses: Math.round(cumulativeExp),
-                    profit: Math.round(cumulativeRev - cumulativeExp)
-                };
+                return { ...d, revenue: Math.round(revStep * (i + 1)), expenses: Math.round(expStep * (i + 1)), profit: Math.round((revStep - expStep) * (i + 1)) };
             });
         }
-
         return data;
-    };
-
-    const chartData = generateChartData();
+    }, [revenueData, expenseData, timeRange, totalRevenue, totalExpenses]);
 
 
     // --- Helper Components ---

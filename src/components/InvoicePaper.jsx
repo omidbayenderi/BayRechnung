@@ -4,7 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useInvoice } from '../context/InvoiceContext';
 import { getIndustryFields } from '../config/industryFields';
 
-const InvoicePaper = forwardRef(({ data, totals }, ref) => {
+const InvoicePaper = React.memo(forwardRef(({ data, totals }, ref) => {
     const { tInvoice } = useLanguage();
     const { invoiceCustomization } = useInvoice();
     const { subtotal, tax, total } = totals;
@@ -20,25 +20,56 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
     const qrUrl = (encodedData) => `https://quickchart.io/qr?size=150&text=${encodeURIComponent(encodedData)}&margin=1`;
     const fallbackUrl = (encodedData) => `https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=1&data=${encodeURIComponent(encodedData)}`;
 
-    // --- Pagination Logic ---
-    const items = data.items || [];
-    const ITEMS_FIRST_PAGE = 7;
-    const ITEMS_SUBSEQUENT_PAGES = 12;
+    // --- Pagination Logic (Memoized) ---
+    const pages = React.useMemo(() => {
+        const items = data.items || [];
+        const ITEMS_FIRST_PAGE = 7;
+        const ITEMS_SUBSEQUENT_PAGES = 12;
 
-    const pages = [];
-    if (items.length <= ITEMS_FIRST_PAGE) {
-        pages.push(items);
-    } else {
-        pages.push(items.slice(0, ITEMS_FIRST_PAGE));
-        let remaining = items.slice(ITEMS_FIRST_PAGE);
-        while (remaining.length > 0) {
-            pages.push(remaining.slice(0, ITEMS_SUBSEQUENT_PAGES));
-            remaining = remaining.slice(ITEMS_SUBSEQUENT_PAGES);
+        const p = [];
+        if (items.length <= ITEMS_FIRST_PAGE) {
+            p.push(items);
+        } else {
+            p.push(items.slice(0, ITEMS_FIRST_PAGE));
+            let remaining = items.slice(ITEMS_FIRST_PAGE);
+            while (remaining.length > 0) {
+                p.push(remaining.slice(0, ITEMS_SUBSEQUENT_PAGES));
+                remaining = remaining.slice(ITEMS_SUBSEQUENT_PAGES);
+            }
         }
-    }
-    if (pages.length === 0) pages.push([]); // Ensure at least one page
+        if (p.length === 0) p.push([]);
+        return p;
+    }, [data.items]);
 
     const totalPages = pages.length;
+
+    // --- EPC GiroCode & QR Logic (Memoized) ---
+    const qrLinks = React.useMemo(() => {
+        const links = { giro: null, paypal: null, stripe: null };
+
+        if (data.senderIban) {
+            const cleanIban = (data.senderIban || '').replace(/[\s\W]/g, '').toUpperCase();
+            const cleanBic = (data.senderBic || '').replace(/[\s\W]/g, '').toUpperCase();
+            const sanitize = (text) => (text || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x00-\x7F]/g, "").trim();
+            const beneficiary = sanitize(data.senderCompany || data.senderName).substring(0, 70);
+            const amountValue = total > 0 ? `EUR${total.toFixed(2)}` : '';
+            const reference = sanitize(`Rechnung ${data.invoiceNumber || ''}`).substring(0, 140);
+
+            const epcLines = ['BCD', '002', '1', 'SCT', cleanBic, beneficiary, cleanIban, amountValue, '', '', reference, ''];
+            links.giro = { epc: epcLines.join('\n'), url: qrUrl(epcLines.join('\n')) };
+        }
+
+        if (data.paypalMe) {
+            const pUrl = data.paypalMe.includes('http') ? data.paypalMe : `https://paypal.me/${data.paypalMe}`;
+            links.paypal = qrUrl(pUrl);
+        }
+
+        if (data.stripeLink) {
+            links.stripe = qrUrl(data.stripeLink);
+        }
+
+        return links;
+    }, [data.senderIban, data.senderBic, data.senderCompany, data.senderName, total, data.invoiceNumber, data.paypalMe, data.stripeLink]);
 
     const renderFooter = (pageIndex) => (
         <>
@@ -57,60 +88,34 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
                 </div>
 
                 <div className="footer-qr-section">
-                    {data.senderIban && (() => {
-                        const cleanIban = (data.senderIban || '').replace(/[\s\W]/g, '').toUpperCase();
-                        const cleanBic = (data.senderBic || '').replace(/[\s\W]/g, '').toUpperCase();
-                        const sanitize = (text) => (text || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x00-\x7F]/g, "").trim();
-                        const beneficiary = sanitize(data.senderCompany || data.senderName).substring(0, 70);
-                        const amountValue = total > 0 ? `EUR${total.toFixed(2)}` : ''; // Important: must use decimal dot!
-                        const reference = sanitize(`Rechnung ${data.invoiceNumber || ''}`).substring(0, 140);
-
-                        // Strict EPC (GiroCode) Structure
-                        const epcLines = [
-                            'BCD',          // Service Tag
-                            '002',          // Version
-                            '1',            // Character Set (1 = UTF-8)
-                            'SCT',          // Identification (SEPA Credit Transfer)
-                            cleanBic,       // BIC
-                            beneficiary,    // Beneficiary Name
-                            cleanIban,      // IBAN
-                            amountValue,    // Amount (e.g., EUR150.00)
-                            '',             // Purpose String (empty)
-                            '',             // Remittance Information (Structured, empty)
-                            reference,      // Remittance Information (Unstructured)
-                            ''              // Beneficiary to Originator Information (empty)
-                        ];
-                        const epcString = epcLines.join('\n');
-
-                        return (
-                            <div className="qr-box">
-                                <img
-                                    src={qrUrl(epcString)}
-                                    alt="GiroCode"
-                                    crossOrigin="anonymous"
-                                    loading="eager"
-                                    style={{ width: '60px', height: '60px', objectFit: 'contain' }}
-                                    onError={(e) => {
-                                        if (!e.target.src.includes('qrserver')) {
-                                            e.target.src = fallbackUrl(epcString);
-                                        }
-                                    }}
-                                />
-                                <span>GiroCode</span>
-                            </div>
-                        );
-                    })()}
+                    {qrLinks.giro && (
+                        <div className="qr-box">
+                            <img
+                                src={qrLinks.giro.url}
+                                alt="GiroCode"
+                                crossOrigin="anonymous"
+                                loading="eager"
+                                style={{ width: '60px', height: '60px', objectFit: 'contain' }}
+                                onError={(e) => {
+                                    if (!e.target.src.includes('qrserver')) {
+                                        e.target.src = fallbackUrl(qrLinks.giro.epc);
+                                    }
+                                }}
+                            />
+                            <span>GiroCode</span>
+                        </div>
+                    )}
                     {data.paypalMe && (
                         <div className="qr-box">
                             <img
-                                src={qrUrl(data.paypalMe.includes('http') ? data.paypalMe : `https://paypal.me/${data.paypalMe}`)}
+                                src={qrLinks.paypal}
                                 alt="PayPal"
                                 crossOrigin="anonymous"
                                 loading="eager"
                                 style={{ width: '60px', height: '60px', objectFit: 'contain' }}
                                 onError={(e) => {
-                                    const fullP = data.paypalMe.includes('http') ? data.paypalMe : `https://paypal.me/${data.paypalMe}`;
                                     if (!e.target.src.includes('qrserver')) {
+                                        const fullP = data.paypalMe.includes('http') ? data.paypalMe : `https://paypal.me/${data.paypalMe}`;
                                         e.target.src = fallbackUrl(fullP);
                                     }
                                 }}
@@ -121,7 +126,7 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
                     {data.stripeLink && (
                         <div className="qr-box">
                             <img
-                                src={qrUrl(data.stripeLink)}
+                                src={qrLinks.stripe}
                                 alt="Stripe"
                                 crossOrigin="anonymous"
                                 loading="eager"
@@ -281,6 +286,6 @@ const InvoicePaper = forwardRef(({ data, totals }, ref) => {
             ))}
         </div>
     );
-});
+}));
 
 export default InvoicePaper;

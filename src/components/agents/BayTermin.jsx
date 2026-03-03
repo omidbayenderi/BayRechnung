@@ -5,12 +5,14 @@ import { useAppointments } from '../../context/AppointmentContext';
 import { useStock } from '../../context/StockContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 
 const BayTermin = () => {
     const { appointments, services, updateAppointment } = useAppointments();
     const { products, updateStock } = useStock();
     const { sendMessage } = useInvoice(); // Using internal messaging as simulate SMS/WhatsApp
     const { t } = useLanguage();
+    const { logSecurityAction } = useAuth();
 
     const [lastProcessedAppt, setLastProcessedAppt] = useState(null);
     const [notifications, setNotifications] = useState([]);
@@ -35,6 +37,22 @@ const BayTermin = () => {
 
                 if (linkedProduct && linkedProduct.stock > 0) {
                     await updateStock(linkedProduct.id, -1, 'usage', `Randevu: ${appt.customerName} için sarf edildi.`);
+
+                    // Log activity
+                    if (logSecurityAction) {
+                        logSecurityAction(
+                            'MATERIAL_AUTO_CONSUMED',
+                            'inventory',
+                            linkedProduct.id,
+                            {
+                                source: 'BayTermin',
+                                message: `Automatically consumed ${linkedProduct.name} for ${appt.customerName}'s appointment`,
+                                status: 'completed'
+                            },
+                            'info'
+                        );
+                    }
+
                     addNotification(`📦 Stok Güncellendi: ${service.name} hizmeti için ${linkedProduct.name} kullanıldı.`);
                 }
 
@@ -53,10 +71,12 @@ const BayTermin = () => {
         const upcoming = appointments.filter(a => a.date === today && a.status === 'confirmed' && !a.reminded);
 
         upcoming.forEach(appt => {
+            const customerDisplayName = appt.customerName || appt.client_name || t('common_customer') || 'Müşteri';
+
             // Trigger a mock "WhatsApp" message via Invoice Messages
             sendMessage({
                 title: 'Randevu Hatırlatması (BayTermin)',
-                message: `Sayın ${appt.customerName || 'Müşteri'}, bugünkü ${appt.time || ''} randevunuzu hatırlatmak isteriz.`,
+                message: `Sayın ${customerDisplayName}, bugünkü ${appt.time || ''} randevunuzu hatırlatmak isteriz.`,
                 category: 'customer',
                 type: 'whatsapp',
                 receiverId: null, // Don't use 'unknown' for UUID field
@@ -66,7 +86,23 @@ const BayTermin = () => {
                 }
             });
             updateAppointment(appt.id, { reminded: true });
-            addNotification(`📱 Hatırlatma Gönderildi: ${appt.customerName}`);
+
+            // Log activity
+            if (logSecurityAction) {
+                logSecurityAction(
+                    'REMINDER_SENT',
+                    'appointment',
+                    appt.id,
+                    {
+                        source: 'BayTermin',
+                        message: `Sent WhatsApp reminder to ${customerDisplayName}`,
+                        status: 'completed'
+                    },
+                    'info'
+                );
+            }
+
+            addNotification(`📱 Hatırlatma Gönderildi: ${customerDisplayName}`);
         });
     }, [appointments]);
 

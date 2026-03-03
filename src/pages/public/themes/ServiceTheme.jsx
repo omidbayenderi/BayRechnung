@@ -5,7 +5,8 @@ import {
     Phone, Mail, MapPin, Clock, Calendar, ChevronRight,
     ArrowRight, Star, Quote, CheckCircle, Search, ShoppingCart,
     Menu, X, Facebook, Instagram, Twitter, Linkedin, User, LogOut, Settings, Globe,
-    Wrench, Car, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot, Shield, ShoppingBag, PenTool
+    Wrench, Car, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot, Shield, ShoppingBag, PenTool,
+    Utensils, Stethoscope, Heart, Wind, Droplet
 } from 'lucide-react';
 import { generateTheme } from '../utils/ColorEngine';
 

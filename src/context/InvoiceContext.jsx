@@ -309,6 +309,36 @@ export const InvoiceProvider = ({ children }) => {
         return merged.map(normalizer);
     };
 
+    // DB_AGENT_PATCH: Optimized Data Fetching for Reports
+    const fetchFinancialDataByRange = async (startDate, endDate) => {
+        if (!currentUser?.id) return null;
+
+        try {
+            const [invRes, expRes] = await Promise.all([
+                supabase.from('invoices')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .gte('issue_date', startDate)
+                    .lte('issue_date', endDate)
+                    .order('issue_date', { ascending: false }),
+                supabase.from('expenses')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .gte('date', startDate)
+                    .lte('date', endDate)
+                    .order('date', { ascending: false })
+            ]);
+
+            return {
+                invoices: (invRes.data || []).map(normalizeInvoice),
+                expenses: (expRes.data || []).map(normalizeExpense)
+            };
+        } catch (err) {
+            console.error("[Reports] Range fetch failed:", err);
+            return { invoices: [], expenses: [] };
+        }
+    };
+
     // Initial Data Fetch: LocalStorage (Instant) -> Supabase (Async Merge)
     useEffect(() => {
         const loadData = async () => {
@@ -326,7 +356,6 @@ export const InvoiceProvider = ({ children }) => {
                 const localStaff = localStorage.getItem(`bay_staff_${currentUser.id}`);
                 const localProfile = localStorage.getItem(`bay_profile_${currentUser.id}`);
 
-                // Data in localStorage is already normalized to state format, so just parse and set
                 if (localInvoices) setInvoices(JSON.parse(localInvoices));
                 if (localQuotes) setQuotes(JSON.parse(localQuotes));
                 if (localExpenses) setExpenses(JSON.parse(localExpenses));
@@ -334,40 +363,33 @@ export const InvoiceProvider = ({ children }) => {
                 if (localStaff) setEmployees(JSON.parse(localStaff));
                 if (localProfile) setCompanyProfile(prev => ({ ...prev, ...JSON.parse(localProfile) }));
 
-                // CRITICAL: Set loading to false as soon as local cache is ready.
-                // This makes the app "instant" for the user.
                 setLoading(false);
             } catch (e) {
                 console.error("Error loading from localStorage:", e);
-                setLoading(false); // Still stop loading even if local fail
+                setLoading(false);
             }
 
             // 2. Background Fetch from Supabase and Merge
             try {
-                // 2.1. If it's a mock user (demo), STOP HERE. 
-                // DB sync will fail anyway due to foreign key constraints.
                 if (currentUser.authMode === 'mock' || currentUser.id.startsWith('0000')) {
-                    console.log('[Invoice] Mock session detected, skipping Supabase sync');
                     setLoading(false);
                     return;
                 }
 
-                // 2.0. WAIT for full profile to avoid RLS race conditions
-                if (currentUser.isSkeleton) {
-                    console.log('[Invoice] Skeleton user detected, waiting for full profile...');
-                    return;
-                }
+                if (currentUser.isSkeleton) return;
 
+                // PERFORMANCE_PATCH: Limit initial fetch to last 200 items or 1 year 
+                // to avoid kiling the app for large customers.
                 const [invRes, quoteRes, expRes, settingsRes, msgRes, staffRes, recurringRes, customRes, reportRes] = await Promise.all([
-                    supabase.from('invoices').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
-                    supabase.from('quotes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
-                    supabase.from('expenses').select('*').eq('user_id', currentUser.id).order('date', { ascending: false }),
+                    supabase.from('invoices').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(300),
+                    supabase.from('quotes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(100),
+                    supabase.from('expenses').select('*').eq('user_id', currentUser.id).order('date', { ascending: false }).limit(300),
                     supabase.from('company_settings').select('*').eq('user_id', currentUser.id).maybeSingle(),
-                    supabase.from('messages').select('*').or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`).order('created_at', { ascending: false }),
+                    supabase.from('messages').select('*').or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`).order('created_at', { ascending: false }).limit(50),
                     supabase.from('staff').select('*').eq('user_id', currentUser.id).order('name', { ascending: true }),
                     supabase.from('recurring_templates').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
                     supabase.from('invoice_customization').select('*').eq('user_id', currentUser.id).maybeSingle(),
-                    supabase.from('daily_reports').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false })
+                    supabase.from('daily_reports').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(200)
                 ]);
 
                 // Safety check: If remote returns error, DO NOT overwrite local data
@@ -725,6 +747,8 @@ export const InvoiceProvider = ({ children }) => {
                 email: updatedProfile.email,
                 phone: updatedProfile.phone,
                 address: `${updatedProfile.street || ''} ${updatedProfile.houseNum || ''}`.trim(),
+                street: updatedProfile.street,
+                house_num: updatedProfile.houseNum,
                 city: updatedProfile.city,
                 postal_code: updatedProfile.zip,
                 tax_id: updatedProfile.taxId,
@@ -1040,10 +1064,12 @@ export const InvoiceProvider = ({ children }) => {
         fetchDailyReports,
         importInvoices,
         exportToDATEV,
+        fetchFinancialDataByRange,
         syncStatus: syncService.getStatus() // Expose sync status
     }), [
         companyProfile, invoices, quotes, expenses, recurringTemplates,
-        invoiceCustomization, paymentReminders, expenseCategories, employees, messages, dailyReports
+        invoiceCustomization, paymentReminders, expenseCategories, employees, messages, dailyReports,
+        fetchFinancialDataByRange
     ]);
 
     return (

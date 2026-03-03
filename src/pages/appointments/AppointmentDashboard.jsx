@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 const AppointmentDashboard = () => {
     const { t } = useLanguage();
     const { appointments, services } = useAppointments();
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
 
     const todayAppointments = appointments.filter(a => a.date === today);
     const pendingAppointments = appointments.filter(a => a.status === 'pending');

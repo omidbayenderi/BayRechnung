@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import {
     Phone, Mail, MapPin, Clock, Calendar, ChevronRight,
     ArrowRight, Star, ShoppingCart, Menu, X, Facebook, Instagram, Twitter, Linkedin,
-    Heart, Sparkles, User, LogOut, Settings, Globe, CheckCircle, ShoppingBag, Utensils, Stethoscope, Scissors
+    Heart, Sparkles, User, LogOut, Settings, Globe, CheckCircle, ShoppingBag, Utensils, Stethoscope, Scissors,
+    Wrench, Car, Zap, Briefcase, Disc, CircleDot, Wind, Droplet
 } from 'lucide-react';
 import { generateTheme } from '../utils/ColorEngine';
 

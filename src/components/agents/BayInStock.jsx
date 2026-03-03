@@ -4,16 +4,19 @@ import { ShoppingBag, Receipt, ArrowRight, CheckCircle, Zap, TrendingUp } from '
 import { useStock } from '../../context/StockContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 
 const BayInStock = () => {
     const { sales, products } = useStock();
     const { saveInvoice } = useInvoice();
     const { t } = useLanguage();
+    const { logSecurityAction } = useAuth();
 
     const [notifications, setNotifications] = useState([]);
 
     const processedSalesRef = React.useRef(new Set());
     const { invoices } = useInvoice();
+    const { updateSaleStatus } = useStock();
 
     // 1. AUTO-ACCOUNTING (Post-Sale Sync)
     useEffect(() => {
@@ -37,6 +40,8 @@ const BayInStock = () => {
 
                 if (alreadyExists) {
                     console.log(`[BayInStock] Invoice ${invoiceNum} already exists, skipping.`);
+                    // Even if it exists, mark it as reported so we don't keep checking it
+                    updateSaleStatus(sale.id, 'completed', { reportedToAccounting: true });
                     continue;
                 }
 
@@ -68,6 +73,25 @@ const BayInStock = () => {
                         notes: `POS Satışı (BayInStock tarafından otomatik oluşturuldu)`
                     });
 
+                    // IMPORTANT: Mark the sale as reported to accounting to prevent infinite processing
+                    updateSaleStatus(sale.id, 'completed', { reportedToAccounting: true });
+
+                    // Log activity for DCC Monitor
+                    if (logSecurityAction) {
+                        logSecurityAction(
+                            'AUTO_INVOICE_GENERATED',
+                            'invoice',
+                            `inv-pos-${sale.id}`,
+                            {
+                                source: 'BayInStock',
+                                message: `Automatically generated invoice for ${sale.customer_name || 'POS Sale'}`,
+                                total: sale.total,
+                                status: 'completed'
+                            },
+                            'info'
+                        );
+                    }
+
                     addNotification(`🧾 Satış Muhasebeleştirildi: ${sale.customer_name || 'POS Satışı'} için fatura oluşturuldu.`);
                 } catch (err) {
                     console.error('[BayInStock] Error generating invoice for sale:', sale.id, err);
@@ -80,7 +104,7 @@ const BayInStock = () => {
         if (sales.length > 0 && products.length > 0) {
             processSales();
         }
-    }, [sales, products, invoices]);
+    }, [sales, products, invoices, updateSaleStatus]);
 
     const addNotification = (msg) => {
         const id = Date.now();

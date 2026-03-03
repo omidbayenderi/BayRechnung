@@ -163,6 +163,7 @@ export const StockProvider = ({ children }) => {
                             paymentMethod: s.payment_method || s.paymentMethod,
                             items: s.items || [],
                             status: s.status,
+                            reported_to_accounting: s.reported_to_accounting || false,
                             createdAt: s.created_at || s.createdAt
                         });
                         setSales(mergeWithLocalQueue(data, 'sales', normalizeSale));
@@ -271,7 +272,7 @@ export const StockProvider = ({ children }) => {
         if (updates.category) dbUpdates.category = updates.category;
         if (updates.price) dbUpdates.price = updates.price;
         if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
-        if (updates.min_stock !== undefined) dbUpdates.min_stock = updates.minStock;
+        if (updates.minStock !== undefined) dbUpdates.min_stock = updates.minStock;
         if (updates.sku) dbUpdates.sku = updates.sku;
         if (updates.image_url !== undefined) dbUpdates.image_url = updates.image;
         if (updates.supplier_info) dbUpdates.supplier_info = updates.supplier_info;
@@ -437,7 +438,12 @@ export const StockProvider = ({ children }) => {
                     ...trackingData,
                     lastUpdated: new Date().toISOString()
                 };
-                syncService.enqueue('sales', 'update', { status, ...trackingData }, saleId);
+
+                const dbUpdates = { status, ...trackingData };
+                // Map camelCase tracker to snake_case DB
+                if (trackingData.reportedToAccounting !== undefined) dbUpdates.reported_to_accounting = trackingData.reportedToAccounting;
+
+                syncService.enqueue('sales', 'update', dbUpdates, saleId);
                 return updated;
             }
             return sale;

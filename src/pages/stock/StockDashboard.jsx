@@ -4,6 +4,10 @@ import { useLanguage } from '../../context/LanguageContext';
 import { Package, TrendingUp, AlertTriangle, DollarSign, Search, ShoppingBag, Truck, Download, Share2, MessageCircle, Mail, ExternalLink, CheckCircle, XCircle, RotateCcw, Clock, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const actionBtnStyle = (bg, color) => ({
+    padding: '8px', borderRadius: '8px', background: bg, color: color, border: `1px solid ${bg}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+});
+
 const StockDashboard = () => {
     const { products, sales, updateSaleStatus } = useStock();
     const { t } = useLanguage();
@@ -14,27 +18,39 @@ const StockDashboard = () => {
     // New: Return Modal State
     const [returnModal, setReturnModal] = useState({ isOpen: false, saleId: null, reason: '' });
 
-    // Stats Calculations
-    const totalProducts = products.length;
-    const lowStockCount = products.filter(p => p.stock <= (p.minStock || 5)).length;
-    const totalValue = products.reduce((acc, curr) => acc + (curr.price * curr.stock), 0);
-    const totalSales = sales.reduce((acc, curr) => acc + curr.total, 0);
+    // Stats Calculations - Memoized (Scenario 1)
+    const stats = React.useMemo(() => {
+        const totalProducts = products.length;
+        const lowStockCount = products.filter(p => p.stock <= (p.minStock || 5)).length;
+        const totalValue = products.reduce((acc, curr) => acc + (parseFloat(curr.price || 0) * (curr.stock || 0)), 0);
+        const totalSalesVal = sales.reduce((acc, curr) => acc + (parseFloat(curr.total || 0)), 0);
 
-    // Filter Sales
-    const filteredSales = sales.filter(s =>
-        (s.customerName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        s.id.toString().includes(searchTerm)
-    );
+        return {
+            totalProducts,
+            lowStockCount,
+            totalValue: new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalValue),
+            totalSales: new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalSalesVal)
+        };
+    }, [products, sales]);
 
-    // Status Helpers
-    const getStatusBadge = (status) => {
-        switch (status) {
-            case 'shipped': return <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#eff6ff', color: '#3b82f6', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><Truck size={12} /> {t('status_shipped')}</span>;
-            case 'delivered': return <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#ecfdf5', color: '#10b981', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={12} /> {t('status_delivered')}</span>;
-            case 'returned': return <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#fef2f2', color: '#ef4444', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><RotateCcw size={12} /> {t('status_returned')}</span>;
-            default: return <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#64748b', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} /> {t('status_pending')}</span>;
-        }
-    };
+    // Filter Sales - Memoized (Scenario 2)
+    const filteredSales = React.useMemo(() => {
+        const searchLow = searchTerm.toLowerCase();
+        return sales.filter(s =>
+            (s.customerName?.toLowerCase() || '').includes(searchLow) ||
+            s.id?.toString().includes(searchTerm)
+        );
+    }, [sales, searchTerm]);
+
+    // Status Helpers - Stable references
+    const statusBadges = React.useMemo(() => ({
+        shipped: <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#eff6ff', color: '#3b82f6', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><Truck size={12} /> {t('status_shipped')}</span>,
+        delivered: <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#ecfdf5', color: '#10b981', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={12} /> {t('status_delivered')}</span>,
+        returned: <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#fef2f2', color: '#ef4444', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><RotateCcw size={12} /> {t('status_returned')}</span>,
+        pending: <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#64748b', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} /> {t('status_pending')}</span>
+    }), [t]);
+
+    const getStatusBadge = (status) => statusBadges[status] || statusBadges.pending;
 
     // Tracking Logic
     const trackingProviders = {
@@ -110,10 +126,10 @@ const StockDashboard = () => {
 
             {/* Stats Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-                <StatsCard icon={Package} label={t('totalProducts') || 'Toplam Ürün'} value={totalProducts} color="#3b82f6" />
-                <StatsCard icon={AlertTriangle} label={t('lowStock') || 'Kritik Stok'} value={lowStockCount} color="#ef4444" bg="#fef2f2" />
-                <StatsCard icon={DollarSign} label={t('inventoryValue') || 'Stok Değeri'} value={new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalValue)} color="#10b981" />
-                <StatsCard icon={ShoppingBag} label={t('totalSales') || 'Toplam Ciro'} value={new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalSales)} color="#8b5cf6" />
+                <StatsCard icon={Package} label={t('totalProducts') || 'Toplam Ürün'} value={stats.totalProducts} color="#3b82f6" />
+                <StatsCard icon={AlertTriangle} label={t('lowStock') || 'Kritik Stok'} value={stats.lowStockCount} color="#ef4444" bg="#fef2f2" />
+                <StatsCard icon={DollarSign} label={t('inventoryValue') || 'Stok Değeri'} value={stats.totalValue} color="#10b981" />
+                <StatsCard icon={ShoppingBag} label={t('totalSales') || 'Toplam Ciro'} value={stats.totalSales} color="#8b5cf6" />
             </div>
 
             {/* Sales Section */}
@@ -335,10 +351,6 @@ const StockDashboard = () => {
         </div>
     );
 };
-
-const actionBtnStyle = (bg, color) => ({
-    padding: '8px', borderRadius: '8px', background: bg, color: color, border: `1px solid ${bg}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-});
 
 // Helper Component for Stats
 const StatsCard = ({ icon: Icon, label, value, color, bg }) => (

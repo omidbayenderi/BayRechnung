@@ -60,6 +60,7 @@ import BayInStock from './components/agents/BayInStock';
 import BayGrowth from './components/agents/BayGrowth';
 import BayGlobeAgent from './components/agents/BayGlobeAgent';
 import { useBayVision } from './context/BayVisionContext';
+import InternalAutomator from './components/agents/InternalAutomator';
 import RoleGuardian from './components/auth/RoleGuardian';
 import ConnectionDiagnostics from './components/Debug/ConnectionDiagnostics';
 
@@ -122,6 +123,12 @@ function App() {
   return (
     <BayGuardProvider>
       <Routes>
+        <Route path="/booking" element={<PublicBookingPage />} />
+        <Route path="/success" element={<Success />} />
+        <Route path="/portal/:token" element={<CustomerPortal />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+
         {/* 1. Public External Website (Custom Domain or Subdomain based) */}
         {isPublicSite ? (
           // When accessed via subdomain (firmaadi.bayzenit.com), ALL paths go to PublicWebsite
@@ -142,14 +149,10 @@ function App() {
           </WebsiteProvider>
         } />
 
-        {/* 2. Public Platform Routes */}
+        {/* 2. Public Platform Routes (Already moved essentials up) */}
         <Route path="/login" element={isAuthenticated ? <Navigate to="/admin" /> : <Login />} />
         <Route path="/register" element={isAuthenticated ? <Navigate to="/admin" /> : <Register />} />
-        <Route path="/success" element={<Success />} />
-        <Route path="/booking" element={<PublicBookingPage />} />
-        <Route path="/portal/:token" element={<CustomerPortal />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/privacy" element={<Privacy />} />
+
 
         {/* Legacy Path Fix */}
         <Route path="/Rechnung/*" element={<Navigate to="/admin" replace />} />
@@ -259,6 +262,7 @@ const InternalAgentWrapper = () => (
     <BayGrowth />
     <BayPilot />
     <BayGlobeAgent />
+    <InternalAutomator />
     <Outlet />
   </>
 );

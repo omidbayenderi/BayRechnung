@@ -63,8 +63,8 @@ const LandingPagePreview = ({ pricingPlans, dynamicVideos, dynamicSections, onSe
 
     const plansUI = pricingPlans.map(p => ({
         name: t(p.name_key),
-        priceMonthly: `${p.price_monthly}€`,
-        priceYearly: `${p.price_yearly}€`,
+        priceMonthly: `${p.price_monthly.toLocaleString('de-DE')}€`,
+        priceYearly: `${p.price_yearly.toLocaleString('de-DE')}€`,
         savings: billingCycle === 'yearly' ? t('save17') || 'Save 17%' : null,
         badge: p.is_featured ? t('mostPopular') || 'Most Popular' : null,
         features: (p.features || []).map(f => t(f) || f),

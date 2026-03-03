@@ -280,6 +280,7 @@
     background: linear-gradient(to right, #fff 20%, #94a3b8 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .hero-desc-modern {
@@ -507,6 +508,11 @@
     border: 1px solid #38bdf8;
     background: radial-gradient(circle at top, rgba(56, 189, 248, 0.1), transparent 70%), #0f172a;
     transform: scale(1.02);
+}
+
+.price-card-modern.vip {
+    border: 1px solid #a855f7;
+    background: radial-gradient(circle at top, rgba(168, 85, 247, 0.1), transparent 70%), #0f172a;
 }
 
 .price-header {

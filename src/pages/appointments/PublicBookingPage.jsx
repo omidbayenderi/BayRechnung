@@ -129,27 +129,54 @@ const PublicBookingPage = () => {
                     let userId = null;
                     const cleanEffective = slugify(effectiveSlug);
 
-                    // 1. website_configs araması
-                    const { data: config } = await supabase
+                    console.log('🔍 [Booking] Searching tenant for:', effectiveSlug, '| clean:', cleanEffective);
+
+                    // --- 1. website_configs araması (Priority) ---
+                    // Try exact matches first
+                    const { data: config, error: configErr } = await supabase
                         .from('website_configs')
-                        .select('user_id')
-                        .or(`domain.eq."${effectiveSlug}",slug.eq."${effectiveSlug}",slug.eq."${cleanEffective}"`)
+                        .select('user_id, domain, slug')
+                        .or(`domain.eq."${effectiveSlug}",slug.eq."${effectiveSlug}",slug.eq."${cleanEffective}",domain.ilike."%${effectiveSlug}%"`)
                         .maybeSingle();
 
+                    if (configErr) console.error('🛑 [Booking] Config search error:', configErr);
 
                     if (config?.user_id) {
                         userId = config.user_id;
+                        console.log('🎯 [Booking] Found via website_configs:', userId);
                     } else {
-                        // 2. company_settings üzerinden eşleştirme (Fallback)
-                        const { data: profiles } = await supabase.from('company_settings').select('user_id, company_name');
+                        // --- 2. company_settings üzerinden eşleştirme (Fallback) ---
+                        console.warn('⚠️ [Booking] No config found, trying company_settings fallback...');
+                        const { data: profiles, error: profErr } = await supabase
+                            .from('company_settings')
+                            .select('user_id, company_name');
+
+                        if (profErr) console.error('🛑 [Booking] Profiles fallback error:', profErr);
+
                         if (profiles) {
                             const match = profiles.find(p => {
                                 const s = slugify(p.company_name);
                                 return s === cleanEffective || s === effectiveSlug.toLowerCase() || p.user_id === effectiveSlug;
                             });
-                            if (match) userId = match.user_id;
+                            if (match) {
+                                userId = match.user_id;
+                                console.log('🎯 [Booking] Found via company_settings fallback:', userId);
+                            }
                         }
+                    }
 
+                    // --- 3. Demo / Direct Fallback if still no user ---
+                    if (!userId && (effectiveSlug === 'demo' || !effectiveSlug)) {
+                        const { data: first } = await supabase
+                            .from('website_configs')
+                            .select('user_id')
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (first) {
+                            userId = first.user_id;
+                            console.warn('🎯 [Booking] Demo Fallback Active:', userId);
+                        }
                     }
 
                     if (userId) {

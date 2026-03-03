@@ -125,73 +125,106 @@ const WebsiteDashboard = () => {
                 </div>
             </header>
 
-            {/* Quick Stats Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '40px' }}>
+            {/* Premium Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '40px' }}>
                 {/* Status Card */}
-                <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', borderLeft: `6px solid ${siteConfig.isPublished ? '#10b981' : '#f59e0b'}` }}>
-                    <div style={{ padding: '16px', borderRadius: '50%', background: siteConfig.isPublished ? '#ecfdf5' : '#fffbeb', color: siteConfig.isPublished ? '#10b981' : '#f59e0b' }}>
+                <div style={{
+                    padding: '24px',
+                    background: 'white',
+                    borderRadius: '20px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '20px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        bottom: 0,
+                        width: '6px',
+                        background: siteConfig.isPublished ? 'linear-gradient(to bottom, #10b981, #34d399)' : 'linear-gradient(to bottom, #f59e0b, #fbbf24)'
+                    }} />
+                    <div style={{
+                        padding: '16px',
+                        borderRadius: '16px',
+                        background: siteConfig.isPublished ? '#ecfdf5' : '#fffbeb',
+                        color: siteConfig.isPublished ? '#10b981' : '#f59e0b'
+                    }}>
                         {siteConfig.isPublished ? <CheckCircle size={32} /> : <Edit3 size={32} />}
                     </div>
                     <div>
-                        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{siteConfig.isPublished ? (t('siteLive') || 'Yayında') : (t('siteDraft') || 'Taslak')}</h3>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700' }}>{siteConfig.isPublished ? (t('siteLive') || 'Yayında') : (t('siteDraft') || 'Taslak')}</h3>
                         <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                            {siteConfig.isPublished ? `${t('lastUpdate') || 'Güncelleme'}: ${t('just_now') || 'Az önce'}` : (t('notVisibleYet') || 'Henüz yayında değil')}
+                            {siteConfig.isPublished ? `${t('lastUpdate') || 'Son Güncelleme'}: ${t('just_now') || 'Az önce'}` : (t('notVisibleYet') || 'Henüz yayında değil')}
                         </p>
                     </div>
                 </div>
 
-                {/* Content Health */}
-                <div className="card" style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                        <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{t('content_status') || 'İçerik Durumu'}</span>
-                        <BarChart2 size={20} color="var(--primary)" />
+                {/* Automation Health (Services & Products) */}
+                <div style={{
+                    padding: '24px',
+                    background: 'white',
+                    borderRadius: '20px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                    border: '1px solid var(--border)'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
+                        <span style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '1rem' }}>{t('sync_status') || 'Senkronizasyon'}</span>
+                        <div style={{ padding: '4px 8px', background: '#eff6ff', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', color: '#3b82f6' }}>{t('auto_active') || 'OTOMATİK'}</div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><ShoppingCart size={14} /> {t('label_products') || 'Ürünler'}</span>
-                            <span style={{ fontWeight: 'bold' }}>{activeProducts} {t('active') || 'Aktif'}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', alignItems: 'center' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}><ShoppingCart size={16} /> {t('label_products') || 'Ürünler'}</span>
+                            <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{activeProducts} {t('active') || 'Aktif'}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Calendar size={14} /> {t('label_services') || 'Hizmetler'}</span>
-                            <span style={{ fontWeight: 'bold' }}>{t('automatic') || 'Otomatik'}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Layout size={14} /> {t('label_pages') || 'Bölümler'}</span>
-                            <span style={{ fontWeight: 'bold' }}>{sections.filter(s => s.visible).length} {t('section_unit') || 'Bölüm'}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', alignItems: 'center' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}><Calendar size={16} /> {t('label_services') || 'Hizmetler'}</span>
+                            <span style={{ fontWeight: 'bold', color: '#10b981' }}>{t('live_sync') || 'Canlı'}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Traffic / Analytics Status */}
-                <div className="card" style={{ padding: '24px', background: siteConfig.analyticsId ? '#f0fdf4' : '#fffbeb', border: siteConfig.analyticsId ? '1px solid #bbf7d0' : '1px solid #fde68a' }}>
+                {/* SEO & Analytics Card */}
+                <div style={{
+                    padding: '24px',
+                    background: siteConfig.analyticsId ? 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)' : 'linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)',
+                    borderRadius: '20px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                    border: `1px solid ${siteConfig.analyticsId ? '#bbf7d0' : '#fde68a'}`
+                }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                        <span style={{ fontWeight: '600', color: siteConfig.analyticsId ? '#15803d' : '#b45309' }}>
-                            {siteConfig.analyticsId ? 'Google Analytics' : (t('visitors_month') || 'Ziyaretçi (Aylık)')}
+                        <span style={{ fontWeight: '700', color: siteConfig.analyticsId ? '#15803d' : '#b45309' }}>
+                            {siteConfig.analyticsId ? 'Google Analytics' : 'SEO & Analytics'}
                         </span>
-                        <BarChart2 size={20} color={siteConfig.analyticsId ? '#16a34a' : '#d97706'} />
+                        <BarChart2 size={24} color={siteConfig.analyticsId ? '#16a34a' : '#d97706'} />
                     </div>
 
                     {siteConfig.analyticsId ? (
                         <div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: '800', lineHeight: 1, color: '#166534', marginBottom: '8px' }}>{t('status_active') || 'Aktif'}</div>
-                            <div style={{ fontSize: '0.85rem', color: '#15803d', fontFamily: 'monospace' }}>{siteConfig.analyticsId}</div>
-                            <a
-                                href="https://analytics.google.com/"
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '12px', fontSize: '0.85rem', color: '#15803d', fontWeight: '600', textDecoration: 'none' }}
-                            >
-                                {t('go_to_report') || 'Rapora Git'} <ExternalLink size={12} />
-                            </a>
+                            <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#166534', marginBottom: '4px' }}>{t('status_active') || 'Aktif Bağlantı'}</div>
+                            <div style={{ fontSize: '0.85rem', color: '#15803d', opacity: 0.8, fontFamily: 'monospace' }}>{siteConfig.analyticsId}</div>
                         </div>
                     ) : (
                         <div>
-                            <div style={{ fontSize: '2rem', fontWeight: '800', lineHeight: 1, color: '#92400e' }}>---</div>
+                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#92400e', marginBottom: '12px' }}>{t('seo_desc_short') || 'Ziyaretçilerinizi takip etmeye başlayın.'}</p>
                             <button
                                 onClick={() => navigate('/website/settings')}
-                                style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.85rem', color: '#b45309', marginTop: '8px', cursor: 'pointer', textDecoration: 'underline' }}
+                                style={{
+                                    background: 'white',
+                                    padding: '8px 16px',
+                                    borderRadius: '10px',
+                                    border: '1px solid #fde68a',
+                                    fontSize: '0.85rem',
+                                    color: '#b45309',
+                                    cursor: 'pointer',
+                                    fontWeight: '600',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                }}
                             >
-                                {t('analytics_pending') || 'Kurulum Gerekli'}
+                                {t('setup_now') || 'Hemen Kur'}
                             </button>
                         </div>
                     )}

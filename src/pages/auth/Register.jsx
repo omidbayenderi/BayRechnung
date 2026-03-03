@@ -101,6 +101,10 @@ const Register = () => {
                             monthly: import.meta.env.VITE_PRICE_PREMIUM_MONTHLY,
                             yearly: import.meta.env.VITE_PRICE_PREMIUM_YEARLY,
                         },
+                        vip: {
+                            monthly: import.meta.env.VITE_PRICE_VIP_MONTHLY,
+                            yearly: import.meta.env.VITE_PRICE_VIP_YEARLY,
+                        },
                     };
                     const priceId = priceIds[urlPlan]?.[urlBilling];
 
@@ -140,16 +144,18 @@ const Register = () => {
     const strength = getPasswordStrength();
 
     const isYearly = urlBilling === 'yearly';
-    const planName = formData.plan === 'premium' ? t('premium') : t('standard');
+    const planName = formData.plan === 'vip' ? t('vip') : (formData.plan === 'premium' ? t('premium') : t('standard'));
     const billingText = isYearly ? (t('yearly') || 'Yearly') : (t('monthly') || 'Monthly');
 
     const selectedPlanName = `${planName} (${billingText})`;
 
     let selectedPlanPrice = '0.00€';
-    if (formData.plan === 'premium') {
-        selectedPlanPrice = isYearly ? '799.00€/year' : '79.00€/month';
+    if (formData.plan === 'vip') {
+        selectedPlanPrice = isYearly ? '1.490,00€/year' : '149,00€/month';
+    } else if (formData.plan === 'premium') {
+        selectedPlanPrice = isYearly ? '799,00€/year' : '79,90€/month';
     } else {
-        selectedPlanPrice = isYearly ? '199.00€/year' : '19.00€/month';
+        selectedPlanPrice = isYearly ? '199,00€/year' : '19,90€/month';
     }
 
     return (
@@ -178,7 +184,7 @@ const Register = () => {
                             <input
                                 type="text"
                                 className="form-input"
-                                placeholder="John Doe"
+                                placeholder={t('fullNamePlaceholder') || "John Doe"}
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             />
@@ -189,7 +195,7 @@ const Register = () => {
                             <input
                                 type="text"
                                 className="form-input"
-                                placeholder="Acme Inc."
+                                placeholder={t('companyNamePlaceholder') || "Acme Inc."}
                                 value={formData.companyName}
                                 onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                             />
@@ -210,7 +216,7 @@ const Register = () => {
                             {errors.email && <span className="error-text">{errors.email}</span>}
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
-                            <label>Phone</label>
+                            <label>{t('phone')}</label>
                             <input
                                 type="tel"
                                 className="form-input"
@@ -223,12 +229,12 @@ const Register = () => {
                     </div>
 
                     <div style={{ marginBottom: 16, padding: 16, background: 'rgba(255,255,255,0.05)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <label style={{ color: '#cbd5e1', marginBottom: 12, display: 'block', fontSize: '0.8rem' }}>Business Address</label>
+                        <label style={{ color: '#cbd5e1', marginBottom: 12, display: 'block', fontSize: '0.8rem' }}>{t('businessAddress')}</label>
                         <div className="form-group">
                             <input
                                 type="text"
                                 className="form-input"
-                                placeholder="Street & Number"
+                                placeholder={t('addressPlaceholder')}
                                 value={formData.street}
                                 onChange={(e) => setFormData({ ...formData, street: e.target.value })}
                             />
@@ -239,7 +245,7 @@ const Register = () => {
                                 <input
                                     type="text"
                                     className="form-input"
-                                    placeholder="Zip Code"
+                                    placeholder={t('zipCode')}
                                     value={formData.zip}
                                     onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
                                 />
@@ -249,7 +255,7 @@ const Register = () => {
                                 <input
                                     type="text"
                                     className="form-input"
-                                    placeholder="City"
+                                    placeholder={t('city')}
                                     value={formData.city}
                                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                                 />
@@ -300,8 +306,8 @@ const Register = () => {
                             <span style={{ color: '#334155', fontWeight: 600 }}>{selectedPlanPrice}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#15803d', fontWeight: 700, fontSize: '0.95rem' }}>
-                            <span style={{ display: 'flex', alignItems: 'center' }}><CheckCircle2 size={18} fill="#dcfce7" style={{ marginRight: 6 }} /> 14-Day Free Trial</span>
-                            <span>Today: 0.00€</span>
+                            <span style={{ display: 'flex', alignItems: 'center' }}><CheckCircle2 size={18} fill="#dcfce7" style={{ marginRight: 6 }} /> {t('trialBanner')}</span>
+                            <span>{t('today') || 'Today'}: 0.00€</span>
                         </div>
                     </div>
 
@@ -314,14 +320,14 @@ const Register = () => {
                                 style={{ marginTop: 4 }}
                             />
                             <span style={{ fontSize: '0.85rem', lineHeight: 1.5, color: '#94a3b8' }}>
-                                I agree to the <a href="/terms" target="_blank" style={{ color: '#fff', fontWeight: 600, textDecoration: 'underline' }}>Terms & Conditions</a> and <a href="/privacy" target="_blank" style={{ color: '#fff', fontWeight: 600, textDecoration: 'underline' }}>Privacy Policy</a>.
+                                {t('agreeTermsText') || 'I agree to the'} <a href="/terms" target="_blank" style={{ color: '#fff', fontWeight: 600, textDecoration: 'underline' }}>{t('terms_title')}</a> {t('and') || 'and'} <a href="/privacy" target="_blank" style={{ color: '#fff', fontWeight: 600, textDecoration: 'underline' }}>{t('privacy_title')}</a>.
                             </span>
                         </label>
                         {errors.agreeTerms && <span className="error-text" style={{ display: 'block', marginTop: 4 }}>{errors.agreeTerms}</span>}
                     </div>
 
                     <button type="submit" className="cta-button w-full" disabled={loading} style={{ padding: '16px' }}>
-                        {loading ? (t('creatingAccount') || 'Creating account...') : <><CheckCircle2 size={20} /> Create My Account</>}
+                        {loading ? t('creatingAccount') : <><CheckCircle2 size={20} /> {t('createAccount')}</>}
                     </button>
                 </form>
 
@@ -330,7 +336,7 @@ const Register = () => {
                         {t('alreadyHaveAccount')} <Link to="/login" style={{ color: '#fff', fontWeight: 600, textDecoration: 'none' }}>{t('signIn')}</Link>
                     </p>
                     <p style={{ marginTop: 12 }}>
-                        <Link to="/" style={{ fontSize: '0.85rem', textDecoration: 'none', color: '#64748b', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = '#fff'} onMouseOut={(e) => e.target.style.color = '#64748b'}>← Back to Home</Link>
+                        <Link to="/" style={{ fontSize: '0.85rem', textDecoration: 'none', color: '#64748b', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = '#fff'} onMouseOut={(e) => e.target.style.color = '#64748b'}>← {t('backToHome')}</Link>
                     </p>
                 </div>
             </motion.div>

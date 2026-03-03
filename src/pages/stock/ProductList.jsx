@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Plus, Edit, Trash2, Search, Filter, X, Save, AlertTriangle, Package, Download, Link, Image as ImageIcon, Check, Tag } from 'lucide-react';
@@ -9,9 +9,22 @@ const ProductList = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [editingProduct, setEditingProduct] = useState(null);
 
-    // Category Management State
+    // SCENARIO 4: Sorting & Filter State
+    const [sortBy, setSortBy] = useState('name'); // 'name', 'price', 'stock'
+    const [sortOrder, setSortOrder] = useState('asc'); // 'asc', 'desc'
+    const [selectedCategory, setSelectedCategory] = useState('All');
+
+    // SCENARIO 2: Input Debouncing to prevent render lag
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
+
     const [isAddingCategory, setIsAddingCategory] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
 
@@ -71,20 +84,45 @@ const ProductList = () => {
         e.stopPropagation();
         if (window.confirm(`${cat} ${t('confirmDeleteCategory', 'kategorisini silmek istediğinize emin misiniz?')}`)) {
             deleteCategory(cat);
-            // If the selected category was deleted, fallback to default or empty
             if (formData.category === cat) {
                 setFormData({ ...formData, category: categories[0] || '' });
             }
         }
     };
 
-    const filteredProducts = products.filter(product => {
-        const name = product.name || '';
-        const sku = product.sku || '';
-        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            sku.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesSearch;
-    });
+    // SCENARIO 4: Efficient Single-Pass Memoized Filter & Sort
+    const filteredProducts = React.useMemo(() => {
+        let result = products.filter(product => {
+            const name = product.name || '';
+            const sku = product.sku || '';
+
+            // Search Filter
+            const matchesSearch = name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                sku.toLowerCase().includes(debouncedSearch.toLowerCase());
+
+            // Category Filter
+            const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+
+            return matchesSearch && matchesCategory;
+        });
+
+        // Sorting Logic
+        result.sort((a, b) => {
+            let valA = a[sortBy] || '';
+            let valB = b[sortBy] || '';
+
+            if (typeof valA === 'string') {
+                return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return sortOrder === 'asc' ? valA - valB : valB - valA;
+        });
+
+        return result;
+    }, [products, debouncedSearch, selectedCategory, sortBy, sortOrder]);
+
+    // SCENARIO 1: Pagination / Load More to handle 500+ items
+    const [visibleCount, setVisibleCount] = useState(24);
+    const hasMore = filteredProducts.length > visibleCount;
 
     return (
         <div className="product-list-page" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
@@ -109,8 +147,8 @@ const ProductList = () => {
             </div>
 
             {/* Search and Filter Bar */}
-            <div style={{ background: 'white', padding: '16px', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', display: 'flex', gap: '16px', marginBottom: '24px', border: '1px solid var(--border)' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
+            <div style={{ background: 'white', padding: '16px', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', display: 'flex', gap: '16px', marginBottom: '24px', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: '2', minWidth: '300px' }}>
                     <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                     <input
                         type="text"
@@ -121,11 +159,40 @@ const ProductList = () => {
                         style={{ paddingLeft: '48px', height: '48px', borderRadius: '12px', fontSize: '1rem' }}
                     />
                 </div>
-                {/* Future: Add more filters here if needed */}
+
+                {/* SCENARIO 4: Filter Controls */}
+                <div style={{ display: 'flex', gap: '12px', flex: '1', minWidth: '200px' }}>
+                    <select
+                        className="form-input"
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        style={{ height: '48px', borderRadius: '12px', border: '1px solid var(--border)', padding: '0 12px' }}
+                    >
+                        <option value="All">{t('allCategories', 'Tüm Kategoriler')}</option>
+                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+
+                    <select
+                        className="form-input"
+                        value={`${sortBy}-${sortOrder}`}
+                        onChange={(e) => {
+                            const [field, order] = e.target.value.split('-');
+                            setSortBy(field);
+                            setSortOrder(order);
+                        }}
+                        style={{ height: '48px', borderRadius: '12px', border: '1px solid var(--border)', padding: '0 12px' }}
+                    >
+                        <option value="name-asc">A-Z</option>
+                        <option value="name-desc">Z-A</option>
+                        <option value="price-asc">{t('priceLowToHigh', 'Fiyat: Artan')}</option>
+                        <option value="price-desc">{t('priceHighToLow', 'Fiyat: Azalan')}</option>
+                        <option value="stock-asc">{t('stockLowToHigh', 'Stok: Azalan')}</option>
+                    </select>
+                </div>
             </div>
 
             {/* Products Table */}
-            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', overflow: 'hidden', border: '1px solid var(--border)', marginBottom: '24px' }}>
                 <table className="modern-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
                         <tr>
@@ -141,20 +208,21 @@ const ProductList = () => {
                     <tbody>
                         {filteredProducts.length === 0 ? (
                             <tr>
-                                <td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <td colSpan="7" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     <Package size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />
                                     <p>{t('noProductsFound', 'Ürün bulunamadı.')}</p>
                                 </td>
                             </tr>
                         ) : (
-                            filteredProducts.map(product => {
+                            filteredProducts.slice(0, visibleCount).map(product => {
                                 const isLowStock = product.stock <= product.minStock;
                                 return (
                                     <tr key={product.id} style={{ borderBottom: '1px solid var(--border)' }}>
                                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                             <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid var(--border)' }}>
                                                 {product.image ? (
-                                                    <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                    // SCENARIO 3: Native Lazy Loading
+                                                    <img loading="lazy" src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                                 ) : (
                                                     <Package size={24} color="var(--text-muted)" style={{ opacity: 0.5 }} />
                                                 )}
@@ -214,6 +282,27 @@ const ProductList = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* SCENARIO 1: Pagination Button */}
+            {hasMore && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '48px' }}>
+                    <button
+                        onClick={() => setVisibleCount(prev => prev + 24)}
+                        style={{
+                            padding: '12px 32px',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border)',
+                            background: 'white',
+                            color: 'var(--text-main)',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}
+                    >
+                        {t('loadMore', 'Daha Fazla Yükle')} ({filteredProducts.length - visibleCount} {t('remaining', 'kaldı')})
+                    </button>
+                </div>
+            )}
 
             {/* Add/Edit Product Modal */}
             {isModalOpen && (

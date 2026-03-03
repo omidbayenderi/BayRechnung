@@ -40,26 +40,38 @@ class EmailService {
             `
         };
 
-        if (this.provider === 'mock') {
+        if (this.provider === 'mock' && !this.apiKey) {
             console.log('%c[MOCK EMAIL SENT]', 'background: #10b981; color: white; padding: 4px 8px; border-radius: 4px;', emailData);
             return { success: true, messageId: 'mock_' + Math.random().toString(36).substr(2, 9) };
         }
 
-        // Real API implementation would go here
-        // Example for Resend:
-        /*
-        const response = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(emailData)
-        });
-        return await response.json();
-        */
+        // Real API implementation if key is present
+        try {
+            const response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    from: 'billing@bayrechnung.com',
+                    to: emailData.to,
+                    subject: emailData.subject,
+                    html: emailData.html
+                })
+            });
 
-        return { success: false, error: 'Provider not configured' };
+            if (response.ok) {
+                return await response.json();
+            } else {
+                const err = await response.json();
+                console.error('[EmailService] Resend Error:', err);
+                return { success: false, error: err.message };
+            }
+        } catch (error) {
+            console.error('[EmailService] API Exception:', error);
+            return { success: false, error: error.message };
+        }
     }
 }
 

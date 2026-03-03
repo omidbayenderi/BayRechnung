@@ -667,7 +667,7 @@ const PublicWebsite = ({ customDomain }) => {
             <ErrorBoundary>
                 <SeoAgent websiteData={{ sections: siteData.sections, hero: siteData.sections.find(s => s.type === 'hero')?.data, config: siteData.config }} profile={siteData.profile} />
                 <MatchedTheme
-                    key={`${effectiveSlug}-${siteData?.userId}-${theme.primary}`}
+                    key={`${siteData.slug}-${siteData?.userId}-${theme.primary}`}
                     {...themeProps}
                 />
                 {renderOverlays()}
