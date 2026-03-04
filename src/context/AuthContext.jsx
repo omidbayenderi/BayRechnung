@@ -14,10 +14,41 @@ const MOCK_USERS = [
 const IS_PROD = import.meta.env.VITE_PROD_MODE === 'true';
 
 export const AuthProvider = ({ children }) => {
-    const [currentUser, setCurrentUser] = useState(null);
-    const [session, setSession] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const isMockSession = useRef(false);
+    // 1. RECOVERY: Synchronously check for existing session to avoid "Flash of Spinner"
+    const recoveredSession = useMemo(() => {
+        try {
+            // Find the Supabase auth token in localStorage
+            const authKey = Object.keys(localStorage).find(key => key.includes('auth-token') && key.includes('sb-'));
+            if (authKey) {
+                const sessionData = JSON.parse(localStorage.getItem(authKey));
+                return sessionData;
+            }
+            // Fallback for simple auth
+            const simpleAuth = localStorage.getItem('bay-simple-auth');
+            if (simpleAuth) return JSON.parse(simpleAuth);
+        } catch (e) { return null; }
+        return null;
+    }, []);
+
+    const [currentUser, setCurrentUser] = useState(() => {
+        if (recoveredSession?.user) {
+            const email = recoveredSession.user.email;
+            const isAdmin = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com', 'admin@bayzenit.com'].includes(email?.toLowerCase());
+            return {
+                id: recoveredSession.user.id,
+                email: email,
+                role: isAdmin ? 'admin' : 'worker',
+                plan: isAdmin ? 'premium' : 'free',
+                isSkeleton: true,
+                authMode: 'cloud'
+            };
+        }
+        return null;
+    });
+
+    const [session, setSession] = useState(recoveredSession);
+    const [loading, setLoading] = useState(!recoveredSession); // Loading only if NO recovered session
+    const isMockSession = useRef(localStorage.getItem('bay_is_mock') === 'true');
     const isUpdating = useRef(false);
     const currentUserRef = useRef(null);
     const [useSupabase, setUseSupabase] = useState(isSupabaseConfigured());
@@ -139,7 +170,7 @@ export const AuthProvider = ({ children }) => {
 
         const safetyTimeout = setTimeout(() => {
             setLoading(false);
-        }, 8000);
+        }, 4000); // Reduced from 8s as we have synchronous recovery now
 
         let subscription = null;
         const lastFetchedId = { current: null };

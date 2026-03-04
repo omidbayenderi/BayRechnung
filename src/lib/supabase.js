@@ -41,12 +41,11 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const checkDbHealth = async () => {
     if (!supabase) return { success: false, error: 'Client not initialized' };
     try {
-        // Use a 15s timeout for the health check itself (DB might be cold/sleeping)
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 15000));
+        // Use a 5s timeout for the health check (Fail fast)
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 5000));
 
-        // Try a very simple query. We don't check 'users' as it likely has strict RLS.
-        // Queries like 'company_settings' are also RLS protected but we only need a head request.
-        const checkPromise = supabase.from('company_settings').select('count', { count: 'exact', head: true }).limit(0);
+        // Try a very simple query. 
+        const checkPromise = supabase.from('users').select('id', { head: true }).limit(1);
 
         const { error } = await Promise.race([checkPromise, timeoutPromise]);
 

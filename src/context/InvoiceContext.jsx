@@ -110,6 +110,7 @@ export const InvoiceProvider = ({ children }) => {
     const [messages, setMessages] = useState([]);
     const [dailyReports, setDailyReports] = useState([]);
     const [loading, setLoading] = useState(true);
+    const isFetchingRef = React.useRef(false);
 
     // Helper: Normalize snake_case (DB) to camelCase (Frontend)
     const normalizeInvoice = (inv) => {
@@ -347,6 +348,11 @@ export const InvoiceProvider = ({ children }) => {
                 return;
             }
 
+            if (isFetchingRef.current === currentUser.id && !currentUser.isSkeleton) return;
+            isFetchingRef.current = currentUser.id;
+
+            console.time(`[InvoiceContext] LoadData_${currentUser.id}`);
+
             // 1. Instant Load from LocalStorage
             try {
                 const localInvoices = localStorage.getItem(`bay_invoices_${currentUser.id}`);
@@ -450,7 +456,7 @@ export const InvoiceProvider = ({ children }) => {
             } catch (err) {
                 console.error('Error loading Supabase data:', err);
             } finally {
-                // setLoading(false); // Already false
+                console.timeEnd(`[InvoiceContext] LoadData_${currentUser.id}`);
             }
         };
 
@@ -772,7 +778,7 @@ export const InvoiceProvider = ({ children }) => {
                 logo_display_mode: updatedProfile.logoDisplayMode
             };
 
-            syncService.enqueue('company_settings', 'update', dbData, currentUser.id);
+            syncService.enqueue('company_settings', 'insert', dbData, currentUser.id);
         }
     };
 
@@ -852,7 +858,7 @@ export const InvoiceProvider = ({ children }) => {
                 quote_validity_days: merged.quoteValidityDays,
                 brand_palette: merged.brandPalette || []
             };
-            syncService.enqueue('invoice_customization', 'update', dbData, currentUser.id);
+            syncService.enqueue('invoice_customization', 'insert', dbData, currentUser.id);
         }
     };
 

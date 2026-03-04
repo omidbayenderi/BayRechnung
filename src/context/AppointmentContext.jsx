@@ -13,6 +13,7 @@ export const AppointmentProvider = ({ children }) => {
     const [staff, setStaff] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const isFetchingRef = React.useRef(false);
 
     const uuidv4 = () => {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -48,6 +49,11 @@ export const AppointmentProvider = ({ children }) => {
                 setLoading(false);
                 return;
             }
+
+            if (isFetchingRef.current === currentUser.id && !currentUser.isSkeleton) return;
+            isFetchingRef.current = currentUser.id;
+
+            console.time(`[AppointmentContext] LoadData_${currentUser.id}`);
 
             try {
                 // 0. Load from LocalStorage first for INSTANT UI
@@ -259,7 +265,7 @@ export const AppointmentProvider = ({ children }) => {
             } catch (err) {
                 console.error('Error loading appointment data, using local fallback:', err);
             } finally {
-                // setLoading(false); // Already false
+                console.timeEnd(`[AppointmentContext] LoadData_${currentUser.id}`);
             }
         };
 

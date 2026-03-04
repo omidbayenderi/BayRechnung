@@ -105,8 +105,13 @@ const ConnectionDiagnostics = ({ variant = 'floating' }) => {
                     const { error: writeError } = await Promise.race([writePromise, timeoutWrite]);
 
                     if (writeError) {
-                        results.write = 'error';
-                        newDetails.write = writeError.code === '42P01' ? 'Audit table missing.' : `Write failed: ${writeError.message}`;
+                        if (writeError.code === '42501') {
+                            results.write = 'warning'; // Change to warning for RLS
+                            newDetails.write = 'Connection OK. RLS Restricted.';
+                        } else {
+                            results.write = 'error';
+                            newDetails.write = writeError.code === '42P01' ? 'Audit table missing.' : `Write failed: ${writeError.message}`;
+                        }
                     } else {
                         results.write = 'success';
                         newDetails.write = 'Success.';
@@ -269,7 +274,12 @@ const ConnectionDiagnostics = ({ variant = 'floating' }) => {
 };
 
 const StatusItem = ({ label, status, detail, icon: Icon, isMini = false }) => {
-    const getColor = (s) => s === 'success' ? '#10b981' : s === 'error' ? '#ef4444' : '#94a3b8';
+    const getColor = (s) => {
+        if (s === 'success') return '#10b981';
+        if (s === 'warning') return '#f59e0b';
+        if (s === 'error') return '#ef4444';
+        return '#94a3b8';
+    };
 
     return (
         <div style={{ marginBottom: isMini ? '0' : '4px' }}>
@@ -278,9 +288,11 @@ const StatusItem = ({ label, status, detail, icon: Icon, isMini = false }) => {
                     <Icon size={14} color={getColor(status)} />
                     <span style={{ color: getColor(status) === '#94a3b8' ? '#94a3b8' : 'white' }}>{label}</span>
                 </div>
-                {status === 'success' ? <CheckCircle size={14} color="#10b981" /> : <XCircle size={14} color="#ef4444" />}
+                {status === 'success' ? <CheckCircle size={14} color="#10b981" /> :
+                    status === 'warning' ? <AlertTriangle size={14} color="#f59e0b" /> :
+                        <XCircle size={14} color="#ef4444" />}
             </div>
-            {status === 'error' && (
+            {(status === 'error' || status === 'warning') && (
                 <div style={{ color: '#fca5a5', fontSize: '10px', marginTop: '1px', opacity: 0.9, paddingLeft: '20px' }}>
                     {detail}
                 </div>

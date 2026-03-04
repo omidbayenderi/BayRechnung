@@ -22,6 +22,7 @@ export const StockProvider = ({ children }) => {
     });
     const [loading, setLoading] = useState(true);
     const [cart, setCart] = useState([]);
+    const isFetchingRef = React.useRef(false);
 
     const uuidv4 = () => {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -105,6 +106,11 @@ export const StockProvider = ({ children }) => {
                 setLoading(false);
                 return;
             }
+
+            if (isFetchingRef.current === currentUser.id && !currentUser.isSkeleton) return;
+            isFetchingRef.current = currentUser.id;
+
+            console.time(`[StockContext] LoadData_${currentUser.id}`);
 
             const userId = currentUser.id;
 
@@ -191,7 +197,7 @@ export const StockProvider = ({ children }) => {
             } catch (err) {
                 console.error('Error fetching stock data:', err);
             } finally {
-                // setLoading(false); // Already false
+                console.timeEnd(`[StockContext] LoadData_${currentUser.id}`);
             }
         };
 

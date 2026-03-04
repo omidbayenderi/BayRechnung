@@ -10,17 +10,29 @@ export const useWebsite = () => useContext(WebsiteContext);
 const DEFAULT_CONFIG = {
     isPublished: false,
     domain: '',
+    slug: '',
     theme: {
         primaryColor: '#3b82f6',
-        fontFamily: '"Inter", sans-serif',
-        mode: 'light',
         secondaryColor: '#64748b',
-        showBranding: true
+        backgroundColor: '#ffffff',
+        textColor: '#1e293b',
+        fontHeading: '"Outfit", sans-serif',
+        fontBody: '"Inter", sans-serif',
+        mode: 'light',
+        showBranding: true,
+        radius: '12px'
     },
-    meta: {
+    seo: {
         title: '',
         description: '',
-        keywords: ''
+        keywords: '',
+        ogImage: '',
+        favicon: ''
+    },
+    advanced: {
+        customCss: '',
+        headScripts: '',
+        bodyScripts: ''
     },
     analyticsId: '',
     category: 'standard',
@@ -32,10 +44,11 @@ const DEFAULT_CONFIG = {
 };
 
 const DEFAULT_SECTIONS = [
-    { id: 'hero', type: 'hero', visible: true, data: { title: '', subtitle: '', buttonText: '', image: null } },
-    { id: 'about', type: 'about', visible: true, data: { text: '' } },
+    { id: 'hero', type: 'hero', visible: true, data: { title: 'Modern SaaS Solution', subtitle: 'Elevate your business with our premium platform.', buttonText: 'Get Started', type: 'color' } },
+    { id: 'features', type: 'features', visible: true, data: { title: 'Premium Features', items: [{ title: 'Secure', description: 'Enterprise grade security' }, { title: 'Fast', description: 'Optimized performance' }] } },
+    { id: 'about', type: 'about', visible: true, data: { title: 'About Us', content: 'We provided industry-leading solutions for modern businesses.' } },
     { id: 'services', type: 'services', visible: true, data: { autoPull: true, source: 'appointments' } },
-    { id: 'products', type: 'products', visible: true, data: { autoPull: true, source: 'stock', limit: 6 } },
+    { id: 'pricing', type: 'pricing', visible: true, data: { title: 'Choose Your Plan', items: [{ name: 'Basic', price: '29', features: ['Feature 1', 'Feature 2'] }] } },
     { id: 'contact', type: 'contact', visible: true, data: { showMap: true, phone: true, email: true } }
 ];
 
@@ -119,7 +132,7 @@ export const WebsiteProvider = ({ children }) => {
             updated_at: new Date().toISOString()
         };
 
-        syncService.enqueue('website_configs', 'update', syncData, currentUser.id);
+        syncService.enqueue('website_configs', 'insert', syncData, currentUser.id);
     };
 
     // Actions
@@ -179,6 +192,25 @@ export const WebsiteProvider = ({ children }) => {
         });
     };
 
+    const moveSection = (id, direction) => {
+        setSections(prev => {
+            const index = prev.findIndex(s => s.id === id);
+            if (index === -1) return prev;
+
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= prev.length) return prev;
+
+            // Hero section is always first
+            if (prev[index].type === 'hero' && newIndex > 0) return prev;
+            if (prev[newIndex].type === 'hero') return prev;
+
+            const updated = [...prev];
+            [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+            saveToSupabase(siteConfig, updated);
+            return updated;
+        });
+    };
+
     return (
         <WebsiteContext.Provider value={{
             siteConfig,
@@ -188,6 +220,7 @@ export const WebsiteProvider = ({ children }) => {
             toggleSectionVisibility,
             addSection,
             deleteSection,
+            moveSection,
             publishSite,
             unpublishSite,
             loading
