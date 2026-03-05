@@ -131,7 +131,7 @@ const ConnectionDiagnostics = ({ variant = 'floating' }) => {
     // Initial check and periodic refresh
     useEffect(() => {
         runDiagnostics();
-        const interval = setInterval(() => runDiagnostics(true), 30000); // Check every 30s
+        const interval = setInterval(() => runDiagnostics(true), 60000); // Check every 60s
         return () => clearInterval(interval);
     }, [runDiagnostics]);
 

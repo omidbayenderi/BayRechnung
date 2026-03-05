@@ -60,11 +60,16 @@ export const AuthProvider = ({ children }) => {
         if (!userId) return null;
         console.log('[Auth] Fetching user data for:', userId);
         try {
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Fetch timeout')), 10000));
+
             const profileReq = supabase.from('users').select('*').eq('id', userId).single();
             const subReq = supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle();
             const companyReq = supabase.from('company_settings').select('*').eq('user_id', userId).maybeSingle();
 
-            const [profileRes, subRes, companyRes] = await Promise.all([profileReq, subReq, companyReq]);
+            const [profileRes, subRes, companyRes] = await Promise.race([
+                Promise.all([profileReq, subReq, companyReq]),
+                timeoutPromise
+            ]);
 
             const email = profileRes.data?.email || userEmail || '';
             const isAdminEmail = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com', 'admin@bayzenit.com'].includes(email.toLowerCase());
@@ -122,9 +127,10 @@ export const AuthProvider = ({ children }) => {
                 email: userEmail,
                 name: isAdmin ? 'Admin' : 'User',
                 role: isAdmin ? 'admin' : 'worker',
-                dbError: err.code === '42P01' ? 'MIGRATION_REQUIRED' : 'CONNECTION_ERROR',
+                dbError: err.message === 'Fetch timeout' ? 'TIMEOUT' : (err.code === '42P01' ? 'MIGRATION_REQUIRED' : 'CONNECTION_ERROR'),
                 isSkeleton: false,
-                authMode: 'cloud'
+                authMode: 'cloud',
+                isTimeout: err.message === 'Fetch timeout'
             };
         }
     }, [useSupabase]);

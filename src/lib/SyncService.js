@@ -335,22 +335,24 @@ class SyncService {
                         this.notifyListeners();
                     }
                 }
-                if (error.message?.includes('FetchError') || error.message?.includes('Network Error') || error.message?.includes('Failed to fetch')) {
+                if (error.message?.includes('FetchError') || error.message?.includes('Network Error') || error.message?.includes('Failed to fetch') || error.message?.includes('timeout')) {
                     this.lastSuccess = 0;
                 } else {
-                    // Internal DB / Logic Error - Log for BaySync
-                    supabase.from('audit_logs').insert({
-                        action: 'SYNC_ERROR',
-                        entity_type: table,
-                        entity_id: targetId,
-                        severity: 'error',
-                        source: 'BaySync',
-                        metadata: {
-                            error: error.message,
-                            code: error.code,
-                            operation: action
-                        }
-                    }).then(null, e => { });
+                    // Only log if it's NOT a timeout to avoid spamming the logs during connection issues
+                    if (error.message !== 'Operation timeout') {
+                        supabase.from('audit_logs').insert({
+                            action: 'SYNC_ERROR',
+                            entity_type: table,
+                            entity_id: targetId,
+                            severity: 'error',
+                            source: 'BaySync',
+                            metadata: {
+                                error: error.message,
+                                code: error.code,
+                                operation: action
+                            }
+                        }).then(null, e => { });
+                    }
                 }
                 return { success: false, error };
             }

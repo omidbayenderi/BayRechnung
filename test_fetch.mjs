@@ -13,11 +13,12 @@ async function run() {
     },
     body: JSON.stringify({ email, password })
   });
+  console.log("Auth Response Status:", authRes.status);
   const authData = await authRes.json();
-  console.log("Auth Data keys:", Object.keys(authData));
-  
-  if (authData.error) {
-    console.error("Auth Error:", authData);
+  console.log("Auth Data:", authData);
+
+  if (authData.error || authData.msg) {
+    console.error("Connection issue detected.");
     return;
   }
 }
