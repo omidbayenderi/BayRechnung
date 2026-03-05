@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
         currentUserRef.current = currentUser;
     }, [currentUser]);
 
-    const fetchUserData = async (userId, userEmail = '') => {
+    const fetchUserData = useCallback(async (userId, userEmail = '') => {
         if (!userId) return null;
         console.log('[Auth] Fetching user data for:', userId);
         try {
@@ -126,8 +126,6 @@ export const AuthProvider = ({ children }) => {
                 isSkeleton: false,
                 authMode: 'cloud'
             };
-            console.error('[Auth] Error fetching user data:', err);
-            return null;
         }
     }, [useSupabase]);
 
