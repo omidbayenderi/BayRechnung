@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component {
                     error: error?.toString(),
                     componentStack: errorInfo?.componentStack?.substring(0, 500)
                 }
-            }]).catch(() => { });
+            }]).then(null, () => { });
         });
     }
 

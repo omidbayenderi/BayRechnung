@@ -595,8 +595,8 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
     const [searchQuery, setSearchQuery] = useState('');
 
     const categories = Array.from(new Set([
-        ...siteData.products.map(p => p.category),
-        ...siteData.appointmentSettings.services.map(s => s.category || 'Hizmetler')
+        ...(siteData?.products || []).map(p => p?.category),
+        ...(siteData?.appointmentSettings?.services || []).map(s => s?.category || 'Hizmetler')
     ].filter(Boolean)));
 
     const activeProducts = (siteData.products || []).filter(p => {

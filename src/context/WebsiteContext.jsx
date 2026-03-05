@@ -139,6 +139,7 @@ export const WebsiteProvider = ({ children }) => {
     const updateSiteConfig = (newConfig) => {
         setSiteConfig(prev => {
             const deepMerge = (target, source) => {
+                if (!source || typeof source !== 'object' || Array.isArray(source)) return source;
                 const output = { ...target };
                 Object.keys(source).forEach(key => {
                     if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
@@ -158,6 +159,7 @@ export const WebsiteProvider = ({ children }) => {
     const updateSection = (id, updates) => {
         setSections(prev => {
             const deepMerge = (target, source) => {
+                if (!source || typeof source !== 'object' || Array.isArray(source)) return source;
                 const output = { ...target };
                 Object.keys(source).forEach(key => {
                     if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {

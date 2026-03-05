@@ -205,7 +205,7 @@ export const InvoiceProvider = ({ children }) => {
             id: exp.id,
             user_id: exp.user_id,
             date: exp.date || exp.created_at?.split('T')[0],
-            title: exp.title,
+            title: exp.title || exp.description || '',
             amount: parseFloat(exp.amount) || 0,
             category: exp.category,
             currency: exp.currency || 'EUR',

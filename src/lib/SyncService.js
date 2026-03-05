@@ -21,7 +21,7 @@ const TABLE_SCHEMAS = {
         'items', 'subtotal', 'tax_rate', 'tax_amount', 'total', 'status',
         'due_date', 'issue_date', 'notes', 'currency', 'industry_data', 'sender_snapshot', 'created_at'
     ],
-    expenses: ['id', 'user_id', 'title', 'description', 'amount', 'category', 'date', 'receipt_url', 'receipt_image', 'status', 'created_at'],
+    expenses: ['id', 'user_id', 'description', 'amount', 'category', 'date', 'receipt_url', 'receipt_image', 'status', 'created_at'],
     appointments: [
         'id', 'user_id', 'customer_name', 'customer_email', 'customer_phone',
         'client_name', 'client_email', 'client_phone',
@@ -222,7 +222,7 @@ class SyncService {
                                 code: error?.code,
                                 item: { table: item.table, action: item.action }
                             }
-                        }).catch(e => { });
+                        }).then(null, e => { });
 
                         const deadQueue = JSON.parse(localStorage.getItem('bay_dead_sync_queue') || '[]');
                         deadQueue.push({
@@ -276,6 +276,11 @@ class SyncService {
                     finalData = cleanData;
                 }
 
+                if (table === 'expenses' && finalData.title && !finalData.description) {
+                    finalData.description = finalData.title;
+                    delete finalData.title;
+                }
+
                 let finalTargetId = targetId;
                 if (!finalTargetId && isSettingsTable && finalData.user_id) {
                     finalTargetId = finalData.user_id;
@@ -326,7 +331,7 @@ class SyncService {
                             code: error.code,
                             operation: action
                         }
-                    }).catch(e => { });
+                    }).then(null, e => { });
                 }
                 return { success: false, error };
             }

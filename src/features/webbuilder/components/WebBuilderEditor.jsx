@@ -63,7 +63,12 @@ const WebBuilderEditor = () => {
 
     // ─── HANDLERS ───
     const handleAddSection = useCallback((template) => {
-        const profile = JSON.parse(localStorage.getItem('bay_profile') || '{}');
+        let profile = {};
+        try {
+            profile = JSON.parse(localStorage.getItem('bay_profile') || '{}');
+        } catch (e) {
+            console.error("Profile parse error", e);
+        }
         const industry = siteConfig.businessCategory || profile.industry || 'Business';
 
         let aiData = { ...template.defaultData };
@@ -113,20 +118,31 @@ const WebBuilderEditor = () => {
     }, [draggedIdx, moveSection, sections]);
 
     const previewOverrideData = useMemo(() => {
-        const profile = JSON.parse(localStorage.getItem('bay_profile') || '{}');
-        const services = JSON.parse(localStorage.getItem('bay_services') || '[]');
+        const safeParse = (key, fallback) => {
+            try {
+                const item = localStorage.getItem(key);
+                if (!item) return fallback;
+                return JSON.parse(item);
+            } catch (e) {
+                console.error(`Error parsing ${key}`, e);
+                return fallback;
+            }
+        };
+
+        const profile = safeParse('bay_profile', {});
+        const services = safeParse('bay_services', []);
 
         return {
             profile,
-            config: siteConfig,
-            sections,
-            products: JSON.parse(localStorage.getItem('bay_products') || '[]'),
+            config: siteConfig || {},
+            sections: sections || [],
+            products: safeParse('bay_products', []),
             appointmentSettings: {
-                services: services.length > 0 ? services : [
+                services: Array.isArray(services) && services.length > 0 ? services : [
                     { name: 'Consultation', description: 'Expert advice for your business needs.', price: '100' },
                     { name: 'Standard Service', description: 'Our most popular high-quality package.', price: '250' }
                 ],
-                staff: JSON.parse(localStorage.getItem('bay_staff') || '[]'),
+                staff: safeParse('bay_staff', []),
                 workingHours: { start: '09:00', end: '18:00' },
                 workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             },
