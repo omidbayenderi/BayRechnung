@@ -349,12 +349,30 @@ export const AuthProvider = ({ children }) => {
     }, [useSupabase]);
 
     const logout = useCallback(async () => {
-        if (useSupabase) await supabase.auth.signOut();
-        isMockSession.current = false;
-        setCurrentUser(null);
-        setSession(null);
-        localStorage.removeItem('bay_current_user');
-        localStorage.removeItem('bay_is_mock');
+        try {
+            if (useSupabase) {
+                // Use a short timeout for signOut to avoid hanging the UI on network issues
+                const signOutPromise = supabase.auth.signOut();
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('SignOut Timeout')), 2000));
+                await Promise.race([signOutPromise, timeoutPromise]).catch(err => console.warn('[Auth] SignOut failed or timed out:', err));
+            }
+        } catch (err) {
+            console.warn('[Auth] Logout warning:', err);
+        } finally {
+            // ALWAYS clear local state
+            isMockSession.current = false;
+            setCurrentUser(null);
+            setSession(null);
+            localStorage.removeItem('bay_current_user');
+            localStorage.removeItem('bay_is_mock');
+
+            // Clear any potential auth tokens manually to be safe
+            Object.keys(localStorage).forEach(key => {
+                if (key.includes('auth-token') || key.includes('sb-')) {
+                    localStorage.removeItem(key);
+                }
+            });
+        }
         return { success: true };
     }, [useSupabase]);
 

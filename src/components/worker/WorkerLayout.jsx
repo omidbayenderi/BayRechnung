@@ -8,8 +8,13 @@ const WorkerLayout = () => {
     const navigate = useNavigate();
 
     const handleLogout = async () => {
-        await logout();
-        navigate('/login');
+        try {
+            await logout();
+        } catch (err) {
+            console.error('[Worker] Logout error:', err);
+        } finally {
+            navigate('/login');
+        }
     };
 
     return (

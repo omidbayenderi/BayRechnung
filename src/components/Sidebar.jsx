@@ -22,8 +22,13 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
 
     const handleLogout = async () => {
-        await logout();
-        navigate('/login');
+        try {
+            await logout();
+        } catch (err) {
+            console.error('[Sidebar] Logout error:', err);
+        } finally {
+            navigate('/login');
+        }
     };
 
     const currentModule = modules.find(m => m.id === activePanel) || modules[0];
