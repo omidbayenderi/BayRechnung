@@ -4,15 +4,17 @@ import { motion } from 'framer-motion';
 import {
     ArrowRight, Check, FileText, TrendingUp, Globe, Shield, Smartphone,
     Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star,
-    Layers, Cpu, Server, Lock, Github, Twitter, Linkedin
+    HelpCircle, MessageSquare, BarChart2, Layers, Cpu, Server, Lock,
+    Github, Twitter, Linkedin
 } from 'lucide-react';
 import { useLanguage, detectUserLanguage } from '../context/LanguageContext';
 import { useStripeCheckout } from '../hooks/useStripeCheckout';
 import { supabase } from '../lib/supabase';
 
 const IconMap = {
-    FileText, TrendingUp, Globe, Shield, Smartphone,
-    Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star
+    ArrowRight, Check, FileText, TrendingUp, Globe, Shield, Smartphone,
+    Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star,
+    HelpCircle, MessageSquare, BarChart2
 };
 
 const LandingPage = () => {
@@ -23,6 +25,13 @@ const LandingPage = () => {
     const [pricingPlans, setPricingPlans] = React.useState([]);
     const [dynamicVideos, setDynamicVideos] = React.useState([]);
     const [dynamicSections, setDynamicSections] = React.useState([]);
+    const [globalConfig, setGlobalConfig] = React.useState({
+        primaryColor: '#3b82f6',
+        secondaryColor: '#64748b',
+        fontHeading: '"Outfit", sans-serif',
+        fontBody: '"Inter", sans-serif',
+        radius: '12px'
+    });
     const [loading, setLoading] = React.useState(true);
     const basePath = import.meta.env.BASE_URL;
     const navigate = useNavigate();
@@ -66,7 +75,11 @@ const LandingPage = () => {
                     ]);
                 }
                 if (!vRes.error) setDynamicVideos(vRes.data);
-                if (!sRes.error) setDynamicSections(sRes.data);
+                if (!sRes.error) {
+                    setDynamicSections(sRes.data);
+                    const config = sRes.data.find(s => s.slug === 'global-config');
+                    if (config?.content) setGlobalConfig(config.content);
+                }
             } catch (err) {
                 console.error('LandingPage Content Load Error:', err);
             } finally {
@@ -101,6 +114,9 @@ const LandingPage = () => {
     const heroAlert = dynamicSections.find(s => s.slug === 'hero-alert' && s.is_active);
     const heroMain = dynamicSections.find(s => s.slug === 'hero-main' && s.is_active);
     const powerFeatures = dynamicSections.filter(s => s.type === 'card' && s.is_active).sort((a, b) => a.display_order - b.display_order);
+    const faqSections = dynamicSections.filter(s => s.type === 'faq' && s.is_active);
+    const testimonialSections = dynamicSections.filter(s => s.type === 'testimonial' && s.is_active);
+    const statsSections = dynamicSections.filter(s => s.type === 'stats' && s.is_active);
 
     const heroImage = heroMain?.content?.image_url
         ? (heroMain.content.image_url.startsWith('http') ? heroMain.content.image_url : `${basePath}${heroMain.content.image_url.replace(/^\//, '')}`)
@@ -118,7 +134,21 @@ const LandingPage = () => {
     }));
 
     return (
-        <div className="landing-page">
+        <div className="landing-page" style={{
+            '--lp-primary': globalConfig.primaryColor,
+            '--lp-secondary': globalConfig.secondaryColor,
+            '--lp-radius': globalConfig.radius,
+            '--lp-font-h': globalConfig.fontHeading,
+            '--lp-font-b': globalConfig.fontBody,
+            fontFamily: 'var(--lp-font-b)'
+        }}>
+            <style>{`
+                .hero-modern h1, .section-title-wrapper h2, .footer-modern h3, .bento-content h3, .price-header h3 { font-family: var(--lp-font-h); }
+                .btn-modern-primary, .btn-price-modern.primary { background: var(--lp-primary); border-radius: var(--lp-radius); }
+                .price-card-modern, .bento-card, .video-card { border-radius: var(--lp-radius); }
+                .highlight { color: var(--lp-primary); }
+                .check-icon-modern { color: var(--lp-primary); }
+            `}</style>
             <div className="landing-bg-glow"></div>
 
             <div className="landing-container">
@@ -450,6 +480,55 @@ const LandingPage = () => {
                         ))}
                     </div>
                 </section>
+
+                {/* Stats Section */}
+                {statsSections.length > 0 && (
+                    <section style={{ padding: '60px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '30px', textAlign: 'center' }}>
+                            {statsSections.map(s => (
+                                <motion.div key={s.id} initial={{ scale: 0.9, opacity: 0 }} whileInView={{ scale: 1, opacity: 1 }}>
+                                    <div style={{ fontSize: '3.5rem', fontWeight: 900, color: 'var(--lp-primary)', marginBottom: 8 }}>{s.content.value}</div>
+                                    <div style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: 600, letterSpacing: '2px' }}>{s.content.title?.toUpperCase()}</div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Testimonials */}
+                {testimonialSections.length > 0 && (
+                    <section style={{ padding: '100px 0' }}>
+                        <div className="section-title-wrapper">
+                            <h2>What Visionaries Say</h2>
+                        </div>
+                        <div className="pricing-grid-modern">
+                            {testimonialSections.map((s, i) => (
+                                <motion.div key={s.id} className="price-card-modern" style={{ padding: '40px' }} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
+                                    <div style={{ display: 'flex', gap: '4', marginBottom: 20 }}>{[...Array(5)].map((_, j) => <Star key={j} size={14} fill="var(--lp-primary)" stroke="none" />)}</div>
+                                    <p style={{ fontSize: '1.1rem', lineHeight: 1.6, color: '#e2e8f0', marginBottom: 24, fontStyle: 'italic' }}>"{s.content.text}"</p>
+                                    <div style={{ fontWeight: 800, color: 'var(--lp-primary)' }}>{s.content.title}</div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Common Questions (FAQ) */}
+                {faqSections.length > 0 && (
+                    <section style={{ padding: '100px 0', maxWidth: 800, margin: '0 auto' }}>
+                        <div className="section-title-wrapper">
+                            <h2>{t('questions') || 'Common Questions'}</h2>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {faqSections.map(s => (
+                                <div key={s.id} style={{ padding: '24px 32px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--lp-radius)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <h4 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 12 }}>{s.content.title}</h4>
+                                    <p style={{ color: '#94a3b8', lineHeight: 1.6 }}>{s.content.text}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 {/* Footer Modern */}
                 <footer className="footer-modern">

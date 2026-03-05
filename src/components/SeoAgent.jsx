@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * SEO AGENT 🕵️‍♂️
@@ -10,8 +10,22 @@ import { useEffect } from 'react';
  */
 const SeoAgent = ({ websiteData, profile }) => {
 
+    const lastKeyRef = useRef('');
+
+    // Build a stable dependency key from actual content values
+    const stableKey = JSON.stringify([
+        profile?.companyName,
+        profile?.industry,
+        websiteData?.config?.businessCategory,
+        websiteData?.hero?.title,
+        websiteData?.sections?.length
+    ]);
+
     useEffect(() => {
         if (!websiteData) return;
+        // Prevent duplicate runs for the same data
+        if (lastKeyRef.current === stableKey) return;
+        lastKeyRef.current = stableKey;
 
         // 1. DATA EXTRACTION & INTELLIGENCE
         // ------------------------------------------------
@@ -33,11 +47,29 @@ const SeoAgent = ({ websiteData, profile }) => {
 
         const baseKeywords = `${companyName}, ${industry}, ${serviceKeywords || ''}, profesyonel, kaliteli, uygun fiyat`;
 
-        // 2. DOM MANIPULATION (META TAGS)
-        // ------------------------------------------------
+
+        // Canonical Link
+        let canonical = document.querySelector('link[rel="canonical"]');
+        if (!canonical) {
+            canonical = document.createElement('link');
+            canonical.rel = 'canonical';
+            document.head.appendChild(canonical);
+        }
+        canonical.href = window.location.href;
+
+        // Favicon
+        if (profile?.logo || websiteData.hero?.image) {
+            let favicon = document.querySelector('link[rel="icon"]');
+            if (!favicon) {
+                favicon = document.createElement('link');
+                favicon.rel = 'icon';
+                document.head.appendChild(favicon);
+            }
+            favicon.href = profile?.logo || websiteData.hero?.image;
+        }
 
         // Title
-        document.title = `${companyName} | Profesyonel Hizmetler`;
+        document.title = `${companyName} | ${websiteData.config?.siteSlugLine || 'Profesyonel Çözümler'}`;
 
         // Meta Tags Helper
         const setMeta = (name, content) => {
@@ -64,89 +96,60 @@ const SeoAgent = ({ websiteData, profile }) => {
         setMeta('description', cleanDescription);
         setMeta('keywords', baseKeywords);
         setMeta('robots', 'index, follow');
+        setMeta('viewport', 'width=device-width, initial-scale=1, maximum-scale=5');
         setMeta('author', companyName);
-        setMeta('geo.region', 'TR'); // Varsayılan TR, dinamik yapılabilir
+        setMeta('geo.region', 'TR');
         if (profile?.city) setMeta('geo.placename', profile.city);
 
-        // Open Graph (Social Media & Sharing)
+        // Open Graph
         setOgMeta('og:title', companyName);
         setOgMeta('og:description', cleanDescription);
         setOgMeta('og:type', 'website');
+        setOgMeta('og:url', window.location.href);
         setOgMeta('og:site_name', companyName);
-        // Hero image as OG Image if available
-        if (websiteData.hero?.image) {
-            setOgMeta('og:image', websiteData.hero.image);
+        if (profile?.logo || websiteData.hero?.image) {
+            setOgMeta('og:image', profile?.logo || websiteData.hero?.image);
         }
 
         // Twitter Card
         setMeta('twitter:card', 'summary_large_image');
         setMeta('twitter:title', companyName);
         setMeta('twitter:description', cleanDescription);
+        if (profile?.logo || websiteData.hero?.image) {
+            setMeta('twitter:image', profile?.logo || websiteData.hero?.image);
+        }
 
-
-        // 3. STRUCTURED DATA (JSON-LD) for GOOGLE & LLMs
-        // ------------------------------------------------
-        // Bu bölüm, Google'ın "Bu bir işletmedir" diye anlaması için kritiktir.
-        // LLM'ler (ChatGPT vb.) bu veriyi okuyarak işletmeyi tanır.
-
+        // 3. STRUCTURED DATA (JSON-LD)
+        const services = websiteData.sections?.find(s => s.type === 'services')?.data?.items || [];
         const jsonLd = {
             "@context": "https://schema.org",
-            "@type": industry,
+            "@type": industry === 'Construction' ? 'HomeAndConstructionBusiness' : (industry === 'Beauty' ? 'BeautySalon' : 'LocalBusiness'),
             "name": companyName,
-            "image": websiteData.hero?.image || "",
+            "image": profile?.logo || websiteData.hero?.image || "",
             "description": cleanDescription,
             "telephone": profile?.phone || "",
             "email": profile?.email || "",
             "address": {
                 "@type": "PostalAddress",
-                "streetAddress": profile?.address || "",
+                "streetAddress": `${profile?.street || ''} ${profile?.houseNum || ''}`,
                 "addressLocality": profile?.city || "",
+                "postalCode": profile?.zip || "",
                 "addressCountry": "TR"
             },
             "url": window.location.href,
-            "openingHoursSpecification": [
-                {
-                    "@type": "OpeningHoursSpecification",
-                    "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-                    "opens": "09:00",
-                    "closes": "18:00"
-                }
-            ],
-            "priceRange": "₺₺",
-            "potentialAction": {
-                "@type": "ReserveAction",
-                "target": {
-                    "@type": "EntryPoint",
-                    "urlTemplate": `${window.location.origin}/booking`,
-                    "inLanguage": "tr-TR",
-                    "actionPlatform": [
-                        "http://schema.org/DesktopWebPlatform",
-                        "http://schema.org/IOSPlatform",
-                        "http://schema.org/AndroidPlatform"
-                    ]
-                },
-                "result": {
-                    "@type": "Reservation",
-                    "name": "Randevu Al"
-                }
-            },
-            ...(websiteData.sections?.some(s => s.type === 'features') && {
-                "hasOfferCatalog": {
-                    "@type": "OfferCatalog",
-                    "name": "Hizmetlerimiz",
-                    "itemListElement": websiteData.sections
-                        .filter(s => s.type === 'features')
-                        .flatMap(s => s.data.items || [])
-                        .map((item, index) => ({
-                            "@type": "Offer",
-                            "itemOffered": {
-                                "@type": "Service",
-                                "name": item.title,
-                                "description": item.desc
-                            }
-                        }))
-                }
-            })
+            "priceRange": "$$",
+            "hasOfferCatalog": {
+                "@type": "OfferCatalog",
+                "name": "Services",
+                "itemListElement": services.map((s, idx) => ({
+                    "@type": "Offer",
+                    "itemOffered": {
+                        "@type": "Service",
+                        "name": s.name || s.title,
+                        "description": s.description || s.desc
+                    }
+                }))
+            }
         };
 
         // Inject JSON-LD
@@ -159,7 +162,22 @@ const SeoAgent = ({ websiteData, profile }) => {
         }
         scriptTag.text = JSON.stringify(jsonLd);
 
-        console.log("🕵️‍♂️ SEO Agent: Site başarıyla optimize edildi.", { title: document.title, keywords: baseKeywords });
+        console.log("🕵️‍♂️ SEO Agent: Site optimized.", { title: document.title });
+
+        // AGENT ORCHESTRATION: Log SEO success
+        import('../lib/supabase').then(({ supabase }) => {
+            supabase.from('audit_logs').insert([{
+                action: 'SEO_OPTIMIZED',
+                source: 'BaySEO',
+                severity: 'info',
+                metadata: {
+                    title: document.title,
+                    description: cleanDescription.substring(0, 50) + '...',
+                    keywords_count: baseKeywords.split(',').length,
+                    json_ld: industry
+                }
+            }]).catch(() => { });
+        });
 
         // 4. ANALYTICS INJECTION (Google Analytics)
         // ------------------------------------------------
@@ -191,7 +209,7 @@ const SeoAgent = ({ websiteData, profile }) => {
         }
 
 
-    }, [websiteData, profile]); // Re-run whenever data changes
+    }, [stableKey]); // Only re-run when actual content values change
 
     return null; // This component renders nothing visually
 };

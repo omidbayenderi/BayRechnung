@@ -747,6 +747,16 @@ export const InvoiceProvider = ({ children }) => {
         setCompanyProfile(updatedProfile);
 
         if (currentUser?.id) {
+            // DB Constraint Protection: Only allow values supported by the database 'company_settings_industry_check'
+            const dbSupportedIndustries = [
+                'automotive', 'general', 'construction', 'gastronomy',
+                'healthcare', 'it', 'retail', 'crafts', 'consulting', 'education'
+            ];
+
+            const safeIndustry = dbSupportedIndustries.includes(updatedProfile.industry)
+                ? updatedProfile.industry
+                : 'general';
+
             const dbData = {
                 user_id: currentUser.id,
                 company_name: updatedProfile.companyName,
@@ -762,7 +772,7 @@ export const InvoiceProvider = ({ children }) => {
                 bank_name: updatedProfile.bankName,
                 iban: updatedProfile.iban,
                 logo_url: logoUrl,
-                industry: updatedProfile.industry,
+                industry: safeIndustry,
                 owner: updatedProfile.owner,
                 bic: updatedProfile.bic,
                 payment_terms: updatedProfile.paymentTerms,

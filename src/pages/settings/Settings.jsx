@@ -528,6 +528,8 @@ const Settings = () => {
                         <label>{t('industry')}</label>
                         <select className="form-input" name="industry" value={formData.industry} onChange={handleChange}>
                             <option value="automotive">🚗 {t('automotive')}</option>
+                            <option value="beauty">✨ {t('beauty')}</option>
+                            <option value="cleaning">🧹 {t('cleaning')}</option>
                             <option value="general">💼 {t('generalService')}</option>
                             <option value="construction">🏗️ Bauwesen / İnşaat</option>
                             <option value="gastronomy">🍽️ Gastronomie / Gastronomi</option>

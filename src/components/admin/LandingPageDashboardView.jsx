@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Save, Plus, Trash2, Video, DollarSign, Layout,
     CheckCircle, AlertCircle, Loader2, X, Edit3,
-    Type, Globe, AlertTriangle, Eye, EyeOff
+    Type, Globe, AlertTriangle, Eye, EyeOff,
+    ChevronUp, ChevronDown, Palette
 } from 'lucide-react';
 import LandingPagePreview from './LandingPagePreview';
 
@@ -22,6 +23,14 @@ const LandingPageDashboardView = () => {
     const [activeSelection, setActiveSelection] = useState(null);
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [activeSubTab, setActiveSubTab] = useState('content'); // content, design, pricing, videos
+    const [globalConfig, setGlobalConfig] = useState({
+        primaryColor: '#3b82f6',
+        secondaryColor: '#64748b',
+        fontHeading: '"Outfit", sans-serif',
+        fontBody: '"Inter", sans-serif',
+        radius: '12px'
+    });
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
@@ -92,6 +101,16 @@ const LandingPageDashboardView = () => {
                 setSections(data || []);
             } catch (err) {
                 setSections([]);
+            }
+
+            // 4. Global Config
+            try {
+                const { data, error } = await supabase.from('landing_sections').select('*').eq('slug', 'global-config').maybeSingle();
+                if (data && data.content) {
+                    setGlobalConfig(data.content);
+                }
+            } catch (err) {
+                console.warn('[LandingDCC] Global config fetch failed');
             }
 
         } catch (err) {
@@ -271,15 +290,26 @@ const LandingPageDashboardView = () => {
                 is_active: v.is_active
             }));
 
-            const [secRes, priRes, vidRes] = await Promise.all([
+            // 4. Global Config
+            const configPayload = {
+                slug: 'global-config',
+                type: 'config',
+                content: globalConfig,
+                is_active: true,
+                display_order: -1
+            };
+
+            const [secRes, priRes, vidRes, cfgRes] = await Promise.all([
                 supabase.from('landing_sections').upsert(sectionsBatch),
                 supabase.from('landing_pricing').upsert(pricingBatch),
-                supabase.from('landing_videos').upsert(videosBatch)
+                supabase.from('landing_videos').upsert(videosBatch),
+                supabase.from('landing_sections').upsert(configPayload, { onConflict: 'slug' })
             ]);
 
             if (secRes.error) throw secRes.error;
             if (priRes.error) throw priRes.error;
             if (vidRes.error) throw vidRes.error;
+            if (cfgRes.error) throw cfgRes.error;
 
             setMessage({ type: 'success', text: 'All changes published to landing page!' });
             setHasUnsavedChanges(false);
@@ -322,6 +352,21 @@ const LandingPageDashboardView = () => {
         }));
     };
 
+    const handleMoveSection = (id, direction) => {
+        setHasUnsavedChanges(true);
+        const index = sections.findIndex(s => s.id === id);
+        if (index === -1) return;
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= sections.length) return;
+
+        const newSections = [...sections];
+        [newSections[index], newSections[newIndex]] = [newSections[newIndex], newSections[index]];
+
+        // Re-assign display orders
+        const reordered = newSections.map((s, i) => ({ ...s, display_order: i + 1 }));
+        setSections(reordered);
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '100px' }}>
@@ -337,7 +382,29 @@ const LandingPageDashboardView = () => {
                     <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '8px' }}>Visual Editor (No-Code)</h2>
                     <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Real-time marketing engine for your business.</p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '12px', marginRight: '16px' }}>
+                        {[
+                            { id: 'content', label: 'Content', icon: Layout },
+                            { id: 'design', label: 'Design', icon: Palette || Edit3 },
+                            { id: 'pricing', label: 'Pricing', icon: DollarSign },
+                            { id: 'videos', label: 'Gallery', icon: Video }
+                        ].map(sub => (
+                            <button
+                                key={sub.id}
+                                onClick={() => setActiveSubTab(sub.id)}
+                                style={{
+                                    padding: '8px 16px', borderRadius: '8px', border: 'none',
+                                    background: activeSubTab === sub.id ? '#3b82f6' : 'transparent',
+                                    color: activeSubTab === sub.id ? 'white' : '#64748b',
+                                    fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s'
+                                }}
+                            >
+                                <sub.icon size={14} /> {sub.label}
+                            </button>
+                        ))}
+                    </div>
                     {hasUnsavedChanges && (
                         <motion.button
                             initial={{ scale: 0.9, opacity: 0 }}
@@ -391,168 +458,185 @@ const LandingPageDashboardView = () => {
             }}>
                 {/* Editor Column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', height: 'fit-content' }}>
-
-                    {/* Pricing Section */}
-                    <section
-                        ref={pricingRef}
-                        style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '24px', padding: '24px', border: activeSelection === 'pricing' ? '2px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.05)', transition: 'border 0.3s ease' }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <DollarSign size={20} color="#3b82f6" />
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Pricing Plans</h3>
-                            </div>
-                            <button
-                                onClick={() => setNewPlan({ id: `new-${Date.now()}`, plan_id: 'standard', name_key: 'standard', price_monthly: 19, price_yearly: 199, is_featured: false, features: [] })}
-                                disabled={!!newPlan}
-                                style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: newPlan ? 0.5 : 1 }}
+                    {activeSubTab === 'content' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            {/* CMS Sections */}
+                            <section
+                                ref={cmsRef}
+                                style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '24px', padding: '24px', border: activeSelection === 'cms-sections' ? '2px solid #10b981' : '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.3s ease' }}
                             >
-                                <Plus size={14} /> New Plan
-                            </button>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                            {[...pricing, ...(newPlan ? [newPlan] : [])].map(plan => (
-                                <div key={plan.id} style={{ padding: '24px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '20px', border: plan.id.toString().startsWith('new-') ? '2px dashed #3b82f6' : '1px solid rgba(255, 255, 255, 0.05)', position: 'relative' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                        <input
-                                            value={plan.plan_id}
-                                            onChange={(e) => {
-                                                if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, plan_id: e.target.value, name_key: e.target.value });
-                                                else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, plan_id: e.target.value, name_key: e.target.value } : p));
-                                            }}
-                                            style={{ background: 'transparent', border: 'none', color: '#3b82f6', fontWeight: '800', fontSize: '1.1rem', textTransform: 'uppercase', width: '60%' }}
-                                        />
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            <button onClick={() => handleDeletePricing(plan.id)} style={{ padding: '6px', background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '8px', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                                        </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <Layout size={20} color="#10b981" />
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Announcements & Custom Blocks</h3>
                                     </div>
-
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '16px', cursor: 'pointer' }}>
-                                        <input type="checkbox" checked={plan.is_featured} onChange={(e) => {
-                                            if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, is_featured: e.target.checked });
-                                            else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, is_featured: e.target.checked } : p));
-                                        }} />
-                                        Featured Badge
-                                    </label>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                                        <div>
-                                            <div style={{ fontSize: '0.65rem', color: '#64748b', marginBottom: '4px' }}>Monthly (€)</div>
-                                            <input type="number" value={plan.price_monthly} onChange={(e) => {
-                                                if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, price_monthly: parseFloat(e.target.value) });
-                                                else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, price_monthly: parseFloat(e.target.value) } : p));
-                                            }} style={{ width: '100%', padding: '8px', background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: 'white', fontSize: '0.9rem' }} />
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: '0.65rem', color: '#64748b', marginBottom: '4px' }}>Yearly (€)</div>
-                                            <input type="number" value={plan.price_yearly} onChange={(e) => {
-                                                if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, price_yearly: parseFloat(e.target.value) });
-                                                else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, price_yearly: parseFloat(e.target.value) } : p));
-                                            }} style={{ width: '100%', padding: '8px', background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: 'white', fontSize: '0.9rem' }} />
-                                        </div>
-                                    </div>
-
-                                    <div style={{ marginBottom: '20px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#cbd5e1' }}>Features</div>
-                                            <button onClick={() => handleAddFeature(plan.id)} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}><Plus size={16} /></button>
-                                        </div>
-                                        <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            {(plan.features || []).map((feature, idx) => (
-                                                <div key={idx} style={{ display: 'flex', gap: '8px' }}>
-                                                    <input value={feature} onChange={(e) => {
-                                                        const newFeatures = [...plan.features]; newFeatures[idx] = e.target.value;
-                                                        if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, features: newFeatures });
-                                                        else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, features: newFeatures } : p));
-                                                    }} style={{ flex: 1, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: '#94a3b8', fontSize: '0.8rem' }} />
-                                                    <button onClick={() => handleRemoveFeature(plan.id, idx)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <button onClick={() => handleSavePricing(plan)} disabled={saving} style={{ width: '100%', padding: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '700' }}>
-                                        {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save Changes
+                                    <button
+                                        onClick={() => setEditSection({ id: `new-${Date.now()}`, slug: 'new-banner', type: 'alert', content: { title: 'New Banner', text: 'Text goes here' }, is_active: true, display_order: sections.length + 1 })}
+                                        style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <Plus size={14} /> New Section
                                     </button>
                                 </div>
-                            ))}
-                        </div>
-                    </section>
-
-                    {/* Video Gallery */}
-                    <section
-                        ref={videosRef}
-                        style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '24px', padding: '24px', border: activeSelection === 'videos' ? '2px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.3s ease' }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Video size={18} color="#a855f7" />
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Video Gallery</h3>
-                            </div>
-                            <button
-                                onClick={() => setEditVideo({ id: `new-${Date.now()}`, title: '', description: '', video_url: '', is_active: true, display_order: 1 })}
-                                style={{ background: '#a855f7', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                                <Plus size={14} /> Add Video
-                            </button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {videos.map(video => (
-                                <div key={video.id} style={{ padding: '16px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                        <div style={{ width: '48px', height: '48px', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a855f7' }}><Video size={20} /></div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: '0.95rem', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{video.title}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{video.video_url}</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+                                    {sections.map((section, idx) => (
+                                        <div key={section.id} style={{ padding: '24px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.05)', position: 'relative' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '4px 10px', borderRadius: '8px', fontWeight: '800' }}>{section.type.toUpperCase()}</span>
+                                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                                        <button onClick={() => handleMoveSection(section.id, 'up')} disabled={idx === 0} style={{ padding: '4px', background: 'none', border: 'none', color: idx === 0 ? '#1e293b' : '#64748b', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}><ChevronUp size={16} /></button>
+                                                        <button onClick={() => handleMoveSection(section.id, 'down')} disabled={idx === sections.length - 1} style={{ padding: '4px', background: 'none', border: 'none', color: idx === sections.length - 1 ? '#1e293b' : '#64748b', cursor: idx === sections.length - 1 ? 'not-allowed' : 'pointer' }}><ChevronDown size={16} /></button>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button onClick={() => setEditSection(section)} style={{ color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer' }}><Edit3 size={18} /></button>
+                                                    <button onClick={() => handleDeleteSection(section.id)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>
+                                                </div>
+                                            </div>
+                                            <h4 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'white', marginBottom: '8px' }}>{section.content.title}</h4>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#64748b' }}>
+                                                <Globe size={12} /> {section.slug}
+                                                <span style={{ color: section.is_active ? '#10b981' : '#ef4444', fontWeight: '700' }}>• {section.is_active ? 'LIVE' : 'HIDDEN'}</span>
+                                            </div>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button onClick={() => setEditVideo(video)} style={{ color: '#cbd5e1', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}><Edit3 size={16} /></button>
-                                            <button onClick={() => handleDeleteVideo(video.id)} style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                    ))}
+                                </div>
+                            </section>
+                        </div>
+                    )}
+
+                    {activeSubTab === 'design' && (
+                        <div style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '24px', padding: '32px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '24px', color: '#3b82f6' }}>Global Brand Settings</h3>
+                            <div style={{ display: 'grid', gap: '24px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Primary Brand Color</label>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <input type="color" value={globalConfig.primaryColor} onChange={(e) => { setHasUnsavedChanges(true); setGlobalConfig({ ...globalConfig, primaryColor: e.target.value }); }} style={{ width: '48px', height: '48px', border: 'none', borderRadius: '12px', cursor: 'pointer' }} />
+                                            <input value={globalConfig.primaryColor} onChange={(e) => { setHasUnsavedChanges(true); setGlobalConfig({ ...globalConfig, primaryColor: e.target.value }); }} style={{ flex: 1, background: '#0f172a', border: '1px solid #334155', borderRadius: '12px', color: 'white', padding: '0 12px' }} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Secondary Color</label>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <input type="color" value={globalConfig.secondaryColor} onChange={(e) => { setHasUnsavedChanges(true); setGlobalConfig({ ...globalConfig, secondaryColor: e.target.value }); }} style={{ width: '48px', height: '48px', border: 'none', borderRadius: '12px', cursor: 'pointer' }} />
+                                            <input value={globalConfig.secondaryColor} onChange={(e) => { setHasUnsavedChanges(true); setGlobalConfig({ ...globalConfig, secondaryColor: e.target.value }); }} style={{ flex: 1, background: '#0f172a', border: '1px solid #334155', borderRadius: '12px', color: 'white', padding: '0 12px' }} />
                                         </div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    </section>
 
-                    {/* CMS Sections */}
-                    <section
-                        ref={cmsRef}
-                        style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '24px', padding: '24px', border: activeSelection === 'cms-sections' ? '2px solid #10b981' : '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.3s ease' }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Layout size={20} color="#10b981" />
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Announcements & Custom Blocks</h3>
-                            </div>
-                            <button
-                                onClick={() => setEditSection({ id: `new-${Date.now()}`, slug: 'new-banner', type: 'alert', content: { title: 'New Banner', text: 'Text goes here' }, is_active: true, display_order: 99 })}
-                                style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                                <Plus size={14} /> New Section
-                            </button>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                            {sections.map(section => (
-                                <div key={section.id} style={{ padding: '24px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                        <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '4px 10px', borderRadius: '8px', fontWeight: '800' }}>{section.type.toUpperCase()}</span>
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            <button onClick={() => setEditSection(section)} style={{ color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer' }}><Edit3 size={18} /></button>
-                                            <button onClick={() => handleDeleteSection(section.id)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={18} /></button>
-                                        </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Heading Font</label>
+                                        <select value={globalConfig.fontHeading} onChange={(e) => { setHasUnsavedChanges(true); setGlobalConfig({ ...globalConfig, fontHeading: e.target.value }); }} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '12px', color: 'white' }}>
+                                            <option value='"Outfit", sans-serif'>Outfit (Modern)</option>
+                                            <option value='"Inter", sans-serif'>Inter (Clean)</option>
+                                            <option value='"Playfair Display", serif'>Playfair (Elegant)</option>
+                                        </select>
                                     </div>
-                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'white', marginBottom: '8px' }}>{section.content.title}</h4>
-                                    <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: '1.6', marginBottom: '16px' }}>{section.content.text}</p>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#64748b' }}>
-                                        <Globe size={12} /> {section.slug}
-                                        <span style={{ color: section.is_active ? '#10b981' : '#ef4444', fontWeight: '700' }}>• {section.is_active ? 'LIVE' : 'HIDDEN'}</span>
+                                    <div>
+                                        <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Surface Radius</label>
+                                        <select value={globalConfig.radius} onChange={(e) => { setHasUnsavedChanges(true); setGlobalConfig({ ...globalConfig, radius: e.target.value }); }} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '12px', color: 'white' }}>
+                                            <option value="0px">Sharp (0px)</option>
+                                            <option value="8px">Soft (8px)</option>
+                                            <option value="12px">Standard (12px)</option>
+                                            <option value="24px">Round (24px)</option>
+                                            <option value="100px">Full (Pill)</option>
+                                        </select>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
                         </div>
-                    </section>
+                    )}
+
+                    {activeSubTab === 'pricing' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            {/* Pricing Section */}
+                            <section
+                                ref={pricingRef}
+                                style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '24px', padding: '24px', border: activeSelection === 'pricing' ? '2px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.05)', transition: 'border 0.3s ease' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <DollarSign size={20} color="#3b82f6" />
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Pricing Plans</h3>
+                                    </div>
+                                    <button
+                                        onClick={() => setNewPlan({ id: `new-${Date.now()}`, plan_id: 'standard', name_key: 'standard', price_monthly: 19, price_yearly: 199, is_featured: false, features: [] })}
+                                        disabled={!!newPlan}
+                                        style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: newPlan ? 0.5 : 1 }}
+                                    >
+                                        <Plus size={14} /> New Plan
+                                    </button>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+                                    {[...pricing, ...(newPlan ? [newPlan] : [])].map(plan => (
+                                        <div key={plan.id} style={{ padding: '24px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '20px', border: plan.id.toString().startsWith('new-') ? '2px dashed #3b82f6' : '1px solid rgba(255, 255, 255, 0.05)', position: 'relative' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                                <input
+                                                    value={plan.plan_id}
+                                                    onChange={(e) => {
+                                                        if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, plan_id: e.target.value, name_key: e.target.value });
+                                                        else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, plan_id: e.target.value, name_key: e.target.value } : p));
+                                                    }}
+                                                    style={{ background: 'transparent', border: 'none', color: '#3b82f6', fontWeight: '800', fontSize: '1.1rem', textTransform: 'uppercase', width: '60%' }}
+                                                />
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button onClick={() => handleDeletePricing(plan.id)} style={{ padding: '6px', background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '8px', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                                <button onClick={() => handleSavePricing(plan)} disabled={saving} style={{ padding: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '700' }}>
+                                                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        </div>
+                    )}
+
+                    {activeSubTab === 'videos' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            {/* Video Gallery */}
+                            <section
+                                ref={videosRef}
+                                style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '24px', padding: '24px', border: activeSelection === 'videos' ? '2px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.3s ease' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <Video size={18} color="#a855f7" />
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Video Gallery</h3>
+                                    </div>
+                                    <button
+                                        onClick={() => setEditVideo({ id: `new-${Date.now()}`, title: '', description: '', video_url: '', is_active: true, display_order: 1 })}
+                                        style={{ background: '#a855f7', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <Plus size={14} /> Add Video
+                                    </button>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    {videos.map(video => (
+                                        <div key={video.id} style={{ padding: '16px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                                <div style={{ width: '48px', height: '48px', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a855f7' }}><Video size={20} /></div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '0.95rem', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{video.title}</div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button onClick={() => setEditVideo(video)} style={{ color: '#cbd5e1', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}><Edit3 size={16} /></button>
+                                                    <button onClick={() => handleDeleteVideo(video.id)} style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        </div>
+                    )}
                 </div>
 
                 {/* Preview Column */}
@@ -588,9 +672,20 @@ const LandingPageDashboardView = () => {
                                 pricingPlans={[...pricing, ...(newPlan ? [newPlan] : [])]}
                                 dynamicVideos={videos}
                                 dynamicSections={sections}
-                                onSelect={handleSelect}
+                                globalConfig={globalConfig}
+                                onSelect={(type) => {
+                                    if (type === 'cms-sections') setActiveSubTab('content');
+                                    if (type === 'pricing') setActiveSubTab('pricing');
+                                    if (type === 'videos') setActiveSubTab('videos');
+                                    setActiveSelection(type);
+                                }}
                                 activeSection={activeSelection}
-                                onUpdateContent={handleUpdateContent}
+                                onUpdateContent={(type, data) => {
+                                    setHasUnsavedChanges(true);
+                                    if (type === 'sections') setSections(prev => prev.map(s => s.id === data.id ? data : s));
+                                    if (type === 'pricing') setPricing(prev => prev.map(p => p.id === data.id ? data : p));
+                                    if (type === 'videos') setVideos(prev => prev.map(v => v.id === data.id ? data : v));
+                                }}
                             />
                         </div>
                     </div>
@@ -618,6 +713,9 @@ const LandingPageDashboardView = () => {
                                             <option value="alert">Hero Announcement</option>
                                             <option value="banner">Content Banner</option>
                                             <option value="card">Feature Card</option>
+                                            <option value="faq">FAQ Module</option>
+                                            <option value="testimonial">Testimonial</option>
+                                            <option value="stats">Stat Cluster</option>
                                         </select>
                                     </div>
                                 </div>

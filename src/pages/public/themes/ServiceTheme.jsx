@@ -1,25 +1,29 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-    Phone, Mail, MapPin, Clock, Calendar, ChevronRight,
-    ArrowRight, Star, Quote, CheckCircle, Search, ShoppingCart,
-    Menu, X, Facebook, Instagram, Twitter, Linkedin, User, LogOut, Settings, Globe,
-    Wrench, Car, Zap, Scissors, Briefcase, Sparkles, Disc, CircleDot, Shield, ShoppingBag, PenTool,
-    Utensils, Stethoscope, Heart, Wind, Droplet, Hash, ChevronDown
+    Phone, Mail, MapPin, Clock, ChevronRight,
+    Star, Quote, CheckCircle, Moon, Sun,
+    Menu, X, Facebook, Instagram, Twitter, Linkedin, Briefcase, Sparkles, Shield, ShoppingBag,
+    ChevronDown, Navigation, Scissors, Car, Zap, Disc, CircleDot, Wrench, Utensils, Stethoscope, Heart, Wind, Droplet
 } from 'lucide-react';
 
 import { AgentFactory } from '../components/agents/AgentFactory';
 import { useLanguage } from '../../../context/LanguageContext';
 
-const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userActions, state, languageActions }) => {
-    const { profile, config, sections = [], products = [] } = siteData;
-    const { cart, isCartOpen } = state;
+const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userActions, state, languageActions, editorActions = {}, handleSubmitMessage }) => {
+    const { profile, config, sections = [], products = [], appointmentSettings } = siteData;
+    const { onSectionSelect, activeSectionId } = editorActions;
+    const { cart } = state;
     const { addToCart, setIsCartOpen } = cartActions;
     const { currentUser, setIsCustomerPanelOpen } = userActions;
-    const t = languageActions?.t || useLanguage().t;
-    const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-    const [isMobile, setIsMobile] = React.useState(window.innerWidth < 900);
+    const { t: hookT } = useLanguage();
+    const t = languageActions?.t || hookT;
+
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
+    const [sendingMsg, setSendingMsg] = useState(false);
+    const [modeOverride, setModeOverride] = useState(null);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 900);
@@ -27,35 +31,69 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // --- AGENT-LED DESIGN SYSTEM ---
+    const getAutoMode = () => {
+        const hour = new Date().getHours();
+        const isNight = hour >= 18 || hour < 6;
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return systemPrefersDark || isNight ? 'dark' : 'light';
+    };
+
+    const activeMode = modeOverride || (siteData.mode === 'auto' || !siteData.mode ? getAutoMode() : siteData.mode);
+    const isDark = activeMode === 'dark';
+    const modeKey = isDark ? 'dark' : 'light';
+
     const agent = AgentFactory.getAgent(siteData);
     const agentSpecs = agent.getThemeSpecs(variant);
 
     const DS = {
         ...agentSpecs,
         primary: config?.theme?.primaryColor || themeColors.primary,
-        primaryDark: themeColors.primaryDark,
-        primaryLight: themeColors.primaryLight,
         accent: config?.theme?.secondaryColor || themeColors.secondary,
-        buttonText: themeColors.buttonText,
-        bg: themeColors.background,
-        text: themeColors.text,
-        fontPrimary: config?.theme?.fontBody || themeColors.font || agentSpecs.fontPrimary,
-        fontHeader: config?.theme?.fontHeading || themeColors.font || agentSpecs.fontHeader,
+        surface: config?.theme?.colors?.[modeKey]?.surface || (isDark ? '#1e293b' : '#ffffff'),
+        surfaceSecondary: isDark ? '#334155' : '#f8fafc',
+        text: config?.theme?.colors?.[modeKey]?.text || (isDark ? '#f8fafc' : '#1e293b'),
+        textSecondary: config?.theme?.colors?.[modeKey]?.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+        border: config?.theme?.colors?.[modeKey]?.border || (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'),
+        bg: (() => {
+            const bgs = config?.theme?.backgrounds?.body;
+            const val = bgs?.[modeKey]?.value || bgs?.value;
+            if (val && val !== 'default' && !val.startsWith('http')) return val;
+            return config?.theme?.colors?.[modeKey]?.bg || (isDark ? '#0f172a' : '#ffffff');
+        })(),
         radius: config?.theme?.radius || '16px',
-        shadow: '0 10px 30px -10px rgba(0,0,0,0.08)',
-        shadowHover: '0 20px 40px -15px rgba(0,0,0,0.15)',
-        border: 'rgba(0,0,0,0.05)'
+        shadow: isDark ? '0 10px 30px -10px rgba(0,0,0,0.5)' : '0 10px 30px -10px rgba(0,0,0,0.08)'
     };
 
-    const industry = profile?.industry || 'general';
-    const isAutomotive = industry === 'automotive';
+    const getBgStyle = (zone, sectionData = {}) => {
+        const override = sectionData.style?.backgrounds?.[modeKey] || sectionData.style?.background;
 
-    const getServiceIcon = (serviceName = '', savedIcon = null) => {
-        if (savedIcon) {
-            const icons = { Sparkles, Scissors, Car, Zap, Briefcase, Disc, CircleDot, Wrench, Utensils, Stethoscope, Heart, ShoppingBag, Wind, Droplet };
-            return icons[savedIcon] || Sparkles;
+        let cfg = (typeof override === 'object') ? override : null;
+        if (!cfg) {
+            const globalZone = config?.theme?.backgrounds?.[zone];
+            cfg = globalZone?.[modeKey] || globalZone;
         }
+
+        if (!cfg || !cfg.value || cfg.value === 'default') {
+            const fallbackVal = (typeof override === 'string' && override !== 'default') ? override : null;
+            if (fallbackVal) return { background: fallbackVal };
+            return { background: zone === 'hero' ? DS.primary : (zone === 'footer' ? DS.surfaceSecondary : DS.bg) };
+        }
+
+        if (cfg.type === 'color' || cfg.type === 'gradient') return { background: cfg.value };
+        if (cfg.type === 'image') {
+            return {
+                backgroundImage: `url(${cfg.value})`,
+                backgroundSize: cfg.size || 'cover',
+                backgroundPosition: cfg.position || 'center',
+                backgroundRepeat: 'no-repeat'
+            };
+        }
+        return { background: cfg.value };
+    };
+
+    const getServiceIcon = (name = '', savedIcon = null) => {
+        const icons = { Sparkles, Scissors, Car, Zap, Briefcase, Disc, CircleDot, Wrench, Utensils, Stethoscope, Heart, ShoppingBag, Wind, Droplet };
+        if (savedIcon) return icons[savedIcon] || Sparkles;
         return Sparkles;
     };
 
@@ -63,380 +101,284 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
         e.preventDefault();
         const element = document.getElementById(id);
         if (element) {
-            const headerOffset = 100;
-            const elementPosition = element.getBoundingClientRect().top;
-            const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-            window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+            window.scrollTo({ top: element.offsetTop - 80, behavior: "smooth" });
         }
     };
 
-    // Render logic for different section types
+    const [hoveredSection, setHoveredSection] = useState(null);
+
+    const SectionWrapper = ({ id, children, type }) => {
+        const isActive = activeSectionId === id;
+        const isEditable = !!onSectionSelect;
+        const section = sections.find(s => s.id === id);
+        const isHidden = section?.visible === false;
+        const isHovered = hoveredSection === id;
+        if (!isEditable) return children;
+        return (
+            <div
+                onClick={(e) => { e.stopPropagation(); onSectionSelect(id); }}
+                onMouseEnter={() => setHoveredSection(id)}
+                onMouseLeave={() => setHoveredSection(null)}
+                style={{
+                    position: 'relative', cursor: 'pointer',
+                    outline: isActive ? `3px solid ${DS.primary}` : isHovered ? `2px dashed ${DS.primary}88` : 'none',
+                    outlineOffset: isActive ? '-3px' : '-2px',
+                    transition: 'outline 0.15s, opacity 0.2s',
+                    opacity: isHidden ? 0.4 : 1,
+                    zIndex: isActive ? 50 : isHovered ? 10 : 1
+                }}
+            >
+                {isActive && (
+                    <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', background: DS.primary, color: 'white', padding: '6px 16px', borderRadius: '0 0 10px 10px', fontSize: '0.7rem', fontWeight: '900', zIndex: 100, letterSpacing: '1px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                        ✏️ {type?.toUpperCase()} {isHidden && '(HIDDEN)'}
+                    </div>
+                )}
+                {!isActive && isHovered && (
+                    <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '6px 14px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '700', zIndex: 100, backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        ✏️ Click to Edit
+                    </div>
+                )}
+                {children}
+            </div>
+        );
+    };
+
+    const onSendMessage = async (e) => {
+        e.preventDefault();
+        if (sendingMsg) return;
+        setSendingMsg(true);
+        const f = e.target;
+        const res = await handleSubmitMessage({ name: f.name.value, email: f.email.value, message: f.message.value });
+        if (res.success) { alert(t('message_sent_success') || 'Sent!'); f.reset(); }
+        else { alert(res.error); }
+        setSendingMsg(false);
+    };
+
     const renderSection = (section) => {
         const sd = section.data || {};
-        const style = sd.style || {};
-        const isVisible = section.visible !== false;
-        if (!isVisible) return null;
+        if (section.visible === false && !onSectionSelect) return null;
+        const isHero = section.type.toLowerCase() === 'hero';
 
-        const bgStyles = {
-            default: { background: DS.bg },
-            gray: { background: '#f8fafc' },
-            primary: { background: DS.primary, color: 'white' },
-            gradient: { background: `linear-gradient(135deg, ${DS.primary}, ${DS.primaryDark})`, color: 'white' }
-        };
-
+        const sectionBg = getBgStyle(isHero ? 'hero' : 'body', sd);
         const sectionWrapperStyle = {
-            ...bgStyles[style.background || 'default'],
-            padding: style.padding === 'compact' ? '60px 24px' : style.padding === 'spacious' ? '140px 24px' : '100px 24px',
-            position: 'relative'
+            ...sectionBg,
+            padding: sd.style?.padding === 'compact' ? '40px 24px' : sd.style?.padding === 'spacious' ? '120px 24px' : '80px 24px',
+            position: 'relative',
+            color: (isHero || sectionBg.backgroundImage) ? 'white' : DS.text
         };
 
-        switch (section.type.toLowerCase()) {
-            case 'hero':
-                return (
-                    <header key={section.id} id="hero" style={{
-                        background: sd.type === 'color' ? DS.primary : (sd.url ? `url(${sd.url}) center/cover no-repeat` : DS.primary),
-                        padding: '160px 24px', textAlign: 'center', color: 'white', position: 'relative', overflow: 'hidden'
-                    }}>
-                        {sd.url && <div style={{ position: 'absolute', inset: 0, background: `rgba(0,0,0,${sd.overlay || 0.5})`, zIndex: 0 }}></div>}
-                        <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'rgba(255,255,255,0.1)', borderRadius: '100px', backdropFilter: 'blur(8px)', marginBottom: '24px', fontSize: '0.8rem', fontWeight: '800', letterSpacing: '1px' }}>
-                                <Shield size={14} color={DS.accent} /> {isAutomotive ? t('theme_service_hero_label_auto') : t('theme_service_hero_label_general')}
-                            </div>
-                            <h1 style={{ fontSize: isMobile ? '3rem' : '4.5rem', fontWeight: '900', marginBottom: '24px', lineHeight: 1.1 }}>{sd.title || t('hero_title')}</h1>
-                            <p style={{ fontSize: '1.25rem', marginBottom: '40px', opacity: 0.9, maxWidth: '700px', margin: '0 auto 40px' }}>{sd.subtitle || sd.description}</p>
-                            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                <Link to="/booking">
-                                    <button style={{ background: DS.accent, color: 'white', padding: '18px 48px', border: 'none', borderRadius: DS.radius, fontWeight: '800', cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 15px 30px -10px ' + DS.accent + '60' }}>
-                                        {sd.buttonText || t('theme_cta_book')}
-                                    </button>
-                                </Link>
-                                <a href="#services" onClick={(e) => scrollToSection(e, 'services')}>
-                                    <button style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '18px 48px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: DS.radius, fontWeight: '800', cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
-                                        {t('theme_cta_services')}
-                                    </button>
-                                </a>
-                            </div>
-                        </div>
-                    </header>
-                );
-
-            case 'services':
-                return (
-                    <section key={section.id} id="services" style={sectionWrapperStyle}>
-                        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-                            <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                                <span style={{ color: DS.accent, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.85rem' }}>{t('theme_service_specialties_title')}</span>
-                                <h2 style={{ fontSize: '3rem', fontWeight: '900', marginTop: '12px' }}>{sd.title || t('theme_nav_services')}</h2>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
-                                {(siteData.appointmentSettings?.services || []).map(s => {
-                                    const ServiceIcon = getServiceIcon(s.name, s.icon);
-                                    return (
-                                        <div key={s.id} style={{ background: 'white', padding: '40px', borderRadius: DS.radius, boxShadow: DS.shadow, color: DS.text, border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column' }}>
-                                            <div style={{ width: '60px', height: '60px', background: DS.primary + '10', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.primary, marginBottom: '24px' }}>
-                                                <ServiceIcon size={30} />
-                                            </div>
-                                            <h3 style={{ fontWeight: '800', fontSize: '1.5rem', marginBottom: '16px' }}>{s.name}</h3>
-                                            <p style={{ opacity: 0.7, marginBottom: '24px', flex: 1, lineHeight: 1.6 }}>{s.description}</p>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '24px', borderTop: '1px solid #f1f5f9' }}>
-                                                <div style={{ fontWeight: '900', fontSize: '1.4rem', color: DS.primary }}>{Number(s.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
-                                                <Link to={`/booking?service=${s.id}`} style={{ color: DS.accent, fontWeight: '700', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    {t('theme_cta_book')} <ChevronRight size={16} />
-                                                </Link>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </section>
-                );
-
-            case 'pricing':
-                return (
-                    <section key={section.id} id="pricing" style={sectionWrapperStyle}>
-                        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                            <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                                <h2 style={{ fontSize: '3rem', fontWeight: '900' }}>{sd.title || t('pricing_plans')}</h2>
-                                {sd.subtitle && <p style={{ opacity: 0.7, marginTop: '12px' }}>{sd.subtitle}</p>}
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-                                {(sd.items || []).map((plan, i) => (
-                                    <div key={i} style={{ background: 'white', padding: '48px', borderRadius: DS.radius, border: '1px solid #f1f5f9', boxShadow: DS.shadow, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '800', textTransform: 'uppercase', color: DS.primary, marginBottom: '12px' }}>{plan.name}</h3>
-                                        <div style={{ marginBottom: '32px' }}>
-                                            <span style={{ fontSize: '3.5rem', fontWeight: '900' }}>€{plan.price}</span>
-                                            <span style={{ opacity: 0.5 }}>/mt</span>
-                                        </div>
-                                        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 40px 0', flex: 1 }}>
-                                            {(plan.features || []).map((f, fi) => (
-                                                <li key={fi} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', fontSize: '0.95rem' }}>
-                                                    <CheckCircle size={18} color="#10b981" /> {f}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        <button style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: DS.primary, color: 'white', fontWeight: '800', cursor: 'pointer' }}>{t('choose_plan')}</button>
+        const content = (() => {
+            switch (section.type.toLowerCase()) {
+                case 'hero':
+                    return (
+                        <header id="hero" style={{ ...sectionBg, padding: isMobile ? '100px 24px' : '160px 24px', position: 'relative', minHeight: '600px', display: 'flex', alignItems: 'center' }}>
+                            {(sectionBg.backgroundImage || sd.url) && <div style={{ position: 'absolute', inset: 0, background: `rgba(0,0,0,${sd.overlay || 0.4})`, zIndex: 0 }}></div>}
+                            <div style={{ maxWidth: '1280px', margin: '0 auto', position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: '60px', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: DS.primary + '15', color: DS.primary, borderRadius: '100px', marginBottom: '24px', fontSize: '0.85rem', fontWeight: '800' }}>
+                                        <Sparkles size={16} /> {t('theme_hero_badge') || 'Premium Service'}
                                     </div>
-                                ))}
+                                    <h1 style={{ fontSize: isMobile ? '2.5rem' : (sd.headingSize || '4.5rem'), color: sd.headingColor || 'inherit', fontWeight: '900', marginBottom: '24px', lineHeight: 1.1 }}>{sd.title || t('hero_title')}</h1>
+                                    <p style={{ fontSize: sd.subtitleSize || '1.2rem', color: sd.subtitleColor || 'inherit', marginBottom: '40px', maxWidth: '600px', opacity: 0.9 }}>{sd.subtitle || sd.description}</p>
+                                    <div style={{ display: 'flex', gap: '16px' }}>
+                                        <Link to={`/booking?domain=${siteData.slug}`}><button style={{ background: 'white', color: DS.primary, padding: '20px 48px', border: 'none', borderRadius: DS.radius, fontWeight: '800', cursor: 'pointer', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)' }}>{sd.buttonText || t('theme_cta_book')}</button></Link>
+                                        <a href="#services" onClick={(e) => scrollToSection(e, 'services')}><button style={{ background: 'transparent', color: DS.text, padding: '18px 40px', border: '2px solid ' + DS.border, borderRadius: DS.radius, fontWeight: '800', cursor: 'pointer' }}>{t('theme_nav_services')}</button></a>
+                                    </div>
+                                </div>
+                                {!isMobile && sd.image && <img src={sd.image} alt="Hero" style={{ width: '100%', borderRadius: DS.radius, boxShadow: '0 30px 60px -12px rgba(0,0,0,0.25)' }} />}
                             </div>
-                        </div>
-                    </section>
-                );
-
-            case 'faq':
-                return (
-                    <section key={section.id} id="faq" style={sectionWrapperStyle}>
-                        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                            <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                                <h2 style={{ fontSize: '3rem', fontWeight: '900' }}>{sd.title || t('faq')}</h2>
+                        </header>
+                    );
+                case 'services':
+                    return (
+                        <section id="services" style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+                                <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+                                    <span style={{ color: DS.primary, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px' }}>{t('theme_service_specialties_title')}</span>
+                                    <h2 style={{ fontSize: '3rem', fontWeight: '900', marginTop: '12px' }}>{sd.title || t('theme_nav_services')}</h2>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
+                                    {(siteData.appointmentSettings?.services || []).map((s, i) => {
+                                        const Icon = getServiceIcon(s.name, s.icon);
+                                        return (
+                                            <div key={i} style={{ background: DS.surface, padding: '40px', borderRadius: DS.radius, border: '1px solid ' + DS.border, boxShadow: DS.shadow, display: 'flex', flexDirection: 'column' }}>
+                                                <div style={{ width: 60, height: 60, background: DS.primary + '10', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.primary, marginBottom: 24 }}>
+                                                    <Icon size={30} />
+                                                </div>
+                                                <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>{s.name}</h3>
+                                                <p style={{ color: DS.textSecondary, flex: 1 }}>{s.description}</p>
+                                                <div style={{ fontWeight: '900', color: DS.primary, marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span>{s.price} {profile?.currency}</span>
+                                                    <Link to={`/booking?domain=${siteData.slug}&serviceId=${s.id}`} style={{ background: DS.primary, color: 'white', padding: '12px 24px', borderRadius: '30px', textDecoration: 'none', fontWeight: '800', fontSize: '0.9rem' }}>{t('book_now')}</Link>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {(sd.items || []).map((item, i) => (
-                                    <details key={i} style={{ background: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #f1f5f9', cursor: 'pointer' }}>
-                                        <summary style={{ fontWeight: '800', fontSize: '1.1rem', listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            {item.q} <ChevronDown size={20} />
-                                        </summary>
-                                        <p style={{ marginTop: '16px', opacity: 0.7, lineHeight: 1.6 }}>{item.a}</p>
-                                    </details>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-                );
-
-            case 'testimonials':
-                return (
-                    <section key={section.id} style={sectionWrapperStyle}>
-                        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-                            <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                                <h2 style={{ fontSize: '3rem', fontWeight: '900' }}>{sd.title || t('customer_love')}</h2>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '32px' }}>
-                                {(sd.items || []).map((item, i) => (
-                                    <div key={i} style={{ background: 'white', padding: '40px', borderRadius: DS.radius, border: '1px solid #f1f5f9', boxShadow: DS.shadow }}>
-                                        <Quote size={40} color={DS.primary + '30'} style={{ marginBottom: '24px' }} />
-                                        <p style={{ fontSize: '1.1rem', fontStyle: 'italic', marginBottom: '32px', lineHeight: 1.7 }}>"{item.quote}"</p>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#eee' }}></div>
-                                            <div>
-                                                <h4 style={{ margin: 0, fontWeight: '800' }}>{item.author}</h4>
-                                                <div style={{ display: 'flex', gap: '2px', marginTop: '4px' }}>
-                                                    {[1, 2, 3, 4, 5].map(s => <Star key={s} size={14} fill={DS.accent} color={DS.accent} />)}
+                        </section>
+                    );
+                case 'products':
+                    return (
+                        <section id="products" style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+                                <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+                                    <span style={{ color: DS.primary, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px' }}>{t('our_products')}</span>
+                                    <h2 style={{ fontSize: '3rem', fontWeight: '900', marginTop: '12px' }}>{sd.title || t('label_products')}</h2>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px' }}>
+                                    {products.map((p, i) => (
+                                        <div key={i} style={{ background: DS.surface, borderRadius: DS.radius, border: '1px solid ' + DS.border, overflow: 'hidden', boxShadow: DS.shadow, transition: 'transform 0.2s' }}>
+                                            <div style={{ height: '200px', background: DS.surfaceSecondary, overflow: 'hidden' }}>
+                                                {p.image ? <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={48} opacity={0.2} /></div>}
+                                            </div>
+                                            <div style={{ padding: '24px' }}>
+                                                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '8px' }}>{p.name}</h3>
+                                                <p style={{ color: DS.textSecondary, fontSize: '0.9rem', marginBottom: '24px', height: '40px', overflow: 'hidden' }}>{p.description}</p>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontWeight: '900', fontSize: '1.2rem', color: DS.primary }}>{p.price} {profile?.currency}</span>
+                                                    <button onClick={() => addToCart(p)} style={{ background: DS.primary, color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <ShoppingBag size={18} /> {t('add_to_cart')}
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-                );
-
-            case 'stats':
-                return (
-                    <section key={section.id} style={{ ...sectionWrapperStyle, background: DS.primary, color: 'white' }}>
-                        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '40px', textAlign: 'center' }}>
-                            {(sd.items || []).map((item, i) => (
-                                <div key={i}>
-                                    <div style={{ fontSize: '3.5rem', fontWeight: '900', marginBottom: '8px' }}>{item.value}</div>
-                                    <div style={{ fontSize: '1rem', fontWeight: '700', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>{item.label}</div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    </section>
-                );
-
-            case 'gallery':
-                return (
-                    <section key={section.id} id="gallery" style={sectionWrapperStyle}>
-                        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-                            <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                                <h2 style={{ fontSize: '3rem', fontWeight: '900' }}>{sd.title || t('gallery_section')}</h2>
-                                {sd.subtitle && <p style={{ opacity: 0.7, marginTop: '12px' }}>{sd.subtitle}</p>}
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-                                {(sd.items || sd.images || []).map((img, i) => (
-                                    <div key={i} style={{ height: '350px', borderRadius: DS.radius, overflow: 'hidden', boxShadow: DS.shadow, position: 'relative', cursor: 'pointer' }}>
-                                        <img src={img.url || 'https://images.unsplash.com/photo-1541888941297-1f2048482f0c?auto=format&fit=crop&q=60&w=600'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Gallery Item" />
-                                        {img.title && (
-                                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px', background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', color: 'white' }}>
-                                                <h4 style={{ margin: 0 }}>{img.title}</h4>
+                        </section>
+                    );
+                case 'contact':
+                    return (
+                        <section id="contact" style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '80px', alignItems: 'center' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '3rem', fontWeight: '900' }}>{sd.title || t('theme_nav_contact')}</h2>
+                                    <p style={{ color: DS.textSecondary, marginBottom: '40px' }}>{sd.subtitle || t('contact_desc')}</p>
+                                    {[
+                                        { icon: Phone, val: profile?.phone, label: t('phone') },
+                                        { icon: Mail, val: profile?.email, label: t('email') },
+                                        { icon: MapPin, val: profile?.address, label: t('location') }
+                                    ].map((item, i) => (
+                                        <div key={i} style={{ display: 'flex', gap: '16px', marginBottom: '24px', alignItems: 'center' }}>
+                                            <div style={{ width: 50, height: 50, background: DS.primary + '15', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><item.icon size={24} color={DS.primary} /></div>
+                                            <div>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: '800', opacity: 0.6, textTransform: 'uppercase' }}>{item.label}</div>
+                                                <div style={{ fontWeight: '700' }}>{item.val}</div>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-                );
-
-            case 'features':
-                return (
-                    <section key={section.id} id="features" style={sectionWrapperStyle}>
-                        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-                            <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                                <h2 style={{ fontSize: '3rem', fontWeight: '900' }}>{sd.title || t('theme_section_features')}</h2>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '40px' }}>
-                                {(sd.items || []).map((item, i) => (
-                                    <div key={i} style={{ textAlign: 'center', background: 'white', padding: '40px', borderRadius: DS.radius, border: '1px solid #f1f5f9', boxShadow: DS.shadow }}>
-                                        <div style={{ width: '80px', height: '80px', background: DS.accent + '15', color: DS.accent, borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-                                            <Sparkles size={40} />
                                         </div>
-                                        <h3 style={{ fontWeight: '800', marginBottom: '16px', fontSize: '1.5rem' }}>{item.title || 'Feature ' + (i + 1)}</h3>
-                                        <p style={{ opacity: 0.7, lineHeight: 1.6 }}>{item.description || 'Description of the amazing feature provided by our company.'}</p>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+                                <div style={{ background: DS.surface, padding: '40px', borderRadius: DS.radius, border: '1px solid ' + DS.border, boxShadow: DS.shadow }}>
+                                    <h3 style={{ fontWeight: '900', fontSize: '1.5rem', marginBottom: 24 }}>{t('send_us_a_message')}</h3>
+                                    <form onSubmit={onSendMessage} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        <input name="name" required placeholder={t('your_name')} style={{ padding: 16, borderRadius: 12, border: '1px solid ' + DS.border, background: DS.surfaceSecondary, color: DS.text }} />
+                                        <input name="email" type="email" required placeholder={t('your_email')} style={{ padding: 16, borderRadius: 12, border: '1px solid ' + DS.border, background: DS.surfaceSecondary, color: DS.text }} />
+                                        <textarea name="message" required placeholder={t('your_message')} rows={4} style={{ padding: 16, borderRadius: 12, border: '1px solid ' + DS.border, background: DS.surfaceSecondary, color: DS.text, resize: 'none' }}></textarea>
+                                        <button disabled={sendingMsg} style={{ background: DS.primary, color: 'white', padding: 16, borderRadius: 12, border: 'none', fontWeight: '800', cursor: 'pointer' }}>{sendingMsg ? '...' : t('send_message')}</button>
+                                    </form>
+                                </div>
                             </div>
-                        </div>
-                    </section>
-                );
+                        </section>
+                    );
+                default:
+                    return (
+                        <section style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+                                <h2 style={{ fontSize: '2.5rem', fontWeight: '900' }}>{sd.title || section.type}</h2>
+                                <div style={{ fontSize: '1.2rem', opacity: 0.8, marginTop: 24 }} dangerouslySetInnerHTML={{ __html: sd.content || sd.text }}></div>
+                            </div>
+                        </section>
+                    );
+            }
+        })();
 
-            case 'about':
-            case 'text':
-                return (
-                    <section key={section.id} id={section.id} style={sectionWrapperStyle}>
-                        <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
-                            <h2 style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '32px' }}>{sd.title || t('theme_nav_about')}</h2>
-                            <div style={{ fontSize: '1.2rem', lineHeight: '1.8', opacity: 0.8 }} dangerouslySetInnerHTML={{ __html: sd.content || sd.text }}></div>
-                        </div>
-                    </section>
-                );
-
-            default: return null;
-        }
+        return <SectionWrapper key={section.id} id={section.id} type={section.type}>{content}</SectionWrapper>;
     };
 
     return (
         <div style={{ fontFamily: DS.fontPrimary, background: DS.bg, color: DS.text, minHeight: '100vh', overflowX: 'hidden' }}>
-            {/* SEO & Meta Tags (Simplified for React context) */}
-            <title>{config?.seo?.title || profile?.companyName}</title>
-
-            {/* Custom CSS Injection */}
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-                
-                :root {
-                    --primary: ${DS.primary};
-                    --accent: ${DS.accent};
-                    --radius: ${DS.radius};
-                }
-
-                h1, h2, h3, h4, h5, h6 {
-                    font-family: ${DS.fontHeader};
-                }
-
+                :root { --primary: ${DS.primary}; --accent: ${DS.accent}; --radius: ${DS.radius}; }
                 ${config?.advanced?.customCss || ''}
-                
-                * { transition: background-color 0.3s, border-color 0.3s; }
             `}</style>
 
-            {/* Advanced Scripts */}
-            {config?.advanced?.headScripts && <div dangerouslySetInnerHTML={{ __html: config.advanced.headScripts }} style={{ display: 'none' }} />}
-
-            {/* Top Bar */}
-            <div style={{ background: DS.primary, color: 'rgba(255,255,255,0.7)', padding: '12px 24px', fontSize: '0.85rem', fontWeight: '500' }}>
-                <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '24px' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Clock size={14} style={{ color: DS.accent }} /> {t('theme_working_hours')}</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><MapPin size={14} style={{ color: DS.accent }} /> {profile?.city}, {profile?.country || 'DE'}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                        {profile?.phone && <span style={{ fontWeight: '700', color: 'white' }}>{profile.phone}</span>}
-                    </div>
-                </div>
-            </div>
-
-            {/* Navigation */}
-            <nav style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', borderBottom: '1px solid ' + DS.border, position: 'sticky', top: 0, zIndex: 1000 }}>
+            <nav style={{ background: isDark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', borderBottom: '1px solid ' + DS.border, position: 'sticky', top: 0, zIndex: 1000 }}>
                 <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        {profile?.logo ? (
-                            <img src={profile.logo} alt="Logo" style={{ height: '50px', objectFit: 'contain' }} />
-                        ) : (
-                            <div style={{ width: '44px', height: '44px', background: DS.primary, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                                <Briefcase size={22} />
+                    <div style={{ fontWeight: '900', fontSize: '1.5rem', color: DS.primary, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {profile?.logo ? <img src={profile.logo} alt="Logo" style={{ height: 40 }} /> : profile?.companyName}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+                        {!isMobile && (
+                            <div style={{ display: 'flex', gap: '32px', fontWeight: '700', fontSize: '0.9rem' }}>
+                                <a href="#hero" onClick={(e) => scrollToSection(e, 'hero')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_home')}</a>
+                                <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
+                                <a href="#products" onClick={(e) => scrollToSection(e, 'products')} style={{ textDecoration: 'none', color: DS.text }}>{t('label_products')}</a>
+                                <a href="#contact" onClick={(e) => scrollToSection(e, 'contact')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_contact')}</a>
                             </div>
                         )}
-                        <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: DS.primary, textTransform: 'uppercase', margin: 0, letterSpacing: '-0.5px' }}>{profile?.companyName}</h1>
-                    </div>
-                    <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
-                        {!isMobile && (
-                            <>
-                                <a href="#home" onClick={(e) => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', fontSize: '0.85rem', textTransform: 'uppercase' }}>{t('theme_nav_home')}</a>
-                                <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text, fontWeight: '700', fontSize: '0.85rem', textTransform: 'uppercase' }}>{t('theme_nav_services')}</a>
-                            </>
-                        )}
-                        <button onClick={() => setIsCartOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: '8px' }}>
-                            <ShoppingBag size={24} color={DS.primary} />
-                            {cart.length > 0 && <span style={{ position: 'absolute', top: 2, right: 2, background: DS.accent, color: 'white', borderRadius: '50%', width: 18, height: 18, fontSize: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>{cart.length}</span>}
-                        </button>
-                        {currentUser ? (
-                            <button onClick={() => setIsCustomerPanelOpen(true)} style={{ background: DS.primary, color: 'white', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}>{t('theme_nav_account')}</button>
-                        ) : (
-                            <Link to="/login" style={{ textDecoration: 'none' }}><button style={{ background: DS.primary, color: 'white', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}>{t('theme_nav_login')}</button></Link>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <button onClick={() => setModeOverride(isDark ? 'light' : 'dark')} style={{ background: 'none', border: 'none', color: DS.text, cursor: 'pointer', padding: 8, display: 'flex', alignItems: 'center' }}>
+                                {isDark ? <Sun size={20} /> : <Moon size={20} />}
+                            </button>
+                            <button onClick={() => setIsCartOpen(true)} style={{ background: 'none', border: 'none', color: DS.text, position: 'relative', cursor: 'pointer' }}>
+                                <ShoppingBag size={24} />
+                                {cart.length > 0 && <span style={{ position: 'absolute', top: -5, right: -5, background: DS.primary, color: 'white', width: 18, height: 18, borderRadius: '50%', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800' }}>{cart.length}</span>}
+                            </button>
+                            <Link to={`/booking?domain=${siteData.slug}`}><button style={{ background: DS.primary + '15', color: DS.primary, border: 'none', padding: '12px 24px', borderRadius: '30px', fontWeight: '800', cursor: 'pointer', display: isMobile ? 'none' : 'block' }}>{t('book_appointment')}</button></Link>
+                            <button onClick={() => setIsCustomerPanelOpen(true)} style={{ background: DS.primary, color: 'white', border: 'none', padding: '10px 24px', borderRadius: DS.radius, fontWeight: '800', cursor: 'pointer' }}>{currentUser ? t('theme_nav_account') : t('theme_nav_login')}</button>
+                            {isMobile && <button onClick={() => setMobileMenuOpen(true)} style={{ background: 'none', border: 'none' }}><Menu size={28} color={DS.primary} /></button>}
+                        </div>
                     </div>
                 </div>
             </nav>
 
-            {/* Dynamic Sections Content */}
-            <main>
-                {sections.length > 0 ? (
-                    sections.map(renderSection)
-                ) : (
-                    <div style={{ padding: '100px 24px', textAlign: 'center' }}>
-                        <p>{t('site_no_content') || 'Kein Inhalt verfügbar. Bitte fügen Sie Sektionen im Editor hinzu.'}</p>
-                    </div>
-                )}
-            </main>
+            <main>{sections.map(renderSection)}</main>
 
-            {/* Footer */}
-            <footer style={{ background: DS.primary, color: 'white', padding: '100px 24px 60px' }}>
-                <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '60px' }}>
-                    <div>
-                        <h4 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '24px' }}>{profile?.companyName}</h4>
-                        <p style={{ opacity: 0.6, lineHeight: 1.8, marginBottom: '32px' }}>{config?.footer?.description || t('theme_footer_desc')}</p>
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            <Instagram size={20} style={{ opacity: 0.6 }} />
-                            <Facebook size={20} style={{ opacity: 0.6 }} />
-                            <Linkedin size={20} style={{ opacity: 0.6 }} />
-                        </div>
-                    </div>
-                    <div>
-                        <h4 style={{ fontWeight: '800', marginBottom: '24px', textTransform: 'uppercase', fontSize: '0.9rem' }}>{t('theme_nav_contact')}</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <MapPin size={20} color={DS.accent} />
-                                <span style={{ opacity: 0.7 }}>{profile?.street} {profile?.houseNum}, {profile?.city}</span>
+            <footer style={{ ...getBgStyle('footer'), color: DS.text, padding: '80px 24px 40px', borderTop: '1px solid ' + DS.border }}>
+                <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr', gap: '64px', textAlign: 'left', marginBottom: '64px' }}>
+                        <div>
+                            <div style={{ fontWeight: '900', fontSize: '1.5rem', color: DS.primary, display: 'flex', alignItems: 'center', gap: 12, marginBottom: '24px' }}>
+                                {profile?.logo ? <img src={profile.logo} alt="Logo" style={{ height: 40 }} /> : profile?.companyName}
                             </div>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <Phone size={20} color={DS.accent} />
-                                <span style={{ opacity: 0.7 }}>{profile?.phone}</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <Mail size={20} color={DS.accent} />
-                                <span style={{ opacity: 0.7 }}>{profile?.email}</span>
+                            <p style={{ opacity: 0.7, lineHeight: 1.8, fontSize: '0.95rem' }}>{profile?.description || config?.footer?.description || t('service_footer_tagline')}</p>
+                            <div style={{ display: 'flex', gap: 16, marginTop: '32px' }}>
+                                {[Facebook, Instagram, Twitter, Linkedin].map((Icon, i) => <Icon key={i} size={20} style={{ opacity: 0.6, cursor: 'pointer' }} />)}
                             </div>
                         </div>
-                    </div>
-                    <div>
-                        <h4 style={{ fontWeight: '800', marginBottom: '24px', textTransform: 'uppercase', fontSize: '0.9rem' }}>{t('footer_working_hours')}</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.9rem' }}>
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
-                                const isOpen = siteData.appointmentSettings?.workingDays?.includes(day);
-                                return (
-                                    <div key={day} style={{ display: 'flex', justifyContent: 'space-between', opacity: isOpen ? 1 : 0.3 }}>
-                                        <span>{t('day_' + day.toLowerCase())}</span>
-                                        <span>{isOpen ? '09:00 - 18:00' : t('day_closed')}</span>
+
+                        <div>
+                            <h5 style={{ fontWeight: '800', marginBottom: '24px', fontSize: '1.1rem' }}>{t('working_hours') || 'Working Hours'}</h5>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.9rem', opacity: 0.8 }}>
+                                {(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).map(day => (
+                                    <div key={day} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>{t(day.toLowerCase()) || day}</span>
+                                        <span>{appointmentSettings?.workingDays?.includes(day.substring(0, 3)) ? (
+                                            (day === 'Saturday' || day === 'Sunday' ?
+                                                (appointmentSettings?.workingHoursWeekend?.start + ' - ' + appointmentSettings?.workingHoursWeekend?.end) :
+                                                (appointmentSettings?.workingHours?.start + ' - ' + appointmentSettings?.workingHours?.end)
+                                            )
+                                        ) : t('closed', 'Kapalı')}</span>
                                     </div>
-                                );
-                            })}
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h5 style={{ fontWeight: '800', marginBottom: '24px', fontSize: '1.1rem' }}>{t('navigation') || 'Navigation'}</h5>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.9rem' }}>
+                                <a href="#hero" onClick={(e) => scrollToSection(e, 'hero')} style={{ textDecoration: 'none', color: 'inherit', opacity: 0.8 }}>{t('theme_nav_home')}</a>
+                                <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: 'inherit', opacity: 0.8 }}>{t('theme_nav_services')}</a>
+                                <a href="#contact" onClick={(e) => scrollToSection(e, 'contact')} style={{ textDecoration: 'none', color: 'inherit', opacity: 0.8 }}>{t('theme_nav_contact')}</a>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div style={{ maxWidth: '1280px', margin: '80px auto 0', paddingTop: '40px', borderTop: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', opacity: 0.5, fontSize: '0.85rem' }}>
-                    &copy; {new Date().getFullYear()} {profile?.companyName}. {t('theme_footer_rights')}
+
+                    <div style={{ borderTop: '1px solid ' + DS.border, paddingTop: 32, opacity: 0.5, fontSize: '0.85rem', textAlign: 'center' }}>
+                        &copy; {new Date().getFullYear()} {profile?.companyName}. {t('theme_footer_rights')}
+                    </div>
                 </div>
             </footer>
         </div>

@@ -13,6 +13,19 @@ class ErrorBoundary extends React.Component {
 
     componentDidCatch(error, errorInfo) {
         monitoring.logError(error, errorInfo);
+
+        // AGENT ORCHESTRATION: Log crash to BayGuard
+        import('../lib/supabase').then(({ supabase }) => {
+            supabase.from('audit_logs').insert([{
+                action: 'UI_CRASH_DETECTED',
+                source: 'BayGuard',
+                severity: 'critical',
+                metadata: {
+                    error: error?.toString(),
+                    componentStack: errorInfo?.componentStack?.substring(0, 500)
+                }
+            }]).catch(() => { });
+        });
     }
 
     render() {

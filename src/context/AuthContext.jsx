@@ -275,6 +275,10 @@ export const AuthProvider = ({ children }) => {
                     setSession(data.session);
                     const userData = await fetchUserData(data.user.id, data.user.email);
                     setCurrentUser({ ...userData, authMode: 'cloud' });
+
+                    // Orchestrator Log
+                    logSecurityAction('USER_LOGIN', 'users', data.user.id, { email, status: 'SUCCESS' });
+
                     return { success: true };
                 }
                 if (error) {
@@ -286,7 +290,10 @@ export const AuthProvider = ({ children }) => {
                 console.error(err);
             }
         }
-        if (IS_PROD) return { success: false, error: 'Invalid credentials' };
+        if (IS_PROD) {
+            console.warn('[Auth] Mock login attempt blocked in production.');
+            return { success: false, error: 'Invalid credentials' };
+        }
 
         const mockUser = MOCK_USERS.find(u => u.email.toLowerCase() === email && u.password === password);
         const registeredUsers = JSON.parse(localStorage.getItem('bay_registered_users') || '[]');
@@ -315,7 +322,7 @@ export const AuthProvider = ({ children }) => {
         const email = regData.email.toLowerCase().trim();
         const password = regData.password;
 
-        if (useSupabase) {
+        if (useSupabase || IS_PROD) {
             try {
                 console.log('[Auth] Attempting Supabase signup for:', email);
                 const { data, error } = await supabase.auth.signUp({
@@ -347,10 +354,19 @@ export const AuthProvider = ({ children }) => {
                 } catch (e) { console.warn('[Auth] users table upsert skipped/failed:', e.message); }
 
                 try {
+                    const dbSupportedIndustries = [
+                        'automotive', 'general', 'construction', 'gastronomy',
+                        'healthcare', 'it', 'retail', 'crafts', 'consulting', 'education'
+                    ];
+
+                    const safeIndustry = dbSupportedIndustries.includes(regData.industry)
+                        ? regData.industry
+                        : 'general';
+
                     await supabase.from('company_settings').upsert({
                         user_id: data.user.id,
                         company_name: regData.companyName,
-                        industry: regData.industry || 'general',
+                        industry: safeIndustry,
                         phone: regData.phone || '',
                         street: regData.street || '',
                         city: regData.city || '',
@@ -436,10 +452,19 @@ export const AuthProvider = ({ children }) => {
                 };
 
                 // 2. Prepare Company Settings Update
+                const dbSupportedIndustries = [
+                    'automotive', 'general', 'construction', 'gastronomy',
+                    'healthcare', 'it', 'retail', 'crafts', 'consulting', 'education'
+                ];
+
+                const safeIndustry = dbSupportedIndustries.includes(updatedData.industry)
+                    ? updatedData.industry
+                    : 'general';
+
                 const companyUpdateItems = {
                     user_id: userId,
                     company_name: updatedData.companyName,
-                    industry: updatedData.industry,
+                    industry: safeIndustry,
                     phone: updatedData.phone,
                     street: updatedData.street,
                     house_num: updatedData.house_num || updatedData.houseNum,

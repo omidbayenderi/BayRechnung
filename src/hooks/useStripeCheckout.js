@@ -1,8 +1,14 @@
 import { supabase } from '../lib/supabase';
 
 export const useStripeCheckout = () => {
+    const IS_PROD = import.meta.env.VITE_PROD_MODE === 'true';
+
     const redirectToCheckout = async (priceId, trial = false) => {
         const handleDemoUnlock = async () => {
+            if (IS_PROD) {
+                alert('Ödeme sistemi şu anda yapılandırılıyor. Lütfen destek ile iletişime geçin.');
+                return;
+            }
             alert('🚀 MVP / Demo Mode Active!\n\nStripe payments are not fully configured yet. We are unlocking Premium Power for your account automatically for testing purposes. Please wait a moment...');
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
@@ -40,22 +46,17 @@ export const useStripeCheckout = () => {
 
             if (error) {
                 console.error('Checkout session creation error:', error);
-
-                // Fallback for missing edge function during development/MVP
-                // Treat ANY error as a reason to use the demo unlock fallback
                 await handleDemoUnlock();
                 return;
             }
 
             if (data?.url) {
-                // Redirect to Stripe Checkout
                 window.location.href = data.url;
             } else {
                 throw new Error('No checkout URL returned');
             }
         } catch (err) {
             console.error('Stripe checkout error:', err);
-            // Catch-all fallback
             await handleDemoUnlock();
         }
     };

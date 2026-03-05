@@ -138,15 +138,56 @@ export const WebsiteProvider = ({ children }) => {
     // Actions
     const updateSiteConfig = (newConfig) => {
         setSiteConfig(prev => {
-            const updated = { ...prev, ...newConfig };
+            const deepMerge = (target, source) => {
+                const output = { ...target };
+                Object.keys(source).forEach(key => {
+                    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                        output[key] = deepMerge(target[key] || {}, source[key]);
+                    } else {
+                        output[key] = source[key];
+                    }
+                });
+                return output;
+            };
+            const updated = deepMerge(prev, newConfig);
             saveToSupabase(updated, sections);
             return updated;
         });
     };
 
-    const updateSection = (id, newData) => {
+    const updateSection = (id, updates) => {
         setSections(prev => {
-            const updated = prev.map(sec => sec.id === id ? { ...sec, data: { ...sec.data, ...newData } } : sec);
+            const deepMerge = (target, source) => {
+                const output = { ...target };
+                Object.keys(source).forEach(key => {
+                    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                        output[key] = deepMerge(target[key] || {}, source[key]);
+                    } else {
+                        output[key] = source[key];
+                    }
+                });
+                return output;
+            };
+
+            const updated = prev.map(sec => {
+                if (sec.id === id) {
+                    const topLevel = ['visible', 'type', 'id', 'order'];
+                    const topUpdates = {};
+                    const dataUpdates = {};
+
+                    Object.keys(updates).forEach(k => {
+                        if (topLevel.includes(k)) topUpdates[k] = updates[k];
+                        else dataUpdates[k] = updates[k];
+                    });
+
+                    return {
+                        ...sec,
+                        ...topUpdates,
+                        data: deepMerge(sec.data || {}, dataUpdates)
+                    };
+                }
+                return sec;
+            });
             saveToSupabase(siteConfig, updated);
             return updated;
         });
@@ -200,15 +241,16 @@ export const WebsiteProvider = ({ children }) => {
             const newIndex = direction === 'up' ? index - 1 : index + 1;
             if (newIndex < 0 || newIndex >= prev.length) return prev;
 
-            // Hero section is always first
-            if (prev[index].type === 'hero' && newIndex > 0) return prev;
-            if (prev[newIndex].type === 'hero') return prev;
-
             const updated = [...prev];
             [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
             saveToSupabase(siteConfig, updated);
             return updated;
         });
+    };
+
+    const reorderSections = (newSections) => {
+        setSections(newSections);
+        saveToSupabase(siteConfig, newSections);
     };
 
     return (
@@ -221,6 +263,7 @@ export const WebsiteProvider = ({ children }) => {
             addSection,
             deleteSection,
             moveSection,
+            reorderSections,
             publishSite,
             unpublishSite,
             loading

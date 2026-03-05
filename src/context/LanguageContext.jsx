@@ -318,6 +318,8 @@ const translations = {
                 industry: 'Branche',
                 automotive: 'KFZ-Werkstatt',
                 generalService: 'Dienstleistung / Handel',
+                beauty: 'Beauty & Wellness',
+                cleaning: 'Reinigungsservice',
                 projectDetails: 'Projekt & Referenz',
                 reference: 'Reference-Nr.',
                 extraNote: 'Zusatzinfo',
@@ -364,6 +366,27 @@ const translations = {
                 privacy: "Datenschutz",
                 close: "Schließen",
                 allRightsReserved: "Alle Rechte vorbehalten.",
+                theme_hero_badge: "Premium-Service",
+                send_us_a_message: "Schreiben Sie uns eine Nachricht",
+                service_footer_tagline: "Ihre Zufriedenheit ist unser Ziel.",
+                our_products: "Unsere Produkte",
+                add_to_cart: "In den Warenkorb",
+                buy_now: "Jetzt kaufen",
+                book_appointment: "Termin buchen",
+                construction_excellence: "Exzellenz im Bauwesen",
+                beauty_luxury_experience: "Luxuriöses Erlebnis",
+                construction_services_desc: "Wir bieten umfassende Baulösungen für moderne Projekte.",
+                beauty_services_desc: "Entdecken Sie unsere Palette an Schönheits- und Wellnessbehandlungen.",
+                construction_footer_desc: "Ihr verlässlicher Partner für hochwertige Bau- und Renovierungsprojekte seit Jahren.",
+                beauty_footer_tagline: "Ihre Schönheit ist unsere Leidenschaft.",
+                beauty_products_desc: "Hochwertige Produkte für Ihre tägliche Pflegeroutine.",
+                closed: "Geschlossen",
+                your_name: "Ihr Name",
+                your_email: "Ihre E-Mail",
+                your_message: "Ihre Nachricht",
+                send_message: "Nachricht senden",
+                message_sent_success: "Vielen Dank! Ihre Nachricht wurde erfolgreich gesendet.",
+                search_placeholder: "Produkte oder Kategorien suchen...",
 
                 // Registration & Auth
                 createAccount: "Konto erstellen",
@@ -1437,6 +1460,7 @@ const translations = {
                 sync_offline: 'Offline',
                 sync_pending: '{count} Daten warten',
                 sync_button: 'WOLKE SENDEN',
+                all: 'Alle',
                 pricing: 'Preise',
                 take_action: 'Handeln',
                 growth_opportunity_publish: 'Wachstumschance veröffentlichen',
@@ -1803,6 +1827,27 @@ const translations = {
                 privacy: "Privacy",
                 close: "Close",
                 allRightsReserved: "All rights reserved.",
+                theme_hero_badge: "Premium Service",
+                send_us_a_message: "Send us a message",
+                service_footer_tagline: "Your satisfaction is our goal.",
+                our_products: "Our Products",
+                add_to_cart: "Add to Cart",
+                buy_now: "Buy Now",
+                your_name: "Your Name",
+                your_email: "Your Email",
+                your_message: "Your Message",
+                send_message: "Send Message",
+                message_sent_success: "Thank you! Your message has been sent successfully.",
+                search_placeholder: "Search products or categories...",
+                book_appointment: "Book Appointment",
+                construction_excellence: "Construction Excellence",
+                beauty_luxury_experience: "Luxury Experience",
+                construction_services_desc: "Providing comprehensive construction solutions for modern projects.",
+                beauty_services_desc: "Discover our range of beauty and wellness treatments.",
+                construction_footer_desc: "Your trusted partner for high-quality building and renovation projects for years.",
+                beauty_footer_tagline: "Your beauty is our passion.",
+                beauty_products_desc: "Professional products for your daily care routine.",
+                closed: "Closed",
 
                 // Registration & Auth
                 createAccount: "Create Account",
@@ -1829,6 +1874,8 @@ const translations = {
                 industry: 'Industry',
                 automotive: 'Automotive / Mechanic',
                 generalService: 'General Service / Trade',
+                beauty: 'Beauty & Wellness',
+                cleaning: 'Cleaning Services',
                 projectDetails: 'Project & Reference',
                 reference: 'Reference No.',
                 extraNote: 'Extra Info',
@@ -2890,6 +2937,7 @@ const translations = {
                 sync_offline: 'Offline',
                 sync_pending: '{count} Data pending',
                 sync_button: 'SEND TO CLOUD',
+                all: 'All',
                 pricing: 'Pricing',
                 take_action: 'Take Action',
                 growth_opportunity_publish: 'Publish Growth Opportunity',
@@ -3241,6 +3289,27 @@ const translations = {
                 privacy: "Gizlilik",
                 close: "Kapat",
                 allRightsReserved: "Tüm hakları saklıdır.",
+                theme_hero_badge: "Premium Hizmet",
+                send_us_a_message: "Bize Mesaj Gönderin",
+                service_footer_tagline: "Memnuniyetiniz hedefimizdir.",
+                our_products: "Ürünlerimiz",
+                add_to_cart: "Sepete Ekle",
+                buy_now: "Satın Al",
+                book_appointment: "Randevu Al",
+                construction_excellence: "İnşaat Mükemmelliği",
+                beauty_luxury_experience: "Lüks Deneyim",
+                construction_services_desc: "Modern projeler için kapsamlı inşaat çözümleri sunuyoruz.",
+                beauty_services_desc: "Güzellik ve sağlık bakımlarımızı keşfedin.",
+                construction_footer_desc: "Yıllardır yüksek kaliteli inşaat ve tadilat projeleri için güvenilir ortağınız.",
+                beauty_footer_tagline: "Güzelliğiniz bizim tutkumuzdur.",
+                beauty_products_desc: "Günlük bakım rutininiz için profesyonel ürünler.",
+                your_name: "Adınız",
+                your_email: "E-postanız",
+                your_message: "Mesajınız",
+                send_message: "Mesaj Gönder",
+                message_sent_success: "Teşekkürler! Mesajınız başarıyla gönderildi.",
+                search_placeholder: "Ürün veya kategori ara...",
+                closed: "Kapalı",
 
                 // Registration & Auth
                 createAccount: "Hesap Oluştur",
@@ -3305,6 +3374,8 @@ const translations = {
                 industry: 'Sektör',
                 automotive: 'Oto Tamir / Servis',
                 generalService: 'Genel Hizmet / Ticaret',
+                beauty: 'Güzellik ve Bakım',
+                cleaning: 'Temizlik Hizmetleri',
                 projectDetails: 'Proje ve Referans',
                 reference: 'Referans No',
                 extraNote: 'Ek Bilgi',
@@ -4121,7 +4192,7 @@ const translations = {
                 maps_location_title: 'Harita & Konum',
                 google_maps_label: 'Google Harita Kodu',
                 show_map_label: 'Haritayı Sitede Göster',
-                communication_footer_title: 'İletişim & Alt Bilgi',
+                communication_footer_title: 'İletişim ve Alt Bilgi',
                 whatsapp_number_label: 'WhatsApp Numarası',
                 social_media_links_label: 'Sosyal Medya Linkleri',
                 your_industry: 'Sektörünüz',
@@ -4393,7 +4464,8 @@ const translations = {
                 sync_up_to_date: 'Bulut ile Güncel',
                 sync_offline: 'Çevrimdışı',
                 sync_pending: '{count} Veri Bekliyor',
-                sync_button: 'BULUTA GÖNDER'
+                sync_button: 'BULUTA GÖNDER',
+                all: 'Tümü'
         },
         fr: {
                 appointment_calendar: "Calendrier des rendez-vous",
@@ -6223,8 +6295,9 @@ export const LanguageProvider = ({ children }) => {
         };
 
         const getT = (langCode) => (key) => {
-                const validLang = translations[langCode] ? langCode : 'en';
-                const val = translations[validLang]?.[key] || translations['en']?.[key];
+                const checkLang = langCode?.split('-')[0] || 'de';
+                const validLang = translations[checkLang] ? checkLang : 'de';
+                const val = translations[validLang]?.[key] || translations['en']?.[key] || translations['de']?.[key];
                 return val || key;
         };
 

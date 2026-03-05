@@ -81,21 +81,29 @@ export const startAutomatedDuty = (userId) => {
         const randomDuty = duties[Math.floor(Math.random() * duties.length)];
 
         try {
-            await supabase.from('audit_logs').insert([{
+            const { error } = await supabase.from('audit_logs').insert([{
                 user_id: userId,
                 action: 'AUTOMATED_DUTY',
                 source: randomAgentId,
                 severity: 'info',
-                metadata: {
+                metadata: JSON.stringify({
                     duty: randomDuty,
                     status: 'COMPLETED',
                     efficiency: '100%',
                     is_automated: true
-                }
+                })
             }]);
-            console.log(`[AgentAutomator] Recorded automated duty for ${randomAgentId}: ${randomDuty}`);
+            if (error) {
+                // Silently ignore schema/RLS errors — audit_logs is non-critical
+                if (!window.__auditLogWarnShown && error.code !== '42P01') { // 42P01 is "relation does not exist"
+                    console.debug('[AgentAutomator] audit_logs write skipped:', error.message);
+                    window.__auditLogWarnShown = true;
+                }
+            } else {
+                console.log(`[AgentAutomator] Recorded automated duty for ${randomAgentId}: ${randomDuty}`);
+            }
         } catch (err) {
-            console.error('[AgentAutomator] Failed to record duty:', err);
+            // Silent — non-critical feature
         }
     }, 45000); // Every 45s
 

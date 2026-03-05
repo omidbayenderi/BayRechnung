@@ -65,7 +65,12 @@ export const AppointmentProvider = ({ children }) => {
                 if (localServices) setServices(JSON.parse(localServices));
                 if (localStaff) setStaff(JSON.parse(localStaff));
                 if (localAppts) setAppointments(JSON.parse(localAppts));
-                if (localSettings) setSettings(JSON.parse(localSettings));
+                if (localSettings) {
+                    const parsed = JSON.parse(localSettings);
+                    if (parsed && typeof parsed === 'object' && parsed.workingHours) {
+                        setSettings(parsed);
+                    }
+                }
 
                 // CRITICAL: Set loading to false as soon as local cache is ready.
                 setLoading(false);
@@ -168,7 +173,7 @@ export const AppointmentProvider = ({ children }) => {
 
                     // Merge remote row with local object (for fields that might be missing in DB but in LS)
                     // Then prioritize pending sync queue
-                    let merged = remoteData ? { ...(localObj || {}), ...remoteData } : (localObj || null);
+                    let merged = remoteData ? { ...(localObj || {}), ...remoteData } : localObj;
 
                     const queue = (syncService.queue || JSON.parse(localStorage.getItem('bay_sync_queue') || '[]'))
                         .filter(q => q.table === tableName && q.action === 'update');
@@ -247,18 +252,18 @@ export const AppointmentProvider = ({ children }) => {
                     setSettings(prev => ({
                         ...prev,
                         workingHours: {
-                            start: mergedSettingsData.working_hours_start || mergedSettingsData.workingHours?.start || prev.workingHours.start,
-                            end: mergedSettingsData.working_hours_end || mergedSettingsData.workingHours?.end || prev.workingHours.end
+                            start: mergedSettingsData.working_hours_start || mergedSettingsData.workingHours?.start || prev.workingHours?.start || '09:00',
+                            end: mergedSettingsData.working_hours_end || mergedSettingsData.workingHours?.end || prev.workingHours?.end || '18:00'
                         },
                         workingHoursWeekend: {
-                            start: mergedSettingsData.breaks?.schedule?.Sat?.start || mergedSettingsData.workingHoursWeekend?.start || prev.workingHoursWeekend.start,
-                            end: mergedSettingsData.breaks?.schedule?.Sat?.end || mergedSettingsData.workingHoursWeekend?.end || prev.workingHoursWeekend.end
+                            start: mergedSettingsData.working_hours_weekend_start || mergedSettingsData.breaks?.schedule?.Sat?.start || mergedSettingsData.workingHoursWeekend?.start || prev.workingHoursWeekend?.start || '10:00',
+                            end: mergedSettingsData.working_hours_weekend_end || mergedSettingsData.breaks?.schedule?.Sat?.end || mergedSettingsData.workingHoursWeekend?.end || prev.workingHoursWeekend?.end || '16:00'
                         },
-                        workingDays: mergedSettingsData.working_days || mergedSettingsData.workingDays || prev.workingDays,
-                        slotDuration: mergedSettingsData.slot_duration || mergedSettingsData.slotDuration || prev.slotDuration,
-                        bufferTime: mergedSettingsData.buffer_time || mergedSettingsData.bufferTime || prev.bufferTime,
-                        holidays: mergedSettingsData.holidays || prev.holidays,
-                        breaks: mergedSettingsData.breaks || prev.breaks,
+                        workingDays: mergedSettingsData.working_days || mergedSettingsData.workingDays || prev.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                        slotDuration: mergedSettingsData.slot_duration || mergedSettingsData.slotDuration || prev.slotDuration || 30,
+                        bufferTime: mergedSettingsData.buffer_time || mergedSettingsData.bufferTime || prev.bufferTime || 5,
+                        holidays: mergedSettingsData.holidays || prev.holidays || [],
+                        breaks: mergedSettingsData.breaks || prev.breaks || { start: '13:00', end: '14:00', enabled: false },
                         dailyHours: mergedSettingsData.breaks?.schedule || mergedSettingsData.dailyHours || prev.dailyHours
                     }));
                 }

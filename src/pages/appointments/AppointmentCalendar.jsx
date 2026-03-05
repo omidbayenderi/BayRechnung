@@ -132,8 +132,8 @@ const AppointmentCalendar = () => {
     }, [appointments]);
 
     const { timeSlots, workingHoursRange } = React.useMemo(() => {
-        const wh = settings.workingHours || { start: '09:00', end: '18:00' };
-        const whw = settings.workingHoursWeekend || { start: '10:00', end: '16:00' };
+        const wh = settings?.workingHours || { start: '09:00', end: '18:00' };
+        const whw = settings?.workingHoursWeekend || { start: '10:00', end: '16:00' };
 
         const s = Math.min(parseInt(wh.start?.split(':')[0] || '9'), parseInt(whw.start?.split(':')[0] || '10'));
         const e = Math.max(parseInt(wh.end?.split(':')[0] || '18'), parseInt(whw.end?.split(':')[0] || '16'));
@@ -144,7 +144,7 @@ const AppointmentCalendar = () => {
             slots.push(`${i.toString().padStart(2, '0')}:30`);
         }
         return { timeSlots: slots, workingHoursRange: { startHour: s, endHour: e } };
-    }, [settings.workingHours, settings.workingHoursWeekend]);
+    }, [settings?.workingHours, settings?.workingHoursWeekend]);
 
     const handleSlotClick = React.useCallback((dateStr, time) => {
         // Toggle selection
@@ -195,7 +195,7 @@ const AppointmentCalendar = () => {
         if (!settings.workingDays?.includes(dayName)) return true;
 
         const isWeekend = dayName === 'Sat' || dayName === 'Sun';
-        const hours = isWeekend ? settings.workingHoursWeekend : settings.workingHours;
+        const hours = isWeekend ? (settings?.workingHoursWeekend || settings?.workingHours) : (settings?.workingHours || { start: '09:00', end: '18:00' });
 
         return time < hours.start || time >= hours.end;
     };

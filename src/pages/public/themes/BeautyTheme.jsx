@@ -1,549 +1,382 @@
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Phone, Mail, MapPin, Clock, Calendar, ChevronRight,
     ArrowRight, Star, ShoppingCart, Menu, X, Facebook, Instagram, Twitter, Linkedin,
     Heart, Sparkles, User, LogOut, Settings, Globe, CheckCircle, ShoppingBag, Utensils, Stethoscope, Scissors,
-    Wrench, Car, Zap, Briefcase, Disc, CircleDot, Wind, Droplet
+    Wrench, Car, Zap, Briefcase, Disc, CircleDot, Wind, Droplet, ChevronDown, Navigation, Sun, Moon
 } from 'lucide-react';
-import { generateTheme } from '../utils/ColorEngine';
 
 import { AgentFactory } from '../components/agents/AgentFactory';
 import { useLanguage } from '../../../context/LanguageContext';
 
-const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userActions, state, languageActions }) => {
-    const { profile, config, sections, products } = siteData;
-    const { cart, isCartOpen } = state;
+const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userActions, state, languageActions, editorActions = {}, handleSubmitMessage }) => {
+    const { profile, config, sections = [], products = [], appointmentSettings } = siteData;
+    const { onSectionSelect, activeSectionId } = editorActions;
+    const { cart } = state;
     const { addToCart, setIsCartOpen } = cartActions;
-    const { currentUser, setIsCustomerPanelOpen, handleLogout } = userActions;
-    const t = languageActions?.t || useLanguage().t;
-    const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+    const { currentUser, setIsCustomerPanelOpen } = userActions;
+    const { t: hookT } = useLanguage();
+    const t = languageActions?.t || hookT;
+
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
+    const [sendingMsg, setSendingMsg] = useState(false);
+    const [modeOverride, setModeOverride] = useState(null);
 
     useEffect(() => {
-        const link = document.createElement('link');
-        link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&display=swap';
-        link.rel = 'stylesheet';
-        document.head.appendChild(link);
+        const handleResize = () => setIsMobile(window.innerWidth < 900);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // --- AGENT-LED DESIGN SYSTEM ---
+    const getAutoMode = () => {
+        const hour = new Date().getHours();
+        const isNight = hour >= 18 || hour < 6;
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return systemPrefersDark || isNight ? 'dark' : 'light';
+    };
+
+    const activeMode = modeOverride || (siteData.mode === 'auto' || !siteData.mode ? getAutoMode() : siteData.mode);
+    const isDark = activeMode === 'dark';
+    const modeKey = isDark ? 'dark' : 'light';
+
     const agent = AgentFactory.getAgent(siteData);
     const agentSpecs = agent.getThemeSpecs(variant);
 
-    // MERGE: User's Theme Choice (themeColors) overrides Agent's Base Colors
-    // This ensures that the "Smart Contrast Rule" from ColorEngine is applied.
     const DS = {
         ...agentSpecs,
-        // Override colors with calculated themeColors (from PublicWebsite -> ColorEngine)
-        primary: themeColors.primary,
-        primaryDark: themeColors.primaryDark,
-        primaryLight: themeColors.primaryLight,
-        accent: themeColors.secondary, // Map ColorEngine secondary to accent
-        // Use the smart contrast text color for buttons/headers
-        buttonText: themeColors.buttonText,
-        // Keep Agent's structural choices (radius, fonts, shadow) unless generic
-        bg: themeColors.background,
-        text: themeColors.text,
-        // Override fonts if user selected one
-        fontPrimary: themeColors.font || agentSpecs.fontPrimary,
-        fontHeader: themeColors.font || agentSpecs.fontHeader
+        primary: config?.theme?.primaryColor || themeColors.primary,
+        accent: config?.theme?.secondaryColor || themeColors.secondary,
+        surface: config?.theme?.colors?.[modeKey]?.surface || (isDark ? '#1e293b' : '#ffffff'),
+        surfaceSecondary: isDark ? '#334155' : '#fff5f5',
+        text: config?.theme?.colors?.[modeKey]?.text || (isDark ? '#fce7f3' : '#3d3d3d'),
+        textSecondary: config?.theme?.colors?.[modeKey]?.textSecondary || (isDark ? '#f472b6' : '#9b7e7e'),
+        border: config?.theme?.colors?.[modeKey]?.border || (isDark ? 'rgba(244,114,182,0.1)' : 'rgba(186,140,140,0.1)'),
+        bg: (() => {
+            const bgs = config?.theme?.backgrounds?.body;
+            const val = bgs?.[modeKey]?.value || bgs?.value;
+            if (val && val !== 'default' && !val.startsWith('http')) return val;
+            return config?.theme?.colors?.[modeKey]?.bg || (isDark ? '#0f172a' : '#ffffff');
+        })(),
+        radius: config?.theme?.radius || '50px',
+        shadow: isDark ? '0 10px 40px -10px rgba(0,0,0,0.5)' : '0 10px 40px -10px rgba(186,140,140,0.15)'
     };
 
-    // Industry Detection
-    const industry = (profile?.industry || 'beauty').toLowerCase();
-    const isBeauty = industry === 'beauty';
-    const isGastronomy = industry === 'gastronomy';
-    const isHealthcare = industry === 'healthcare';
-    const isRetail = industry === 'retail';
+    const getBgStyle = (zone, sectionData = {}) => {
+        const override = sectionData.style?.backgrounds?.[modeKey] || sectionData.style?.background;
 
-    // Dynamic Font Loading
-    useEffect(() => {
-        const fonts = [DS.fontPrimary, DS.fontHeader].map(f => {
-            const match = f.match(/"([^"]+)"/) || f.match(/'([^']+)'/);
-            return match ? match[1].replace(/\s+/g, '+') : f.split(',')[0].trim().replace(/\s+/g, '+');
-        }).filter((v, i, a) => a.indexOf(v) === i);
-        const link = document.createElement('link');
-        link.href = `https://fonts.googleapis.com/css2?${fonts.map(f => `family=${f}:wght@300;400;500;600;700;800;900`).join('&')}&display=swap`;
-        link.rel = 'stylesheet';
-        document.head.appendChild(link);
-    }, [DS.fontPrimary, DS.fontHeader]);
-
-    const glassStyle = {
-        background: 'rgba(255, 255, 255, 0.8)',
-        backdropFilter: 'blur(16px)',
-        borderBottom: `1px solid ${DS.border}`
-    };
-
-    // Icon Selector based on industry and service name
-    const getServiceIcon = (name = '', savedIcon = null) => {
-        // If user selected a specific icon, prioritize it
-        if (savedIcon) {
-            const icons = { Sparkles, Scissors, Car, Droplet, Wind, Zap, Briefcase, Disc, CircleDot, Wrench, Utensils, Stethoscope, Heart, ShoppingBag };
-            return icons[savedIcon] || Sparkles;
+        let cfg = (typeof override === 'object') ? override : null;
+        if (!cfg) {
+            const globalZone = config?.theme?.backgrounds?.[zone];
+            cfg = globalZone?.[modeKey] || globalZone;
         }
 
-        const lower = name.toLowerCase();
-        if (lower.includes('motor') || lower.includes('mekanik') || lower.includes('tamir')) return Wrench;
-        if (lower.includes('lastik') || lower.includes('jant') || lower.includes('balans')) return CircleDot;
-        if (lower.includes('fren') || lower.includes('disk')) return Disc;
-        if (lower.includes('klima') || lower.includes('gaz') || lower.includes('havalandırma')) return Wind;
-        if (lower.includes('yağ') || lower.includes('sıvı') || lower.includes('yıkama') || lower.includes('temiz')) return Droplet;
-        if (lower.includes('akü') || lower.includes('elektrik') || lower.includes('şarj') || lower.includes('lamba')) return Zap;
-        if (lower.includes('kaporta') || lower.includes('boya')) return Car;
-        if (lower.includes('saç') || lower.includes('sakal') || lower.includes('kesim') || lower.includes('bakım')) return Scissors;
-        if (lower.includes('danışman') || lower.includes('muhasebe') || lower.includes('görüşme')) return Briefcase;
+        if (!cfg || !cfg.value || cfg.value === 'default') {
+            const fallbackVal = (typeof override === 'string' && override !== 'default') ? override : null;
+            if (fallbackVal) return { background: fallbackVal };
+            return { background: zone === 'hero' ? `linear-gradient(135deg, ${DS.primary}, ${DS.accent})` : (zone === 'footer' ? DS.surfaceSecondary : DS.bg) };
+        }
 
+        if (cfg.type === 'color' || cfg.type === 'gradient') return { background: cfg.value };
+        if (cfg.type === 'image') {
+            return {
+                backgroundImage: `url(${cfg.value})`,
+                backgroundSize: cfg.size || 'cover',
+                backgroundPosition: cfg.position || 'center',
+                backgroundRepeat: 'no-repeat'
+            };
+        }
+        return { background: cfg.value };
+    };
+
+    const getServiceIcon = (name = '', savedIcon = null) => {
+        const icons = { Sparkles, Scissors, Car, Zap, Briefcase, Disc, CircleDot, Wrench, Utensils, Stethoscope, Heart, ShoppingBag, Wind, Droplet };
+        if (savedIcon) return icons[savedIcon] || Sparkles;
         return Sparkles;
     };
 
+    const [hoveredSection, setHoveredSection] = useState(null);
 
-    const BrandIcon = isBeauty ? Star : isGastronomy ? Utensils : isHealthcare ? Heart : ShoppingBag;
-
-    return (
-        <div style={{
-            fontFamily: DS.fontPrimary,
-            background: DS.bg,
-            color: DS.text,
-            minHeight: '100vh'
-        }}>
-
-            {/* Top Bar - Elegant Accent */}
-            <div style={{ background: DS.accent, color: DS.primary, padding: '8px 0', fontSize: '0.8rem', fontWeight: '600', letterSpacing: '0.05em' }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', gap: '20px' }}>
-                        {profile?.phone && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={12} /> {profile.phone}</span>}
-                        {profile?.email && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={12} /> {profile.email}</span>}
+    const SectionWrapper = ({ id, children, type }) => {
+        const isActive = activeSectionId === id;
+        const isEditable = !!onSectionSelect;
+        const section = sections.find(s => s.id === id);
+        const isHidden = section?.visible === false;
+        const isHovered = hoveredSection === id;
+        if (!isEditable) return children;
+        return (
+            <div
+                onClick={(e) => { e.stopPropagation(); onSectionSelect(id); }}
+                onMouseEnter={() => setHoveredSection(id)}
+                onMouseLeave={() => setHoveredSection(null)}
+                style={{
+                    position: 'relative', cursor: 'pointer',
+                    outline: isActive ? `3px solid ${DS.primary}` : isHovered ? `2px dashed ${DS.primary}88` : 'none',
+                    outlineOffset: isActive ? '-3px' : '-2px',
+                    transition: 'outline 0.15s, opacity 0.2s',
+                    opacity: isHidden ? 0.4 : 1,
+                    zIndex: isActive ? 50 : isHovered ? 10 : 1
+                }}
+            >
+                {isActive && (
+                    <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', background: DS.primary, color: 'white', padding: '6px 16px', borderRadius: '0 0 10px 10px', fontSize: '0.7rem', fontWeight: '900', zIndex: 100, letterSpacing: '1px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                        ✏️ {type?.toUpperCase()} {isHidden && '(HIDDEN)'}
                     </div>
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                        {(config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram) && (
-                            <a href={config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
-                                <Instagram size={12} style={{ cursor: 'pointer' }} />
-                            </a>
-                        )}
-                        {(config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook) && (
-                            <a href={config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
-                                <Facebook size={12} style={{ cursor: 'pointer' }} />
-                            </a>
-                        )}
-                        {(config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter) && (
-                            <a href={config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
-                                <Twitter size={12} style={{ cursor: 'pointer' }} />
-                            </a>
-                        )}
-                        {(config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin) && (
-                            <a href={config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
-                                <Linkedin size={12} style={{ cursor: 'pointer' }} />
-                            </a>
-                        )}
-                        {config?.extraSocialLinks?.map((link, idx) => (
-                            <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} style={{ color: 'inherit' }}>
-                                <Globe size={12} style={{ cursor: 'pointer' }} />
-                            </a>
-                        ))}
+                )}
+                {!isActive && isHovered && (
+                    <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '6px 14px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '700', zIndex: 100, backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        ✏️ Click to Edit
                     </div>
-                </div>
+                )}
+                {children}
             </div>
+        );
+    };
 
-            <style>{`
-                @media (max-width: 900px) {
-                    .desktop-nav { display: none !important; }
-                    .mobile-only { display: block !important; }
-                    h2 { font-size: 3rem !important; }
-                    .section-padding { padding: 60px 20px !important; }
-                    .product-grid { grid-template-columns: repeat(2, 1fr) !important; }
-                }
-                @media (min-width: 901px) {
-                    .mobile-only { display: none !important; }
-                    .desktop-nav { display: flex !important; }
-                    .product-grid { grid-template-columns: repeat(3, 1fr) !important; }
-                }
-            `}</style>
+    const onSendMessage = async (e) => {
+        e.preventDefault();
+        if (sendingMsg) return;
+        setSendingMsg(true);
+        const f = e.target;
+        const res = await handleSubmitMessage({ name: f.name.value, email: f.email.value, message: f.message.value });
+        if (res.success) { alert(hookT('message_sent_success') || 'Sent!'); f.reset(); }
+        else { alert(res.error); }
+        setSendingMsg(false);
+    };
 
-            {/* Navigation */}
-            <nav style={{ position: 'sticky', top: 0, zIndex: 1000, ...glassStyle }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '40px', height: '40px', background: DS.primary, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.buttonText }}>
-                            <BrandIcon size={20} />
-                        </div>
-                        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.5rem', fontWeight: '700', color: DS.primary, margin: 0 }}>
-                            {profile?.companyName || (isBeauty ? 'Beauty Salon' : isGastronomy ? 'Gastro Cafe' : isHealthcare ? 'Medical Center' : 'Retail Store')}
-                        </h1>
-                    </div>
+    const scrollToSection = (e, id) => {
+        e.preventDefault();
+        const element = document.getElementById(id);
+        if (element) {
+            window.scrollTo({ top: element.offsetTop - 80, behavior: "smooth" });
+        }
+    };
 
-                    <div className="desktop-nav" style={{ alignItems: 'center', gap: '32px' }}>
-                        <div style={{ display: 'flex', gap: '24px', fontSize: '0.85rem', fontWeight: '600', letterSpacing: '0.1em' }}>
-                            <a href="#services" style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
-                            <a href="#products" style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_products')}</a>
-                            <a href="#contact" style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_contact')}</a>
-                        </div>
+    const renderSection = (section) => {
+        const sd = section.data || {};
+        const style = sd.style || {};
+        if (section.visible === false && !onSectionSelect) return null;
+        const isHero = section.type.toLowerCase() === 'hero';
+        const sectionBg = getBgStyle(isHero ? 'hero' : 'body', sd);
+        const sectionWrapperStyle = {
+            ...sectionBg,
+            padding: style.padding === 'compact' ? '60px 24px' : style.padding === 'spacious' ? '140px 24px' : '100px 24px',
+            position: 'relative',
+            color: (isHero || sectionBg.backgroundImage) ? 'white' : DS.text
+        };
 
-                        <div style={{ borderLeft: `1px solid ${DS.border}`, height: '24px', margin: '0 8px' }}></div>
-
-                        <button
-                            onClick={() => setIsCartOpen(true)}
-                            style={{ position: 'relative', border: 'none', background: 'transparent', cursor: 'pointer', color: DS.text }}
-                        >
-                            <ShoppingBag size={20} />
-                            {cart.length > 0 && (
-                                <span style={{ position: 'absolute', top: -5, right: -5, background: DS.primary, color: DS.buttonText, borderRadius: '50%', width: '16px', height: '16px', fontSize: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {cart.length}
-                                </span>
-                            )}
-                        </button>
-
-                        <button
-                            onClick={() => {
-                                if (currentUser) {
-                                    userActions.setIsCustomerPanelOpen(true);
-                                } else {
-                                    userActions.setAuthMode('login');
-                                    cartActions.setCheckoutStep('auth');
-                                    cartActions.setIsCartOpen(true);
-                                }
-                            }}
-                            style={{ background: DS.primary, color: DS.buttonText, border: 'none', padding: '10px 24px', borderRadius: '50px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', boxShadow: `0 4px 15px ${DS.primary}33` }}
-                        >
-                            {currentUser ? t('theme_nav_account') : t('theme_nav_login')}
-                        </button>
-
-                        {/* Language Selector */}
-                        {languageActions && (
-                            <select
-                                value={languageActions.currentLang}
-                                onChange={(e) => languageActions.setServiceLanguage('website', e.target.value)}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    fontSize: '0.85rem',
-                                    fontFamily: DS.fontPrimary,
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    outline: 'none',
-                                    color: DS.text,
-                                    marginLeft: '12px',
-                                    letterSpacing: '0.05em'
-                                }}
-                            >
-                                {languageActions.LANGUAGES?.map(lang => (
-                                    <option key={lang.code} value={lang.code}>
-                                        {lang.code.toUpperCase()}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-
-                    {/* Mobile Toggle */}
-                    <button className="mobile-only" onClick={() => setMobileMenuOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                        <Menu size={28} color={DS.primary} />
-                    </button>
-                </div>
-
-                {/* Mobile Menu Overlay */}
-                {mobileMenuOpen && (
-                    <div style={{
-                        position: 'fixed', inset: 0, background: DS.bg, zIndex: 2000,
-                        display: 'flex', flexDirection: 'column', padding: '24px'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: DS.primary, margin: 0 }}>MENU</h2>
-                            <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                                <X size={28} color={DS.text} />
-                            </button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', fontSize: '1.25rem', fontWeight: '700', fontFamily: DS.fontHeader || '"Playfair Display", serif' }}>
-                            <a href="#services" onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
-                            <a href="#products" onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_products')}</a>
-                            <a href="#contact" onClick={() => setMobileMenuOpen(false)} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_contact')}</a>
-                            <div onClick={() => { setIsCartOpen(true); setMobileMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                {t('cart_title')} ({cart.length})
+        const content = (() => {
+            switch (section.type.toLowerCase()) {
+                case 'hero':
+                    return (
+                        <header id="hero" style={{ ...sectionBg, padding: isMobile ? '120px 24px' : '180px 24px', textAlign: 'center', color: 'white', display: 'flex', alignItems: 'center', minHeight: '700px', position: 'relative' }}>
+                            {(sectionBg.backgroundImage || sd.url) && <div style={{ position: 'absolute', inset: 0, background: `rgba(0,0,0,${sd.overlay || 0.4})`, zIndex: 0 }}></div>}
+                            <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', background: 'rgba(255,255,255,0.2)', borderRadius: '100px', backdropFilter: 'blur(12px)', marginBottom: '32px', fontSize: '0.9rem', fontWeight: '800' }}>
+                                    <Sparkles size={16} /> {t('beauty_luxury_experience') || 'Luxury Experience'}
+                                </div>
+                                <h1 style={{ fontSize: isMobile ? '3rem' : (sd.headingSize || '5rem'), color: sd.headingColor || 'inherit', fontWeight: '900', marginBottom: '32px', letterSpacing: '-2px', lineHeight: 1.1 }}>{sd.title || t('hero_title')}</h1>
+                                <p style={{ fontSize: sd.subtitleSize || '1.4rem', color: sd.subtitleColor || 'inherit', marginBottom: '48px', opacity: 0.95, maxWidth: '700px', margin: '0 auto 48px' }}>{sd.subtitle || sd.description}</p>
+                                <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                    <Link to={`/booking?domain=${siteData.slug}`}><button style={{ background: 'white', color: DS.primary, padding: '20px 48px', border: 'none', borderRadius: DS.radius, fontWeight: '800', cursor: 'pointer', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.2)' }}>{sd.buttonText || t('theme_cta_book')}</button></Link>
+                                    <a href="#services" onClick={(e) => scrollToSection(e, 'services')}><button style={{ background: 'transparent', color: 'white', padding: '20px 48px', border: '2px solid white', borderRadius: DS.radius, fontWeight: '800', cursor: 'pointer' }}>{t('theme_nav_services')}</button></a>
+                                </div>
                             </div>
-                            <div style={{ height: '1px', background: DS.border, margin: '10px 0' }}></div>
-                            {currentUser ? (
-                                <button onClick={() => { userActions.setIsCustomerPanelOpen(true); setMobileMenuOpen(false); }} style={{ textAlign: 'left', background: 'none', border: 'none', fontSize: '1.25rem', fontWeight: '700', color: DS.primary, cursor: 'pointer', padding: 0 }}>
-                                    {t('theme_nav_account')}
-                                </button>
-                            ) : (
-                                <button onClick={() => { userActions.setAuthMode('login'); cartActions.setCheckoutStep('auth'); cartActions.setIsCartOpen(true); setMobileMenuOpen(false); }} style={{ textAlign: 'left', background: 'none', border: 'none', fontSize: '1.25rem', fontWeight: '700', color: DS.primary, cursor: 'pointer', padding: 0 }}>
-                                    {t('theme_nav_login')}
-                                </button>
-                            )}
-                            {/* Language Selector Mobile */}
-                            {languageActions && (
-                                <div style={{ marginTop: '20px' }}>
-                                    <label style={{ fontSize: '0.9rem', color: DS.textSecondary, marginBottom: '8px', display: 'block' }}>Language</label>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        {languageActions.LANGUAGES?.map(lang => (
-                                            <button
-                                                key={lang.code}
-                                                onClick={() => { languageActions.setServiceLanguage('website', lang.code); setMobileMenuOpen(false); }}
-                                                style={{
-                                                    padding: '8px 16px', borderRadius: '50px',
-                                                    background: languageActions.currentLang === lang.code ? DS.primary : '#fce7f3',
-                                                    color: languageActions.currentLang === lang.code ? 'white' : DS.text,
-                                                    border: 'none', fontWeight: 'bold'
-                                                }}
-                                            >
-                                                {lang.code.toUpperCase()}
-                                            </button>
-                                        ))}
-                                    </div>
+                        </header>
+                    );
+                case 'services':
+                    return (
+                        <section id="services" style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+                                <div style={{ textAlign: 'center', marginBottom: '80px' }}>
+                                    <h2 style={{ fontSize: '3.5rem', fontWeight: '900', marginBottom: 16 }}>{sd.title || t('theme_nav_services')}</h2>
+                                    <p style={{ color: DS.textSecondary, fontSize: '1.2rem' }}>{t('beauty_services_desc')}</p>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </nav>
-
-            {/* Hero Section */}
-            <header style={{
-                position: 'relative',
-                padding: '120px 24px',
-                textAlign: 'center',
-                overflow: 'hidden',
-                background: config?.hero?.type === 'color'
-                    ? DS.bg
-                    : (config?.hero?.type === 'image' && config?.hero?.url
-                        ? `url(${config.hero.url}) center/cover no-repeat`
-                        : `linear-gradient(to bottom, ${DS.accent}, white)`)
-            }}>
-                {/* Overlay for background image */}
-                {config?.hero?.type === 'image' && config?.hero?.url && (
-                    <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: `rgba(0,0,0,${config.hero.overlay || 0.4})`,
-                        zIndex: 0
-                    }}></div>
-                )}
-                <div style={{ position: 'relative', zIndex: 1, maxWidth: '900px', margin: '0 auto' }}>
-                    <span style={{ display: 'inline-block', background: 'white', color: DS.primary, padding: '6px 16px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: '700', letterSpacing: '0.1em', marginBottom: '24px', boxShadow: DS.shadow }}>
-                        {config?.hero?.subtitle || (isBeauty ? t('theme_hero_subtitle_beauty') : isGastronomy ? t('theme_hero_subtitle_gastro') : isHealthcare ? t('theme_hero_subtitle_health') : t('theme_hero_subtitle_retail'))}
-                    </span>
-                    <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '4.5rem', lineHeight: '1.1', marginBottom: '24px', color: DS.text }}>
-                        {config?.hero?.title || (isBeauty ? t('theme_hero_title_beauty') : isGastronomy ? t('theme_hero_title_gastro') : isHealthcare ? t('theme_hero_title_health') : t('theme_hero_title_retail'))}
-                    </h2>
-                    <p style={{ fontSize: '1.25rem', color: DS.textSecondary, marginBottom: '40px', lineHeight: '1.8', maxWidth: '700px', margin: '0 auto 40px' }}>
-                        {config?.hero?.description || (isBeauty ? t('theme_hero_desc_beauty') : isGastronomy ? t('theme_hero_desc_gastro') : isHealthcare ? t('theme_hero_desc_health') : t('theme_hero_desc_retail'))}
-                    </p>
-                    <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                        <Link to={`/booking?domain=${siteData.domain || 'demo'}`} style={{ background: DS.primary, color: DS.buttonText, textDecoration: 'none', padding: '18px 48px', borderRadius: '50px', fontSize: '1rem', fontWeight: '700', boxShadow: `0 20px 40px -10px ${DS.primary}66` }}>
-                            {t('theme_cta_book')}
-                        </Link>
-                        <a href="#services" style={{ background: 'white', color: DS.text, textDecoration: 'none', padding: '18px 48px', borderRadius: '50px', fontSize: '1rem', fontWeight: '700', border: `1px solid ${DS.border}` }}>
-                            {t('theme_cta_services')}
-                        </a>
-                    </div>
-                </div>
-            </header>
-
-            {/* Services Grid */}
-            <section id="services" style={{ padding: '100px 24px', maxWidth: '1200px', margin: '0 auto' }}>
-                <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                    <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '2.5rem', marginBottom: '16px' }}>
-                        {t('theme_cta_services')}
-                    </h3>
-                    <p style={{ color: DS.textSecondary, maxWidth: '600px', margin: '0 auto' }}>
-                        {isBeauty ? t('theme_section_services_desc_beauty') : isGastronomy ? t('theme_section_services_desc_gastro') : isHealthcare ? t('theme_section_services_desc_health') : t('theme_section_services_desc_retail')}
-                    </p>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '32px' }}>
-                    {(siteData.appointmentSettings?.services || []).map(service => (
-                        <div key={service.id} style={{
-                            background: DS.surface, borderRadius: DS.radius, padding: '40px', textAlign: 'center', transition: 'all 0.3s',
-                            boxShadow: DS.shadow, border: `1px solid ${DS.border}`, display: 'flex', flexDirection: 'column'
-                        }}>
-                            {service.image_url ? (
-                                <div style={{ width: '100%', height: '160px', borderRadius: '16px', overflow: 'hidden', marginBottom: '24px' }}>
-                                    <img src={service.image_url} alt={service.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                </div>
-                            ) : (
-                                <div style={{
-                                    width: '64px', height: '64px', borderRadius: '20px',
-                                    background: service.color ? `${service.color}15` : 'white',
-                                    margin: '0 auto 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    color: service.color || DS.primary, boxShadow: DS.shadow
-                                }}>
-                                    {React.createElement(getServiceIcon(service.name, service.icon), { size: 28 })}
-                                </div>
-                            )}
-                            <h4 style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.5rem', marginBottom: '16px' }}>{service.name}</h4>
-
-                            <p style={{ color: DS.textSecondary, marginBottom: 'auto', fontSize: '0.95rem', lineHeight: '1.6' }}>
-                                {service.description || (isBeauty ? `${service.duration} dakikalık profesyonel uygulama.` : isGastronomy ? 'Özel tarifimizle hazırlanan eşsiz lezzet.' : isHealthcare ? 'Uzman kadromuz tarafından sunulan sağlık hizmeti.' : 'Kaliteli ve güvenilir ürün seçeneği.')}
-                            </p>
-                            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${DS.border}`, display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.75rem', color: DS.textSecondary, textTransform: 'uppercase', fontWeight: '700' }}>{t('theme_price')}</div>
-                                    <div style={{ fontSize: '1.25rem', fontWeight: '700', color: DS.primary }}>{Number(service.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
-                                </div>
-                                <Link to={`/booking?domain=${siteData.domain || 'demo'}&service=${service.id}`} style={{ background: DS.primary, width: '100%', textAlign: 'center', color: DS.buttonText, textDecoration: 'none', padding: '12px 24px', borderRadius: '50px', fontSize: '0.9rem', fontWeight: '700' }}>
-                                    {t('theme_cta_book')}
-                                </Link>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {/* Products Section */}
-            {
-                products && products.length > 0 && (
-                    <section id="products" style={{ padding: '100px 24px', background: DS.surface }}>
-                        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '60px' }}>
-                                <div>
-                                    <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '2.5rem', marginBottom: '12px' }}>{t('theme_nav_products')}</h3>
-                                    <p style={{ color: DS.textSecondary }}>{t('theme_section_products_desc') || "Qualitätsprodukte für Sie."}</p>
-                                </div>
-                                <button style={{ background: 'none', border: `1px solid ${DS.border}`, padding: '12px 24px', borderRadius: '50px', color: DS.text, fontWeight: '600', cursor: 'pointer' }}>
-                                    {t('theme_btn_view_all')}
-                                </button>
-                            </div>
-
-                            <div className="product-grid" style={{ display: 'grid', gap: '24px' }}>
-                                {products.map(product => (
-                                    <div key={product.id} style={{ background: 'white', borderRadius: DS.radius, padding: '24px', boxShadow: DS.shadow, transition: 'all 0.3s', display: 'flex', flexDirection: 'column' }}>
-                                        <div style={{ height: '220px', background: DS.accent, borderRadius: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                            {product.image ? (
-                                                <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <ShoppingBag size={48} color={DS.primary} style={{ opacity: 0.2 }} />
-                                            )}
-                                        </div>
-                                        <h4 style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.2rem', marginBottom: '8px' }}>{product.name}</h4>
-                                        <p style={{ color: DS.textSecondary, fontSize: '0.85rem', marginBottom: '20px', flex: 1 }}>{product.description || 'Özel içerikli bakım ürünü.'}</p>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: 'auto', paddingTop: '20px', borderTop: `1px solid ${DS.border}`, alignItems: 'center' }}>
-                                            <span style={{ fontSize: '1.2rem', fontWeight: '700', color: DS.text }}>{Number(product.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
-                                            <button
-                                                onClick={() => addToCart(product)}
-                                                style={{
-                                                    width: '100%', padding: '12px', borderRadius: '50px',
-                                                    background: DS.primary, color: DS.buttonText, border: 'none',
-                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                                    fontWeight: '600', fontSize: '0.9rem'
-                                                }}
-                                            >
-                                                <ShoppingBag size={18} /> {t('theme_btn_add_to_cart')}
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-                )
-            }
-
-            {/* Footer */}
-            <footer style={{ background: 'white', padding: '80px 24px', borderTop: `1px solid ${DS.border}` }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '60px' }}>
-                    <div>
-                        <h4 style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.8rem', color: DS.primary, marginBottom: '24px' }}>{profile?.companyName}</h4>
-                        <p style={{ color: DS.textSecondary, lineHeight: '1.8', marginBottom: '24px' }}>
-                            {config?.footer?.description || (isBeauty ? 'Profesyonel güzellik ve bakım hizmetleri ile kendinizi özel hissedin.' : isGastronomy ? 'En taze malzemeler ve kusursuz servis anlayışıyla hizmetinizdeyiz.' : isHealthcare ? 'Modern teknoloji ve şevkatli bakım anlayışını birleştiriyoruz.' : 'Stilinizi yansıtan en seçkin ürünleri beğeninize sunuyoruz.')}
-                        </p>
-                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                            {(config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram) && (
-                                <a href={config?.socialLinks?.instagram || config?.social?.instagram || profile?.social?.instagram} target="_blank" rel="noopener noreferrer" style={{ color: DS.primary }}>
-                                    <Instagram style={{ cursor: 'pointer' }} />
-                                </a>
-                            )}
-                            {(config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook) && (
-                                <a href={config?.socialLinks?.facebook || config?.social?.facebook || profile?.social?.facebook} target="_blank" rel="noopener noreferrer" style={{ color: DS.primary }}>
-                                    <Facebook style={{ cursor: 'pointer' }} />
-                                </a>
-                            )}
-                            {(config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter) && (
-                                <a href={config?.socialLinks?.twitter || config?.social?.twitter || profile?.social?.twitter} target="_blank" rel="noopener noreferrer" style={{ color: DS.primary }}>
-                                    <Twitter style={{ cursor: 'pointer' }} />
-                                </a>
-                            )}
-                            {(config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin) && (
-                                <a href={config?.socialLinks?.linkedin || config?.social?.linkedin || profile?.social?.linkedin} target="_blank" rel="noopener noreferrer" style={{ color: DS.primary }}>
-                                    <Linkedin style={{ cursor: 'pointer' }} />
-                                </a>
-                            )}
-                            {config?.extraSocialLinks?.map((link, idx) => (
-                                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} style={{ color: DS.primary }}>
-                                    <Globe style={{ cursor: 'pointer' }} />
-                                </a>
-                            ))}
-                        </div>
-
-                        {/* Dynamic Working Hours */}
-                        {(siteData?.appointmentSettings?.workingHours || (siteData?.appointmentSettings?.holidays && siteData.appointmentSettings.holidays.length > 0)) && (
-                            <div style={{ marginTop: '32px', padding: '24px', background: '#f5f5f4', borderRadius: DS.radius, border: `1px solid ${DS.border}` }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: DS.primary, fontWeight: '700', fontSize: '1rem', fontFamily: '"Playfair Display", serif' }}>
-                                    <Calendar size={18} /> {t('footer_working_hours')}
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: DS.textSecondary }}>
-                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(dayCode => {
-                                        const isOpen = siteData.appointmentSettings?.workingDays?.includes(dayCode);
-                                        const dayMap = { 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday', 'Sun': 'sunday' };
-
-                                        const schedule = siteData.appointmentSettings?.schedule;
-                                        const isWeekend = ['Sat', 'Sun'].includes(dayCode);
-
-                                        const hours = (schedule && schedule[dayCode])
-                                            ? schedule[dayCode]
-                                            : (isWeekend
-                                                ? (siteData.appointmentSettings?.workingHoursWeekend?.start ? siteData.appointmentSettings.workingHoursWeekend : siteData.appointmentSettings?.workingHours)
-                                                : siteData.appointmentSettings?.workingHours);
-
-                                        const tKey = `day_${dayMap[dayCode] || dayCode.toLowerCase()}`;
-
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '40px' }}>
+                                    {(siteData.appointmentSettings?.services || []).map((s, i) => {
+                                        const Icon = getServiceIcon(s.name, s.icon);
                                         return (
-                                            <div key={dayCode} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px dashed ${DS.border}`, paddingBottom: '4px' }}>
-                                                <span style={{ color: isOpen ? DS.textSecondary : 'rgba(0,0,0,0.3)' }}>{t(tKey)}:</span>
-                                                <span style={{ fontWeight: isOpen ? '600' : 'normal', color: isOpen ? DS.text : 'rgba(0,0,0,0.3)', fontStyle: isOpen ? 'normal' : 'italic' }}>
-                                                    {isOpen ? `${hours?.start} - ${hours?.end}` : t('day_closed')}
-                                                </span>
+                                            <div key={i} style={{ background: DS.surface, padding: '50px', borderRadius: DS.radius, border: '1px solid ' + DS.border, boxShadow: DS.shadow, textAlign: 'center' }}>
+                                                <div style={{ width: 80, height: 80, background: DS.primary + '10', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.primary, margin: '0 auto 32px' }}>
+                                                    <Icon size={40} />
+                                                </div>
+                                                <h3 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: 16 }}>{s.name}</h3>
+                                                <p style={{ color: DS.textSecondary, lineHeight: 1.8 }}>{s.description}</p>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 32 }}>
+                                                    <div style={{ fontWeight: '900', color: DS.primary, fontSize: '1.5rem' }}>{s.price} {profile?.currency}</div>
+                                                    <Link to={`/booking?domain=${siteData.slug}&serviceId=${s.id}`} style={{ background: DS.primary, color: 'white', padding: '12px 24px', borderRadius: '30px', textDecoration: 'none', fontWeight: '800', fontSize: '0.9rem' }}>{t('book_now')}</Link>
+                                                </div>
                                             </div>
                                         );
                                     })}
-                                    {siteData.appointmentSettings?.holidays?.length > 0 && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: `1px dashed ${DS.border}`, marginTop: '4px' }}>
-                                            <span>{t('footer_holidays')}:</span>
-                                            <span style={{ color: '#ef4444', fontStyle: 'italic' }}>{t('day_closed')}</span>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
+                        </section>
+                    );
+                case 'products':
+                    return (
+                        <section id="products" style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+                                <div style={{ textAlign: 'center', marginBottom: '80px' }}>
+                                    <h2 style={{ fontSize: '3.5rem', fontWeight: '900', marginBottom: 16 }}>{sd.title || t('our_products')}</h2>
+                                    <p style={{ color: DS.textSecondary, fontSize: '1.2rem' }}>{t('beauty_products_desc')}</p>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px' }}>
+                                    {products.map((p, i) => (
+                                        <div key={i} style={{ background: DS.surface, borderRadius: DS.radius, border: '1px solid ' + DS.border, overflow: 'hidden', boxShadow: DS.shadow, textAlign: 'center' }}>
+                                            <div style={{ height: '300px', background: DS.surfaceSecondary, overflow: 'hidden' }}>
+                                                {p.image ? <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={64} opacity={0.1} /></div>}
+                                            </div>
+                                            <div style={{ padding: '40px' }}>
+                                                <h3 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: 12 }}>{p.name}</h3>
+                                                <p style={{ color: DS.textSecondary, marginBottom: 24, height: '40px', overflow: 'hidden' }}>{p.description}</p>
+                                                <div style={{ fontWeight: '900', fontSize: '1.5rem', color: DS.primary, marginBottom: 24 }}>{p.price} {profile?.currency}</div>
+                                                <button onClick={() => addToCart(p)} style={{ width: '100%', background: 'transparent', color: DS.primary, border: '2px solid ' + DS.primary, padding: '16px 32px', borderRadius: '40px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                                                    <ShoppingBag size={20} /> {t('add_to_cart')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
+                    );
+                case 'contact':
+                    return (
+                        <section id="contact" style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '80px', alignItems: 'center' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '3.5rem', fontWeight: '900' }}>{sd.title || t('theme_nav_contact')}</h2>
+                                    <p style={{ color: DS.textSecondary, marginBottom: '40px', fontSize: '1.2rem' }}>{sd.subtitle || t('beauty_contact_desc')}</p>
+                                    {[
+                                        { icon: Phone, val: profile?.phone, label: t('phone') },
+                                        { icon: Mail, val: profile?.email, label: t('email') },
+                                        { icon: MapPin, val: profile?.address, label: t('location') }
+                                    ].map((item, i) => (
+                                        <div key={i} style={{ display: 'flex', gap: '20px', marginBottom: '32px', alignItems: 'center' }}>
+                                            <div style={{ width: 60, height: 60, background: DS.primary + '10', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><item.icon size={28} color={DS.primary} /></div>
+                                            <div>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: '800', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '1px' }}>{item.label}</div>
+                                                <div style={{ fontWeight: '700', fontSize: '1.2rem' }}>{item.val}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div style={{ background: DS.surface, padding: '50px', borderRadius: DS.radius, border: '1px solid ' + DS.border, boxShadow: DS.shadow }}>
+                                    <h3 style={{ fontWeight: '900', fontSize: '1.75rem', marginBottom: 32 }}>{t('send_us_a_message')}</h3>
+                                    <form onSubmit={onSendMessage} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        <input name="name" required placeholder={t('your_name')} style={{ padding: 20, borderRadius: '20px', border: '1px solid ' + DS.border, background: DS.surfaceSecondary, color: DS.text, outline: 'none' }} />
+                                        <input name="email" type="email" required placeholder={t('your_email')} style={{ padding: 20, borderRadius: '20px', border: '1px solid ' + DS.border, background: DS.surfaceSecondary, color: DS.text, outline: 'none' }} />
+                                        <textarea name="message" required placeholder={t('your_message')} rows={5} style={{ padding: 20, borderRadius: '20px', border: '1px solid ' + DS.border, background: DS.surfaceSecondary, color: DS.text, resize: 'none', outline: 'none' }}></textarea>
+                                        <button disabled={sendingMsg} style={{ background: DS.primary, color: 'white', padding: 20, borderRadius: '20px', border: 'none', fontWeight: '800', cursor: 'pointer', fontSize: '1.1rem', boxShadow: '0 10px 20px -5px ' + DS.primary + '40' }}>{sendingMsg ? '...' : t('send_message')}</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </section>
+                    );
+                default:
+                    return (
+                        <section style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+                                <h2 style={{ fontSize: '3rem', fontWeight: '900' }}>{sd.title || section.type}</h2>
+                                <div style={{ fontSize: '1.3rem', opacity: 0.8, marginTop: 32, lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: sd.content || sd.text }}></div>
+                            </div>
+                        </section>
+                    );
+            }
+        })();
+
+        return <SectionWrapper key={section.id} id={section.id} type={section.type}>{content}</SectionWrapper>;
+    };
+
+    return (
+        <div style={{ fontFamily: DS.fontPrimary, background: DS.bg, color: DS.text, minHeight: '100vh', overflowX: 'hidden' }}>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+                :root { --primary: ${DS.primary}; --accent: ${DS.accent}; --radius: ${DS.radius}; }
+                ${config?.advanced?.customCss || ''}
+            `}</style>
+
+            <nav style={{ background: isDark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', backdropFilter: 'blur(15px)', borderBottom: '1px solid ' + DS.border, position: 'sticky', top: 0, zIndex: 1000 }}>
+                <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: '900', fontSize: '1.75rem', color: DS.primary, letterSpacing: '-1px' }}>
+                        {profile?.logo ? <img src={profile.logo} alt="Logo" style={{ height: 45 }} /> : profile?.companyName}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
+                        {!isMobile && (
+                            <div style={{ display: 'flex', gap: '40px', fontWeight: '700', fontSize: '1rem' }}>
+                                <a href="#hero" onClick={(e) => scrollToSection(e, 'hero')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_home')}</a>
+                                <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
+                                <a href="#products" onClick={(e) => scrollToSection(e, 'products')} style={{ textDecoration: 'none', color: DS.text }}>{t('label_products')}</a>
+                                <a href="#contact" onClick={(e) => scrollToSection(e, 'contact')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_contact')}</a>
+                            </div>
                         )}
-                    </div>
-                    <div>
-                        <h5 style={{ fontWeight: '700', fontSize: '1rem', marginBottom: '24px', letterSpacing: '0.1em' }}>{t('theme_nav_services')}</h5>
-                        <ul style={{ listStyle: 'none', padding: 0, color: DS.textSecondary, lineHeight: '2.5' }}>
-                            {(siteData.appointmentSettings?.services || []).slice(0, 5).map(s => (
-                                <li key={s.id}>{s.name}</li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div>
-                        <h5 style={{ fontWeight: '700', fontSize: '1rem', marginBottom: '24px', letterSpacing: '0.1em' }}>{t('theme_nav_contact')}</h5>
-                        <div style={{ color: DS.textSecondary, lineHeight: '1.8' }}>
-                            <p style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><MapPin size={16} /> {profile?.street} {profile?.houseNum} {profile?.city}</p>
-                            <p style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Phone size={16} /> {profile?.phone}</p>
-                            <p style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Mail size={16} /> {profile?.email}</p>
-                            <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${profile?.street} ${profile?.houseNum}, ${profile?.zip} ${profile?.city}`)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: DS.primary, textDecoration: 'none', marginTop: '12px', fontWeight: '700', fontSize: '0.9rem' }}
-                            >
-                                <ArrowRight size={16} /> {t('theme_btn_directions')}
-                            </a>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <button onClick={() => setModeOverride(isDark ? 'light' : 'dark')} style={{ background: 'none', border: 'none', color: DS.text, cursor: 'pointer', padding: 8, display: 'flex', alignItems: 'center' }}>
+                                {isDark ? <Sun size={24} /> : <Moon size={24} />}
+                            </button>
+                            <button onClick={() => setIsCartOpen(true)} style={{ background: 'none', border: 'none', color: DS.text, position: 'relative', cursor: 'pointer' }}>
+                                <ShoppingBag size={26} />
+                                {cart.length > 0 && <span style={{ position: 'absolute', top: -4, right: -4, background: DS.primary, color: 'white', width: 20, height: 20, borderRadius: '50%', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800' }}>{cart.length}</span>}
+                            </button>
+                            <Link to={`/booking?domain=${siteData.slug}`}><button style={{ background: DS.primary + '15', color: DS.primary, border: 'none', padding: '12px 24px', borderRadius: '30px', fontWeight: '800', cursor: 'pointer', display: isMobile ? 'none' : 'block' }}>{t('book_appointment')}</button></Link>
+                            <button onClick={() => setIsCustomerPanelOpen(true)} style={{ background: DS.primary, color: 'white', border: 'none', padding: '12px 32px', borderRadius: DS.radius, fontWeight: '800', cursor: 'pointer', boxShadow: '0 10px 20px -5px ' + DS.primary + '40' }}>{currentUser ? t('theme_nav_account') : t('theme_nav_login')}</button>
+                            {isMobile && <button onClick={() => setMobileMenuOpen(true)} style={{ background: 'none', border: 'none' }}><Menu size={32} color={DS.primary} /></button>}
                         </div>
                     </div>
                 </div>
-                <div style={{ maxWidth: '1200px', margin: '40px auto 0', paddingTop: '40px', borderTop: `1px solid ${DS.border}`, textAlign: 'center', color: DS.textSecondary, fontSize: '0.85rem' }}>
-                    &copy; {new Date().getFullYear()} {profile?.companyName}. {t('theme_footer_rights')}
+            </nav>
+
+            <main>{sections.map(renderSection)}</main>
+
+            <footer style={{ ...getBgStyle('footer'), color: DS.text, padding: '120px 24px 60px', borderTop: '1px solid ' + DS.border }}>
+                <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr', gap: '80px', textAlign: 'left', marginBottom: '80px' }}>
+                        <div>
+                            <div style={{ fontWeight: '900', fontSize: '2rem', color: DS.primary, letterSpacing: '-1px', marginBottom: '32px' }}>
+                                {profile?.logo ? <img src={profile.logo} alt="Logo" style={{ height: 45 }} /> : profile?.companyName}
+                            </div>
+                            <p style={{ opacity: 0.8, lineHeight: 2, fontSize: '1.1rem', maxWidth: '400px' }}>{profile?.description || config?.footer?.description || t('beauty_footer_tagline')}</p>
+                            <div style={{ display: 'flex', gap: 20, marginTop: '40px' }}>
+                                {[Facebook, Instagram, Twitter, Linkedin].map((Icon, i) => <Icon key={i} size={24} style={{ opacity: 0.6, cursor: 'pointer' }} />)}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h5 style={{ fontWeight: '900', marginBottom: '32px', fontSize: '1.25rem', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('working_hours') || 'Working Hours'}</h5>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '1rem', opacity: 0.8 }}>
+                                {(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).map(day => (
+                                    <div key={day} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid ' + DS.border, paddingBottom: 8 }}>
+                                        <span style={{ fontWeight: '700' }}>{t(day.toLowerCase()) || day}</span>
+                                        <span>{appointmentSettings?.workingDays?.includes(day.substring(0, 3)) ? (
+                                            (day === 'Saturday' || day === 'Sunday' ?
+                                                (appointmentSettings?.workingHoursWeekend?.start + ' - ' + appointmentSettings?.workingHoursWeekend?.end) :
+                                                (appointmentSettings?.workingHours?.start + ' - ' + appointmentSettings?.workingHours?.end)
+                                            )
+                                        ) : t('closed', 'Kapalı')}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h5 style={{ fontWeight: '900', marginBottom: '32px', fontSize: '1.25rem', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('navigation') || 'Navigation'}</h5>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '1.1rem' }}>
+                                <a href="#hero" onClick={(e) => scrollToSection(e, 'hero')} style={{ textDecoration: 'none', color: 'inherit', opacity: 0.8, fontWeight: '700' }}>{t('theme_nav_home')}</a>
+                                <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: 'inherit', opacity: 0.8, fontWeight: '700' }}>{t('theme_nav_services')}</a>
+                                <a href="#contact" onClick={(e) => scrollToSection(e, 'contact')} style={{ textDecoration: 'none', color: 'inherit', opacity: 0.8, fontWeight: '700' }}>{t('theme_nav_contact')}</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid ' + DS.border, paddingTop: 40, opacity: 0.5, fontSize: '0.95rem', textAlign: 'center' }}>
+                        &copy; {new Date().getFullYear()} {profile?.companyName}. {t('theme_footer_rights')}
+                    </div>
                 </div>
-            </footer >
-        </div >
+            </footer>
+        </div>
     );
 };
 

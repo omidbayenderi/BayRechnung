@@ -20,6 +20,7 @@ const PublicBookingPage = () => {
     const t = getT(serviceLanguages?.website || appLanguage);
     const [searchParams] = useSearchParams();
     const domainFromUrl = searchParams.get('domain');
+    const preSelectedServiceId = searchParams.get('serviceId');
 
     // Use Context data if available (logged in admin), otherwise use publicData (fetched from domain)
     const services = contextServices.length > 0 ? contextServices : publicData.services;
@@ -37,7 +38,7 @@ const PublicBookingPage = () => {
     // Initialize State
     const [step, setStep] = useState(1); // 1: Service, 2: Staff, 3: Date/Time, 4: Details, 5: Confirm
     const [bookingData, setBookingData] = useState({
-        serviceId: null,
+        serviceId: preSelectedServiceId || null,
         staffId: null,
         date: '',
         time: '',
@@ -46,6 +47,12 @@ const PublicBookingPage = () => {
         customerEmail: '',
         notes: ''
     });
+
+    useEffect(() => {
+        if (preSelectedServiceId && services.length > 0 && step === 1) {
+            setStep(2);
+        }
+    }, [preSelectedServiceId, services, step]);
     const [paymentMethod, setPaymentMethod] = useState('onsite'); // 'onsite' | 'online'
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
@@ -363,7 +370,7 @@ const PublicBookingPage = () => {
 
         // 3. Determine hours for this day (Weekday vs Weekend)
         const isWeekend = dayName === 'Sat' || dayName === 'Sun';
-        const hours = isWeekend ? (settings.workingHoursWeekend || settings.workingHours) : settings.workingHours;
+        const hours = isWeekend ? (settings?.workingHoursWeekend || settings?.workingHours) : settings?.workingHours;
 
         if (!hours || !hours.start || !hours.end) return [];
 

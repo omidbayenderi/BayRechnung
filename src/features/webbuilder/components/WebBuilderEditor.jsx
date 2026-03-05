@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { useWebsite } from '../../context/WebsiteContext';
-import { useLanguage } from '../../context/LanguageContext';
+import { useWebsite } from '../../../context/WebsiteContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Layout, Eye, EyeOff, Trash2, PlusCircle, Monitor,
@@ -8,10 +8,10 @@ import {
     Type, Image as ImageIcon, List, FileText, CheckCircle,
     ChevronRight, Save, LayoutTemplate, X, Briefcase, Calendar, Map, Globe,
     ChevronDown, Plus, MessageSquare, Layers, Paperclip, Star, Hash, Settings, Palette,
-    GripVertical, Smartphone, Tablet, Monitor as DesktopIcon, Sun, Moon
+    GripVertical, Smartphone, Tablet, Monitor as DesktopIcon, Sun, Moon, FileJson
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import PublicWebsite from '../public/PublicWebsite';
+import PublicWebsite from '../../../pages/public/PublicWebsite';
 
 // ─── GOOGLE FONTS LIST ───
 const GOOGLE_FONTS = [
@@ -26,7 +26,7 @@ const GOOGLE_FONTS = [
     'Clash Display', 'Cabinet Grotesk', 'Switzer', 'Synonym', 'Erode'
 ];
 
-const WebsiteEditor = () => {
+const WebBuilderEditor = () => {
     const {
         sections, updateSection, toggleSectionVisibility,
         addSection, deleteSection, moveSection, siteConfig, updateSiteConfig,
@@ -43,10 +43,10 @@ const WebsiteEditor = () => {
     const [editModalTab, setEditModalTab] = useState('content');
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, tablet, mobile
     const [draggedIdx, setDraggedIdx] = useState(null);
-    const [showDesignPanel, setShowDesignPanel] = useState(false);
 
     // ─── SECTION TEMPLATES ───
     const SECTION_TEMPLATES = useMemo(() => [
+        { type: 'hero', icon: <ImageIcon size={18} />, label: t('theme_section_hero') || 'Hero Banner', defaultData: { title: 'Welcome Home', subtitle: 'Modern solutions for your life.', buttonText: 'Explore More', overlay: 0.4 } },
         { type: 'text', icon: <FileText size={18} />, label: t('theme_section_text') || 'Text Section', defaultData: { title: 'New Section', content: 'Add your text here...' } },
         { type: 'about', icon: <Briefcase size={18} />, label: t('theme_section_about') || 'About Us', defaultData: { title: 'About Us', text: 'Tell your story...' } },
         { type: 'services', icon: <Calendar size={18} />, label: t('theme_section_services') || 'Services', defaultData: { title: 'Our Services', autoPull: true } },
@@ -68,7 +68,6 @@ const WebsiteEditor = () => {
 
         let aiData = { ...template.defaultData };
 
-        // Minor AI-suggestion logic based on industry
         if (template.type === 'hero') {
             aiData.title = profile.companyName ? `Welcome to ${profile.companyName}` : aiData.title;
             aiData.subtitle = profile.description || `Providing world-class ${industry} services with excellence.`;
@@ -107,7 +106,7 @@ const WebsiteEditor = () => {
         if (draggedIdx === null || draggedIdx === dropIdx) return;
         const dir = dropIdx > draggedIdx ? 'down' : 'up';
         const steps = Math.abs(dropIdx - draggedIdx);
-        for (let i = 0; i < steps; i++) {
+        for (let j = 0; j < steps; j++) {
             moveSection(sections[draggedIdx].id, dir);
         }
         setDraggedIdx(null);
@@ -213,7 +212,7 @@ const WebsiteEditor = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                                         <GripVertical size={14} color="#cbd5e1" />
                                         <div style={{ color: editingSection === section.id ? '#3b82f6' : '#94a3b8', flexShrink: 0 }}>
-                                            {SECTION_TEMPLATES.find(t => t.type.toUpperCase() === section.type.toUpperCase())?.icon || <Layout size={16} />}
+                                            {SECTION_TEMPLATES.find(temp => temp.type.toUpperCase() === section.type.toUpperCase())?.icon || <Layout size={16} />}
                                         </div>
                                         <div style={{ minWidth: 0 }}>
                                             <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{section.data?.title || section.type}</div>
@@ -337,7 +336,7 @@ const WebsiteEditor = () => {
                 {/* Bottom Actions */}
                 <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
                     <button
-                        onClick={() => window.open(`/theme/demo?domain=${siteConfig.domain || 'demo'}`, '_blank')}
+                        onClick={() => window.open(`/s/demo?domain=${siteConfig.domain || 'demo'}`, '_blank')}
                         style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}
                     >
                         <Eye size={16} /> {t('preview') || 'Preview'}
@@ -679,4 +678,4 @@ const EditorField = ({ label, value, onChange, placeholder, isTextArea, type = '
     </div>
 );
 
-export default WebsiteEditor;
+export default WebBuilderEditor;

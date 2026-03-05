@@ -5,7 +5,7 @@ import { useStock } from '../../context/StockContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import {
     Layout, Globe, Edit3, Monitor, CheckCircle, BarChart2, Eye, Share2,
-    ShoppingCart, Calendar, ArrowRight, ExternalLink
+    ShoppingCart, Calendar, ArrowRight, ExternalLink, Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getDnsInstructions } from '../../lib/domain_mapping';
@@ -32,12 +32,12 @@ const WebsiteDashboard = () => {
     const subDomain = companyProfile?.companyName
         ?.toLowerCase()
         .trim()
-        .replace(/[ğğ]/g, 'g')
-        .replace(/[üü]/g, 'u')
-        .replace(/[şş]/g, 's')
-        .replace(/[ii]/g, 'i')
-        .replace(/[öö]/g, 'o')
-        .replace(/[çç]/g, 'c')
+        .replace(/[ğ]/g, 'g')
+        .replace(/[ü]/g, 'u')
+        .replace(/[ş]/g, 's')
+        .replace(/[ı]/g, 'i')
+        .replace(/[ö]/g, 'o')
+        .replace(/[ç]/g, 'c')
         .replace(/ /g, '-')
         .replace(/[^a-z0-9-]/g, '') || 'demo';
 
@@ -52,9 +52,6 @@ const WebsiteDashboard = () => {
         console.log('User clicked view site. Relative:', relativeUrl, 'Full:', fullUrl);
 
         if (isLocalhost) {
-            // On local, use internal navigate to avoid popup blockers and stay in flow
-            // If they really want a new tab, we can try, but navigate is safer for 'not working' issues
-            // Let's try internal navigate first to confirm it works
             navigate(relativeUrl);
         } else {
             const win = window.open(fullUrl, '_blank');
@@ -82,6 +79,34 @@ const WebsiteDashboard = () => {
 
     return (
         <div className="page-container" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+
+            {/* Onboarding Wizard CTA (If not configured) */}
+            {!siteConfig.slug && (
+                <div style={{
+                    padding: '60px', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                    borderRadius: '24px', marginBottom: '40px', color: 'white', textAlign: 'center',
+                    boxShadow: '0 20px 50px rgba(0,0,0,0.1)'
+                }}>
+                    <div style={{ display: 'inline-flex', padding: '12px', background: 'rgba(59, 130, 246, 0.2)', borderRadius: '16px', marginBottom: '24px' }}>
+                        <Sparkles size={32} color="#3b82f6" />
+                    </div>
+                    <h2 style={{ fontSize: '2.5rem', fontWeight: '900', marginBottom: '16px', letterSpacing: '-0.02em' }}>Launch Your Professional Website</h2>
+                    <p style={{ fontSize: '1.1rem', opacity: 0.8, maxWidth: '600px', margin: '0 auto 32px auto' }}>
+                        Create a premium website integrated with your services and products in less than 2 minutes.
+                    </p>
+                    <button
+                        onClick={() => navigate('/website/wizard')}
+                        style={{
+                            padding: '18px 40px', borderRadius: '16px', border: 'none', background: '#3b82f6', color: 'white',
+                            fontWeight: '800', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '12px',
+                            boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)'
+                        }}
+                    >
+                        Start Setup Wizard <ArrowRight size={20} />
+                    </button>
+                </div>
+            )}
+
             {/* Header Area */}
             <header style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
                 <div>

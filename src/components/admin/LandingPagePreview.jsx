@@ -2,13 +2,15 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
     ArrowRight, Check, FileText, TrendingUp, Globe, Shield, Smartphone,
-    Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star
+    Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star,
+    HelpCircle, MessageSquare, BarChart2
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 const IconMap = {
-    FileText, TrendingUp, Globe, Shield, Smartphone,
-    Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star
+    ArrowRight, Check, FileText, TrendingUp, Globe, Shield, Smartphone,
+    Palette, CreditCard, Zap, Calendar, ShoppingCart, Bot, Layout, Star,
+    HelpCircle, MessageSquare, BarChart2
 };
 
 const EditableText = ({ text, onUpdate, className, style, multiline = false }) => {
@@ -48,7 +50,7 @@ const EditableText = ({ text, onUpdate, className, style, multiline = false }) =
     );
 };
 
-const LandingPagePreview = ({ pricingPlans, dynamicVideos, dynamicSections, onSelect, activeSection, onUpdateContent }) => {
+const LandingPagePreview = ({ pricingPlans, dynamicVideos, dynamicSections, onSelect, activeSection, onUpdateContent, globalConfig }) => {
     const { t } = useLanguage();
     const [billingCycle, setBillingCycle] = React.useState('monthly');
     const basePath = import.meta.env.BASE_URL;
@@ -56,6 +58,9 @@ const LandingPagePreview = ({ pricingPlans, dynamicVideos, dynamicSections, onSe
     const heroAlert = dynamicSections.find(s => s.slug === 'hero-alert' && s.is_active);
     const heroMain = dynamicSections.find(s => s.slug === 'hero-main' && s.is_active);
     const powerFeatures = dynamicSections.filter(s => s.type === 'card' && s.is_active).sort((a, b) => a.display_order - b.display_order);
+    const faqSections = dynamicSections.filter(s => s.type === 'faq' && s.is_active);
+    const testimonialSections = dynamicSections.filter(s => s.type === 'testimonial' && s.is_active);
+    const statsSections = dynamicSections.filter(s => s.type === 'stats' && s.is_active);
 
     const heroImage = heroMain?.content?.image_url
         ? (heroMain.content.image_url.startsWith('http') ? heroMain.content.image_url : `${basePath}${heroMain.content.image_url.replace(/^\//, '')}`)
@@ -139,6 +144,30 @@ const LandingPagePreview = ({ pricingPlans, dynamicVideos, dynamicSections, onSe
                 .landing-page.preview-mode { -ms-overflow-style: none; scrollbar-width: none; }
                 .interactive-section:hover { background: rgba(59, 130, 246, 0.05); }
                 .editable-text:focus { background: rgba(59, 130, 246, 0.1); border-radius: 4px; padding: 0 4px; }
+                
+                :root {
+                    --lp-primary: ${globalConfig?.primaryColor || '#3b82f6'};
+                    --lp-secondary: ${globalConfig?.secondaryColor || '#64748b'};
+                    --lp-radius: ${globalConfig?.radius || '12px'};
+                    --lp-font-h: ${globalConfig?.fontHeading || '"Outfit", sans-serif'};
+                    --lp-font-b: ${globalConfig?.fontBody || '"Inter", sans-serif'};
+                }
+
+                .landing-page.preview-mode {
+                    font-family: var(--lp-font-b);
+                }
+                .landing-page.preview-mode h1, 
+                .landing-page.preview-mode h2, 
+                .landing-page.preview-mode h3 {
+                    font-family: var(--lp-font-h);
+                }
+                .btn-lp-primary {
+                    background: var(--lp-primary);
+                    border-radius: var(--lp-radius);
+                }
+                .card-lp {
+                    border-radius: var(--lp-radius);
+                }
             `}</style>
 
             <div className="landing-bg-glow" style={{ position: 'fixed' }}></div>
@@ -243,21 +272,57 @@ const LandingPagePreview = ({ pricingPlans, dynamicVideos, dynamicSections, onSe
                         <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '24px', textAlign: 'center' }}>Watch & Learn</h2>
                         <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '10px' }}>
                             {dynamicVideos.map(video => (
-                                <div key={video.id} style={{ minWidth: '250px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '15px' }}>
-                                    <div style={{ aspectRatio: '16/9', background: '#000', borderRadius: '8px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>Video Player</div>
+                                <div key={video.id} style={{ minWidth: '250px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--lp-radius)', padding: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ aspectRatio: '16/9', background: '#000', borderRadius: 'calc(var(--lp-radius) / 2)', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>Video Player</div>
                                     <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '4px' }}>
                                         <EditableText
                                             text={video.title}
                                             onUpdate={(val) => updateVideo(video.id, 'title', val)}
                                         />
                                     </h4>
-                                    <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                        <EditableText
-                                            text={video.description}
-                                            onUpdate={(val) => updateVideo(video.id, 'description', val)}
-                                            multiline
-                                        />
-                                    </p>
+                                    <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{video.description}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Stats Preview */}
+                {statsSections.length > 0 && (
+                    <section className="interactive-section" onClick={() => onSelect?.('cms-sections')} style={{ padding: '40px 0', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '20px', textAlign: 'center' }}>
+                        {statsSections.map(s => (
+                            <div key={s.id}>
+                                <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--lp-primary)' }}>{s.content.value || '10k+'}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{s.content.title}</div>
+                            </div>
+                        ))}
+                    </section>
+                )}
+
+                {/* Testimonials Preview */}
+                {testimonialSections.length > 0 && (
+                    <section className="interactive-section" onClick={() => onSelect?.('cms-sections')} style={{ padding: '40px 0' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                            {testimonialSections.map(s => (
+                                <div key={s.id} style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--lp-radius)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ display: 'flex', gap: '2px', marginBottom: '12px' }}>{[...Array(5)].map((_, i) => <Star key={i} size={10} fill="var(--lp-primary)" stroke="none" />)}</div>
+                                    <p style={{ fontSize: '0.8rem', fontStyle: 'italic', marginBottom: '12px' }}>"{s.content.text}"</p>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: '700' }}>{s.content.title}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* FAQ Preview */}
+                {faqSections.length > 0 && (
+                    <section className="interactive-section" onClick={() => onSelect?.('cms-sections')} style={{ padding: '40px 0' }}>
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '24px', textAlign: 'center' }}>Common Questions</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {faqSections.map(s => (
+                                <div key={s.id} style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--lp-radius)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{s.content.title}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>{s.content.text}</div>
                                 </div>
                             ))}
                         </div>

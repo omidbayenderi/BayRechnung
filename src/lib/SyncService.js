@@ -209,6 +209,21 @@ class SyncService {
 
                     if (item.retryCount > 10 || isPermanentError) {
                         console.error("[Sync] Item retired:", item, error);
+
+                        // AGENT ORCHESTRATION: Log failed sync to BaySync
+                        supabase.from('audit_logs').insert({
+                            action: 'SYNC_RETIRED',
+                            entity_type: item.table,
+                            entity_id: item.targetId,
+                            severity: 'critical',
+                            source: 'BaySync',
+                            metadata: {
+                                error: error?.message || 'Retried 10 times',
+                                code: error?.code,
+                                item: { table: item.table, action: item.action }
+                            }
+                        }).catch(e => { });
+
                         const deadQueue = JSON.parse(localStorage.getItem('bay_dead_sync_queue') || '[]');
                         deadQueue.push({
                             ...item,
@@ -298,6 +313,20 @@ class SyncService {
                 }
                 if (error.message?.includes('FetchError') || error.message?.includes('Network Error') || error.message?.includes('Failed to fetch')) {
                     this.lastSuccess = 0;
+                } else {
+                    // Internal DB / Logic Error - Log for BaySync
+                    supabase.from('audit_logs').insert({
+                        action: 'SYNC_ERROR',
+                        entity_type: table,
+                        entity_id: targetId,
+                        severity: 'error',
+                        source: 'BaySync',
+                        metadata: {
+                            error: error.message,
+                            code: error.code,
+                            operation: action
+                        }
+                    }).catch(e => { });
                 }
                 return { success: false, error };
             }
