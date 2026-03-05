@@ -2,6 +2,34 @@ import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Navigate, Outlet } from 'react-router-dom';
 
+const ProfileLoadingFallback = () => {
+    const [showRetry, setShowRetry] = React.useState(false);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setShowRetry(true);
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    return (
+        <div style={{ padding: '80px', textAlign: 'center' }}>
+            <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTop: '3px solid #2563eb', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto' }}></div>
+            <p style={{ marginTop: '20px', color: '#64748b' }}>
+                {showRetry ? 'Bağlantı yavaş, profil hala yükleniyor...' : 'Profil yükleniyor...'}
+            </p>
+            {showRetry && (
+                <button
+                    onClick={() => window.location.reload()}
+                    style={{ marginTop: '16px', padding: '8px 16px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', cursor: 'pointer' }}
+                >
+                    Sayfayı Yenile
+                </button>
+            )}
+        </div>
+    );
+};
+
 /**
  * RoleGuardian protects components/routes based on user roles.
  * 
@@ -32,31 +60,7 @@ const RoleGuard = ({ children, allowedRoles = [], redirectToLogin = true, fallba
 
         // If authenticated but profile still loading, show a tiny delay
         if (isAuthenticated && !hasAccess && currentUser?.isSkeleton) {
-            const [showRetry, setShowRetry] = React.useState(false);
-
-            React.useEffect(() => {
-                const timer = setTimeout(() => {
-                    setShowRetry(true);
-                }, 5000);
-                return () => clearTimeout(timer);
-            }, []);
-
-            return (
-                <div style={{ padding: '80px', textAlign: 'center' }}>
-                    <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTop: '3px solid #2563eb', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto' }}></div>
-                    <p style={{ marginTop: '20px', color: '#64748b' }}>
-                        {showRetry ? 'Bağlantı yavaş, profil hala yükleniyor...' : 'Profil yükleniyor...'}
-                    </p>
-                    {showRetry && (
-                        <button
-                            onClick={() => window.location.reload()}
-                            style={{ marginTop: '16px', padding: '8px 16px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', cursor: 'pointer' }}
-                        >
-                            Sayfayı Yenile
-                        </button>
-                    )}
-                </div>
-            );
+            return <ProfileLoadingFallback />;
         }
 
         if (!hasAccess) {

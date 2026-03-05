@@ -142,6 +142,7 @@ const translations = {
                 users: 'Benutzerverwaltung',
                 messages: 'Nachrichten',
                 settings: 'Einstellungen',
+                preview: 'Vorschau',
 
                 // Common / Actions
                 // DUPLICATE REMOVED         save: 'Speichern',
@@ -1652,6 +1653,7 @@ const translations = {
                 users: 'User Management',
                 messages: 'Messages',
                 settings: 'Settings',
+                preview: 'Preview',
                 // DUPLICATE REMOVED         save: 'Save',
                 cancel: 'Cancel',
                 delete: 'Delete',
@@ -3197,6 +3199,7 @@ const translations = {
                 users: 'Kullanıcı Yönetimi',
                 messages: 'Mesajlar / Bildirimler',
                 settings: 'Ayarlar',
+                preview: 'Önizleme',
                 cancel: 'İptal',
                 delete: 'Sil',
                 edit: 'Düzenle',

@@ -266,7 +266,8 @@ const getPublicSiteData = (domainOrSlug, userId = null) => {
         profile: companyProfile ? JSON.parse(companyProfile) : null,
         products: stockProducts ? JSON.parse(stockProducts) : [],
         customization: savedCustomization ? JSON.parse(savedCustomization) : null,
-        appointmentSettings: appointmentSettings
+        appointmentSettings: appointmentSettings,
+        slug: domainOrSlug // Ensure slug is always available
     };
 };
 
@@ -338,6 +339,8 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
     const [checkoutStep, setCheckoutStep] = useState('cart'); // cart, auth, address, payment
     const [authForm, setAuthForm] = useState({ email: '', password: '', name: '', phone: '', address: '' });
     const [authMode, setAuthMode] = useState('login'); // login, register
+    const [hoveredProductId, setHoveredProductId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         const savedUser = localStorage.getItem('bay_current_user');
@@ -591,8 +594,6 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
         return true;
     });
 
-    const [hoveredProductId, setHoveredProductId] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
 
     const categories = Array.from(new Set([
         ...(siteData?.products || []).map(p => p?.category),
@@ -1145,7 +1146,7 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
                                         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                                             <div key={day} style={{ display: 'flex', justifyContent: 'space-between', color: '#cbd5e1' }}>
                                                 <span>{t(`day_${day.toLowerCase()}`)}:</span>
-                                                <span style={{ color: 'white', fontWeight: '600' }}>{siteData.appointmentSettings?.workingDays?.includes(day) ? `${siteData.appointmentSettings.workingHours.start} - ${siteData.appointmentSettings.workingHours.end}` : 'Kapalı'}</span>
+                                                <span style={{ color: 'white', fontWeight: '600' }}>{siteData.appointmentSettings?.workingDays?.includes(day) ? `${siteData.appointmentSettings?.workingHours?.start || '09:00'} - ${siteData.appointmentSettings?.workingHours?.end || '18:00'}` : 'Kapalı'}</span>
                                             </div>
                                         ))}
                                     </div>

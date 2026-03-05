@@ -352,8 +352,8 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                                         <span style={{ fontWeight: '700' }}>{t(day.toLowerCase()) || day}</span>
                                         <span>{appointmentSettings?.workingDays?.includes(day.substring(0, 3)) ? (
                                             (day === 'Saturday' || day === 'Sunday' ?
-                                                (appointmentSettings?.workingHoursWeekend?.start + ' - ' + appointmentSettings?.workingHoursWeekend?.end) :
-                                                (appointmentSettings?.workingHours?.start + ' - ' + appointmentSettings?.workingHours?.end)
+                                                ((appointmentSettings?.workingHoursWeekend?.start || '10:00') + ' - ' + (appointmentSettings?.workingHoursWeekend?.end || '16:00')) :
+                                                ((appointmentSettings?.workingHours?.start || '09:00') + ' - ' + (appointmentSettings?.workingHours?.end || '18:00'))
                                             )
                                         ) : t('closed', 'Kapalı')}</span>
                                     </div>

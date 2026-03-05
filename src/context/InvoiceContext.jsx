@@ -356,7 +356,7 @@ export const InvoiceProvider = ({ children }) => {
 
             // 1. Instant Load from LocalStorage
             try {
-                const getLocalDataWithFallback = (keyPrefix) => {
+                const getLocalDataWithFallback = (keyPrefix, tableName) => {
                     const currentKey = `${keyPrefix}_${currentUser.id}`;
                     let data = localStorage.getItem(currentKey);
 
@@ -366,22 +366,39 @@ export const InvoiceProvider = ({ children }) => {
                         const allKeys = Object.keys(localStorage);
                         const mockKey = allKeys.find(k => k.startsWith(keyPrefix) && (k.includes('0000') || k.includes('mock')));
                         if (mockKey) {
-                            console.log(`[InvoiceContext] Migrating local data from ${mockKey} to ${currentKey}`);
-                            data = localStorage.getItem(mockKey);
-                            // We don't delete the old one yet, just copy for safety
-                            if (data) localStorage.setItem(currentKey, data);
+                            console.log(`[InvoiceContext] Migrating local data from ${mockKey} to ${currentKey} for table ${tableName}`);
+                            const mockDataStr = localStorage.getItem(mockKey);
+                            if (mockDataStr) {
+                                try {
+                                    const parsed = JSON.parse(mockDataStr);
+                                    // Set it local first
+                                    localStorage.setItem(currentKey, mockDataStr);
+                                    data = mockDataStr;
+
+                                    // Enqueue for sync if it's a real user and we have a table name
+                                    if (tableName && Array.isArray(parsed)) {
+                                        parsed.forEach(item => {
+                                            const itemWithUser = { ...item, user_id: currentUser.id };
+                                            syncService.enqueue(tableName, 'insert', itemWithUser, item.id);
+                                        });
+                                    } else if (tableName && parsed && typeof parsed === 'object') {
+                                        const itemWithUser = { ...parsed, user_id: currentUser.id };
+                                        syncService.enqueue(tableName, 'insert', itemWithUser, currentUser.id);
+                                    }
+                                } catch (e) { console.error("Migration parse error", e); }
+                            }
                         }
                     }
                     return data;
                 };
 
-                const localInvoices = getLocalDataWithFallback('bay_invoices');
-                const localQuotes = getLocalDataWithFallback('bay_quotes');
-                const localExpenses = getLocalDataWithFallback('bay_expenses');
-                const localRecurring = getLocalDataWithFallback('bay_recurring_templates');
-                const localStaff = getLocalDataWithFallback('bay_staff');
-                const localProfile = getLocalDataWithFallback('bay_profile');
-                const localProjects = getLocalDataWithFallback('bay_projects');
+                const localInvoices = getLocalDataWithFallback('bay_invoices', 'invoices');
+                const localQuotes = getLocalDataWithFallback('bay_quotes', 'quotes');
+                const localExpenses = getLocalDataWithFallback('bay_expenses', 'expenses');
+                const localRecurring = getLocalDataWithFallback('bay_recurring_templates', 'recurring_templates');
+                const localStaff = getLocalDataWithFallback('bay_staff', 'staff');
+                const localProfile = getLocalDataWithFallback('bay_profile', 'company_settings');
+                const localProjects = getLocalDataWithFallback('bay_projects', 'projects');
 
                 if (localInvoices) setInvoices(JSON.parse(localInvoices));
                 if (localQuotes) setQuotes(JSON.parse(localQuotes));
@@ -475,7 +492,6 @@ export const InvoiceProvider = ({ children }) => {
                 }
 
                 if (reportRes.data) setDailyReports(reportRes.data);
-                if (staffRes.data) setEmployees(mergeWithLocalQueue(staffRes.data, 'staff'));
                 if (projectsRes && projectsRes.data) setProjects(mergeWithLocalQueue(projectsRes.data, 'projects'));
 
             } catch (err) {

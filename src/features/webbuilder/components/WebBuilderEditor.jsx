@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useWebsite } from '../../../context/WebsiteContext';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useInvoice } from '../../../context/InvoiceContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Layout, Eye, EyeOff, Trash2, PlusCircle, Monitor,
@@ -117,39 +118,30 @@ const WebBuilderEditor = () => {
         setDraggedIdx(null);
     }, [draggedIdx, moveSection, sections]);
 
-    const previewOverrideData = useMemo(() => {
-        const safeParse = (key, fallback) => {
-            try {
-                const item = localStorage.getItem(key);
-                if (!item) return fallback;
-                return JSON.parse(item);
-            } catch (e) {
-                console.error(`Error parsing ${key}`, e);
-                return fallback;
-            }
-        };
+    const { companyProfile, employees: staff, services } = useInvoice();
 
-        const profile = safeParse('bay_profile', {});
-        const services = safeParse('bay_services', []);
-
+    // ─── PREVIEW SITE DATA (Merged siteConfig + Real Business Data) ───
+    const previewSiteData = useMemo(() => {
         return {
-            profile,
+            profile: companyProfile || {},
             config: siteConfig || {},
             sections: sections || [],
-            products: safeParse('bay_products', []),
+            products: [], // Can be extracted from invoices/services if needed
             appointmentSettings: {
                 services: Array.isArray(services) && services.length > 0 ? services : [
                     { name: 'Consultation', description: 'Expert advice for your business needs.', price: '100' },
                     { name: 'Standard Service', description: 'Our most popular high-quality package.', price: '250' }
                 ],
-                staff: safeParse('bay_staff', []),
+                staff: Array.isArray(staff) && staff.length > 0 ? staff : [],
                 workingHours: { start: '09:00', end: '18:00' },
+                workingHoursWeekend: { start: '10:00', end: '16:00' },
                 workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             },
             onSectionSelect: openSectionEditor,
-            activeSectionId: editingSection
+            activeSectionId: editingSection,
+            slug: siteConfig.domain || 'demo'
         };
-    }, [siteConfig, sections, openSectionEditor, editingSection]);
+    }, [siteConfig, sections, openSectionEditor, editingSection, companyProfile, staff, services]);
 
     // ─── PREVIEW WIDTH ───
     const previewWidth = previewMode === 'mobile' ? '375px' : previewMode === 'tablet' ? '768px' : '100%';
@@ -399,7 +391,7 @@ const WebBuilderEditor = () => {
                         overflow: 'hidden',
                         transition: 'width 0.3s ease'
                     }}>
-                        <PublicWebsite overrideData={previewOverrideData} />
+                        <PublicWebsite overrideData={previewSiteData} />
                     </div>
                 </div>
             </div>

@@ -7,8 +7,20 @@ const NotificationContext = createContext();
 export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
 
-    const showNotification = useCallback((message, type = 'success', title = null) => {
+    const showNotification = useCallback((msgOrObj, typeFallback = 'success', titleFallback = null) => {
         const id = Math.random().toString(36).substring(2, 9);
+
+        let message, type, title;
+        if (typeof msgOrObj === 'object' && msgOrObj !== null) {
+            message = msgOrObj.message;
+            type = msgOrObj.type || typeFallback;
+            title = msgOrObj.title || titleFallback;
+        } else {
+            message = msgOrObj;
+            type = typeFallback;
+            title = titleFallback;
+        }
+
         const newNotif = { id, message, type, title: title || type.toUpperCase() };
 
         setNotifications(prev => [...prev, newNotif]);

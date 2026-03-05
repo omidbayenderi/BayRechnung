@@ -60,7 +60,7 @@ const SystemOverview = () => {
     const activeInvoices = useMemo(() => (invoices || []).filter(inv => inv && inv.status !== 'cancelled' && inv.status !== 'draft'), [invoices]);
 
     // 1. Financials (Memoized for Enterprise accuracy)
-    const { totalRevenue, cashInHand, totalExpenses, totalUnpaid, invoiceRevenue, paidRevenue, stockRevenue } = useMemo(() => {
+    const { totalRevenue, cashInHand, totalExpenses, totalUnpaid, totalPayables, invoiceRevenue, paidRevenue, stockRevenue } = useMemo(() => {
         const invRev = activeInvoices.reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
         const paidRev = (invoices || []).filter(inv => inv && inv.status === 'paid').reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
         const stRev = (sales || []).filter(s => s).reduce((sum, sale) => sum + (parseFloat(sale?.total) || 0), 0);
@@ -68,7 +68,8 @@ const SystemOverview = () => {
         const cInHand = paidRev + stRev;
         const tExp = (expenses || []).filter(e => e).reduce((sum, exp) => sum + (parseFloat(exp?.amount) || 0), 0);
         const tUnpaid = (invoices || []).filter(inv => inv && (inv.status === 'sent' || inv.status === 'overdue')).reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
-        return { totalRevenue: tRev, cashInHand: cInHand, totalExpenses: tExp, totalUnpaid: tUnpaid, invoiceRevenue: invRev, paidRevenue: paidRev, stockRevenue: stRev };
+        const tPayables = (expenses || []).filter(exp => exp && exp.status !== 'paid' && exp.status !== 'reimbursed').reduce((sum, exp) => sum + (parseFloat(exp?.amount) || 0), 0);
+        return { totalRevenue: tRev, cashInHand: cInHand, totalExpenses: tExp, totalUnpaid: tUnpaid, totalPayables: tPayables, invoiceRevenue: invRev, paidRevenue: paidRev, stockRevenue: stRev };
     }, [activeInvoices, invoices, sales, expenses]);
 
     const netProfit = cashInHand - totalExpenses;
@@ -547,12 +548,20 @@ const SystemOverview = () => {
                     percentageType="ratio"
                 />
                 <MetricCard
-                    title={t('total_unpaid') || t('unpaid_invoices') || 'Bekleyen Tahsilat'}
+                    title={t('total_unpaid') || t('unpaid_invoices') || 'Bekleyen Alacaklar'}
                     value={new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalUnpaid)}
                     numericValue={totalUnpaid}
                     subtext={t('sent_overdue_invoices_report')}
-                    icon={CreditCard}
+                    icon={TrendingUp}
                     color="#f59e0b"
+                />
+                <MetricCard
+                    title={t('total_payables') || 'Bekleyen Borçlar'}
+                    value={new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(totalPayables)}
+                    numericValue={totalPayables}
+                    subtext={t('unpaid_expenses_report') || 'Ödenmemiş tedarikçi giderleri'}
+                    icon={CreditCard}
+                    color="#ea580c"
                 />
             </div>
 

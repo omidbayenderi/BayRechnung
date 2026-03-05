@@ -357,8 +357,8 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                                         <span style={{ fontWeight: '700' }}>{t(day.toLowerCase()) || day}</span>
                                         <span>{siteData.appointmentSettings?.workingDays?.includes(day.substring(0, 3)) ? (
                                             (day === 'Saturday' || day === 'Sunday' ?
-                                                (siteData.appointmentSettings?.workingHoursWeekend?.start + ' - ' + siteData.appointmentSettings?.workingHoursWeekend?.end) :
-                                                (siteData.appointmentSettings?.workingHours?.start + ' - ' + siteData.appointmentSettings?.workingHours?.end)
+                                                ((siteData.appointmentSettings?.workingHoursWeekend?.start || '10:00') + ' - ' + (siteData.appointmentSettings?.workingHoursWeekend?.end || '16:00')) :
+                                                ((siteData.appointmentSettings?.workingHours?.start || '09:00') + ' - ' + (siteData.appointmentSettings?.workingHours?.end || '18:00'))
                                             )
                                         ) : t('closed', 'Kapalı')}</span>
                                     </div>
