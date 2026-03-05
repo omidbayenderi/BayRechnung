@@ -129,17 +129,39 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         }
 
         // 3. Parallel Fetch all data (Ensure RLS is open)
-        const [configRes, svcRes, staffRes, prodRes, settingsRes, profileRes] = await Promise.all([
-            supabase.from('website_configs').select('*').eq('user_id', userId).maybeSingle(),
-            supabase.from('services').select('*').eq('user_id', userId).order('name', { ascending: true }),
-            supabase.from('staff').select('*').eq('user_id', userId).order('name', { ascending: true }),
-            supabase.from('products').select('*').eq('user_id', userId).order('name', { ascending: true }),
-            supabase.from('appointment_settings').select('*').eq('user_id', userId).maybeSingle(),
-            supabase.from('company_settings').select('*').eq('user_id', userId).maybeSingle()
-        ]);
+        let configRes = { data: null }, svcRes = { data: [] }, staffRes = { data: [] }, prodRes = { data: [] }, settingsRes = { data: null }, profileRes = { data: null };
 
-        if (svcRes.error) console.error('🛑 [Public] Services fetch error:', svcRes.error.message);
-        if (prodRes.error) console.error('🛑 [Public] Products fetch error:', prodRes.error.message);
+        try {
+            const results = await Promise.allSettled([
+                supabase.from('website_configs').select('*').eq('user_id', userId).maybeSingle(),
+                supabase.from('services').select('*').eq('user_id', userId).order('name', { ascending: true }),
+                supabase.from('staff').select('*').eq('user_id', userId).order('name', { ascending: true }),
+                supabase.from('products').select('*').eq('user_id', userId).order('name', { ascending: true }),
+                supabase.from('appointment_settings').select('*').eq('user_id', userId).maybeSingle(),
+                supabase.from('company_settings').select('*').eq('user_id', userId).maybeSingle()
+            ]);
+
+            if (results[0].status === 'fulfilled') configRes = results[0].value;
+            if (results[1].status === 'fulfilled') svcRes = results[1].value;
+            if (results[2].status === 'fulfilled') staffRes = results[2].value;
+            if (results[3].status === 'fulfilled') prodRes = results[3].value;
+            if (results[4].status === 'fulfilled') settingsRes = results[4].value;
+            if (results[5].status === 'fulfilled') profileRes = results[5].value;
+
+            console.warn('📊 [Public] Parallel Fetch Results:', {
+                config: !!configRes.data,
+                services: svcRes.data?.length || 0,
+                staff: staffRes.data?.length || 0,
+                products: prodRes.data?.length || 0,
+                settings: !!settingsRes.data,
+                profile: !!profileRes.data
+            });
+
+            if (svcRes.error) console.error('🛑 [Public] Services fetch error:', svcRes.error.message);
+            if (prodRes.error) console.error('🛑 [Public] Products fetch error:', prodRes.error.message);
+        } catch (e) {
+            console.error('🛑 [Public] Parallel fetch CRITICAL error:', e.message);
+        }
 
         const profileData = profileRes?.data || {};
         const config = configRes?.data?.config?.siteConfig || {
@@ -150,8 +172,9 @@ const fetchPublicSiteData = async (domainOrSlug) => {
 
         const sections = configRes?.data?.config?.sections || [
             { id: 'hero', type: 'hero', visible: true, data: { title: profileData.company_name || 'BayZenit Üyesi İşletme', subtitle: 'Kaliteli hizmetin adresi.' } },
-            { id: 'services', type: 'services', visible: true, data: { autoPull: true } },
-            { id: 'contact', type: 'contact', visible: true, data: { showMap: true } }
+            { id: 'services', type: 'services', visible: true, data: { autoPull: true, title: 'Hizmetlerimiz' } },
+            { id: 'products', type: 'products', visible: true, data: { autoPull: true, title: 'Ürünlerimiz' } },
+            { id: 'contact', type: 'contact', visible: true, data: { showMap: true, title: 'İletişim' } }
         ];
 
         // 5. Normalize Appointment Settings
@@ -175,11 +198,22 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             }
         };
 
+        // 4. SMART RECOVERY: If core data exists but section is missing from config, inject it.
+        const finalSections = [...sections];
+        if (svcRes.data?.length > 0 && !finalSections.find(s => s.type === 'services')) {
+            console.warn('🛠️ [Public] Smart Recovery: Injecting missing Services section');
+            finalSections.push({ id: 'recovered-services', type: 'services', visible: true, data: { autoPull: true, title: 'Hizmetlerimiz' } });
+        }
+        if (prodRes.data?.length > 0 && !finalSections.find(s => s.type === 'products')) {
+            console.warn('🛠️ [Public] Smart Recovery: Injecting missing Products section');
+            finalSections.push({ id: 'recovered-products', type: 'products', visible: true, data: { autoPull: true, title: 'Ürünlerimiz' } });
+        }
+
         return {
             domain: domainOrSlug,
             slug: effectiveSlug,
             config,
-            sections,
+            sections: finalSections,
             profile: {
                 companyName: profileData.company_name || 'BayZenit Üyesi İşletme',
                 email: profileData.email || '',

@@ -164,8 +164,9 @@ const SeoAgent = ({ websiteData, profile }) => {
 
         console.log("🕵️‍♂️ SEO Agent: Site optimized.", { title: document.title });
 
-        // AGENT ORCHESTRATION: Log SEO success
+        // AGENT ORCHESTRATION: Log SEO success (only if not unauth)
         import('../lib/supabase').then(({ supabase }) => {
+            if (!supabase) return;
             supabase.from('audit_logs').insert([{
                 action: 'SEO_OPTIMIZED',
                 source: 'BaySEO',
@@ -176,7 +177,12 @@ const SeoAgent = ({ websiteData, profile }) => {
                     keywords_count: baseKeywords.split(',').length,
                     json_ld: industry
                 }
-            }]).then(null, () => { });
+            }]).then(
+                () => { }, // Success
+                (err) => {
+                    // Fail silently for unauthenticated users
+                }
+            );
         });
 
         // 4. ANALYTICS INJECTION (Google Analytics)
