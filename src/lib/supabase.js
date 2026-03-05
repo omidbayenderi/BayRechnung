@@ -41,8 +41,8 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const checkDbHealth = async () => {
     if (!supabase) return { success: false, error: 'Client not initialized' };
     try {
-        // Use a 5s timeout for the health check (Fail fast)
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 5000));
+        // Use a 12s timeout for the health check (Fail fast but allow for wake-up)
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 12000));
 
         // Try a very simple query. 
         const checkPromise = supabase.from('users').select('id', { head: true }).limit(1);

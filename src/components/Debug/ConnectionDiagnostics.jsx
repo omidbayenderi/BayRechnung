@@ -100,7 +100,7 @@ const ConnectionDiagnostics = ({ variant = 'floating' }) => {
                         severity: 'info',
                         metadata: { ts: Date.now(), source: 'diag_doctor' }
                     });
-                    const timeoutWrite = new Promise((_, reject) => setTimeout(() => reject(new Error('Write timeout')), 3000));
+                    const timeoutWrite = new Promise((_, reject) => setTimeout(() => reject(new Error('Write timeout')), 8000));
 
                     const { error: writeError } = await Promise.race([writePromise, timeoutWrite]);
 
