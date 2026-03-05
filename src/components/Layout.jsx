@@ -53,6 +53,44 @@ const Layout = () => {
                     </div>
                 )}
 
+                {subscriptionNotice && (
+                    <div style={{
+                        background: subscriptionNotice.type === 'error' ? '#fef2f2' : (subscriptionNotice.type === 'warning' ? '#fffbeb' : '#eff6ff'),
+                        borderBottom: `1px solid ${subscriptionNotice.type === 'error' ? '#fee2e2' : (subscriptionNotice.type === 'warning' ? '#fef3c7' : '#dbeafe')}`,
+                        padding: '10px 24px',
+                        color: subscriptionNotice.type === 'error' ? '#b91c1c' : (subscriptionNotice.type === 'warning' ? '#92400e' : '#1e40af'),
+                        fontSize: '0.875rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        fontWeight: '500'
+                    }}>
+                        <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: subscriptionNotice.type === 'error' ? '#ef4444' : (subscriptionNotice.type === 'warning' ? '#f59e0b' : '#3b82f6'),
+                            animation: subscriptionNotice.type === 'error' ? 'pulse 2s infinite' : 'none'
+                        }}></div>
+                        {subscriptionNotice.message}
+                        <button
+                            onClick={() => navigate('/settings/billing')}
+                            style={{
+                                marginLeft: 'auto',
+                                background: subscriptionNotice.type === 'error' ? '#b91c1c' : (subscriptionNotice.type === 'warning' ? '#92400e' : '#1e40af'),
+                                color: 'white',
+                                border: 'none',
+                                padding: '4px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {(subscriptionNotice.action === 'upgrade' || subscriptionNotice.action === 'manage') ? 'Şimdi Çöz' : 'Detaylar'}
+                        </button>
+                    </div>
+                )}
+
                 <header className="mobile-header no-print" style={{ zIndex: 1100 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button className="menu-toggle" onClick={() => setSidebarOpen(true)}>

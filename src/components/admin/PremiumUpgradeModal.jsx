@@ -115,6 +115,9 @@ const PremiumUpgradeModal = ({ isOpen, onClose }) => {
                         {billingCycle === 'yearly' ? '€799' : '€79'}
                         <span style={{ fontSize: '1.25rem', color: '#94a3b8', fontWeight: '500' }}>/{billingCycle === 'yearly' ? t('year') || 'yr' : t('month') || 'mo'}</span>
                     </div>
+                    <div style={{ fontSize: '0.9rem', color: '#10b981', fontWeight: '600', marginTop: '4px' }}>
+                        {t('trial_info') || '14 Gün Ücretsiz Deneyin'}
+                    </div>
                 </div>
 
                 {/* Features List */}

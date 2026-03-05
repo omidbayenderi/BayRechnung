@@ -5,12 +5,15 @@ import { useAuth } from '../../context/AuthContext';
 import { AnimatePresence } from 'framer-motion';
 import PremiumUpgradeModal from '../../components/admin/PremiumUpgradeModal';
 import { supabase } from '../../lib/supabase';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 
 const SubscriptionManagement = () => {
     const { t, appLanguage } = useLanguage();
-    const { currentUser } = useAuth();
+    const { currentUser, deleteAccount } = useAuth();
+    const { redirectToPortal } = useStripeCheckout();
     const isPremium = currentUser?.plan === 'premium';
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [subscription, setSubscription] = useState(null);
     const [billingHistory, setBillingHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [usage, setUsage] = useState({
@@ -24,6 +27,15 @@ const SubscriptionManagement = () => {
             if (!currentUser?.id) return;
             setIsLoading(true);
             try {
+                // Fetch Current Subscription
+                const { data: sub } = await supabase
+                    .from('subscriptions')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .maybeSingle();
+
+                if (sub) setSubscription(sub);
+
                 // Fetch Billing History
                 const { data: history } = await supabase
                     .from('billing_history')
@@ -125,7 +137,22 @@ const SubscriptionManagement = () => {
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>{t('current_plan')}</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{isPremium ? t('premium') : t('standard')}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{isPremium ? t('premium') : (subscription?.plan_type === 'standard' ? t('standard') : t('free'))}</div>
+                                    {subscription?.status === 'trialing' && (
+                                        <span style={{
+                                            background: '#fbbf24',
+                                            color: '#78350f',
+                                            padding: '2px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 'bold',
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            {t('trial_badge') || 'Deneme'}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -135,26 +162,33 @@ const SubscriptionManagement = () => {
                                 <span style={{ paddingBottom: '8px', opacity: 0.8 }}>/ {t('month_abbr')}</span>
                             </div>
                             <div style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '8px' }}>
-                                {isPremium ? (t('renewal_date') + ': 15 Mart 2026') : t('plan_limit_note')}
+                                {isPremium ? (
+                                    (t('renewal_date') || 'Renewal Date') + ': ' +
+                                    (subscription?.current_period_end ? formatDate(subscription.current_period_end) : (t('calculating') || 'Calculating...'))
+                                ) : t('plan_limit_note')}
                             </div>
                         </div>
 
-                        {isPremium ? (
+                        {subscription?.stripe_customer_id ? (
                             <button
-                                onClick={() => alert('Stripe Customer Portal will open here to manage your ' + (currentUser?.plan || 'plan'))}
+                                onClick={() => redirectToPortal()}
                                 style={{
                                     background: 'white',
-                                    color: '#4f46e5',
+                                    color: isPremium ? '#4f46e5' : '#1e293b',
                                     border: 'none',
                                     padding: '12px 24px',
                                     borderRadius: '10px',
                                     fontWeight: '700',
                                     cursor: 'pointer',
                                     fontSize: '0.95rem',
-                                    transition: 'transform 0.2s'
+                                    transition: 'transform 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                 }}
                             >
-                                {t('manage_subscription')}
+                                <CreditCard size={18} />
+                                {t('manage_subscription') || 'Aboneliği Yönet'}
                             </button>
                         ) : (
                             <button
@@ -174,7 +208,7 @@ const SubscriptionManagement = () => {
                                 }}
                             >
                                 <Zap size={16} fill="currentColor" />
-                                {t('upgrade_to_premium')}
+                                {t('upgrade_to_premium') || 'Hemen Yükselt'}
                             </button>
                         )}
                     </div>

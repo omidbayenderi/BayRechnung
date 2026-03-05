@@ -61,5 +61,28 @@ export const useStripeCheckout = () => {
         }
     };
 
-    return { redirectToCheckout };
+    const redirectToPortal = async (returnUrl = null) => {
+        try {
+            const { data, error } = await supabase.functions.invoke('create-portal-session', {
+                body: { returnUrl: returnUrl || window.location.href },
+            });
+
+            if (error) {
+                console.error('Portal redirect error:', error);
+                alert('Müşteri portalına yönlendirilemedi: ' + error.message);
+                return;
+            }
+
+            if (data?.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error('No portal URL returned');
+            }
+        } catch (err) {
+            console.error('Portal session error:', err);
+            alert('Hata: Ödeme yönetim paneline ulaşılamıyor.');
+        }
+    };
+
+    return { redirectToCheckout, redirectToPortal };
 };

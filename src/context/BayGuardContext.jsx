@@ -19,6 +19,13 @@ export const BayGuardProvider = ({ children }) => {
     // Helper to fetch persistent interventions from Supabase
     const syncInterventions = async () => {
         try {
+            // Check for auth session first to avoid 401 on audit_logs
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                console.log('[BayGuard] Guest user detected, skipping cloud sync.');
+                return;
+            }
+
             console.log('[BayGuard] Syncing interventions from Cloud...');
             const { data, error } = await supabase
                 .from('audit_logs')
@@ -45,45 +52,56 @@ export const BayGuardProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        syncInterventions();
+        let channel = null;
 
-        // Phase 2: Supabase Realtime Stream for Security Interventions
-        console.log('[BayGuard] Subscribing to Cloud Security Stream...');
-        const channel = supabase
-            .channel('security_updates')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'audit_logs',
-                    filter: `entity_type=eq.security_intervention`
-                },
-                (payload) => {
-                    console.log('[BayGuard] Real-time security event received:', payload.new);
-                    const newEntry = {
-                        id: payload.new.id,
-                        timestamp: payload.new.created_at,
-                        type: payload.new.action,
-                        message: payload.new.metadata?.message || payload.new.action,
-                        details: payload.new.metadata || {}
-                    };
+        const setupSecurity = async () => {
+            await syncInterventions();
 
-                    setInterventions(prev => {
-                        // Avoid duplicates if sync hits same record
-                        if (prev.some(i => i.id === newEntry.id)) return prev;
-                        return [newEntry, ...prev].slice(0, 50);
-                    });
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
 
-                    // Trigger visual alert
-                    setHealth('yellow');
-                }
-            )
-            .subscribe();
+            // Phase 2: Supabase Realtime Stream for Security Interventions
+            console.log('[BayGuard] Subscribing to Cloud Security Stream...');
+            channel = supabase
+                .channel('security_updates')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'audit_logs',
+                        filter: `entity_type=eq.security_intervention`
+                    },
+                    (payload) => {
+                        console.log('[BayGuard] Real-time security event received:', payload.new);
+                        const newEntry = {
+                            id: payload.new.id,
+                            timestamp: payload.new.created_at,
+                            type: payload.new.action,
+                            message: payload.new.metadata?.message || payload.new.action,
+                            details: payload.new.metadata || {}
+                        };
+
+                        setInterventions(prev => {
+                            // Avoid duplicates if sync hits same record
+                            if (prev.some(i => i.id === newEntry.id)) return prev;
+                            return [newEntry, ...prev].slice(0, 50);
+                        });
+
+                        // Trigger visual alert
+                        setHealth('yellow');
+                    }
+                )
+                .subscribe();
+        };
+
+        setupSecurity();
 
         return () => {
-            console.log('[BayGuard] Unsubscribing from Cloud Security Stream...');
-            supabase.removeChannel(channel);
+            if (channel) {
+                console.log('[BayGuard] Unsubscribing from Cloud Security Stream...');
+                supabase.removeChannel(channel);
+            }
         };
     }, []);
 

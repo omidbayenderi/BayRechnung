@@ -87,6 +87,10 @@ export const AuthProvider = ({ children }) => {
                 name: profileRes.data?.full_name || defaultName,
                 avatar: profileRes.data?.avatar_url,
                 plan: (isAdminEmail || subRes.data?.plan_type === 'premium') ? 'premium' : (subRes.data?.plan_type || 'free'),
+                subscriptionStatus: subRes.data?.status || 'active',
+                currentPeriodEnd: subRes.data?.current_period_end,
+                cancelAtPeriodEnd: subRes.data?.cancel_at_period_end,
+                stripeCustomerId: subRes.data?.stripe_customer_id,
                 companyName: companyRes.data?.company_name || 'My Company',
                 industry: companyRes.data?.industry || 'general',
                 phone: companyRes.data?.phone,
@@ -520,9 +524,61 @@ export const AuthProvider = ({ children }) => {
         logout,
         updateUser,
         register,
+        deleteAccount: async () => {
+            if (useSupabase && !isMockSession.current) {
+                try {
+                    const { data, error } = await supabase.functions.invoke('delete-account', {
+                        body: {},
+                    });
+                    if (error) throw error;
+                    await logout();
+                    return { success: true };
+                } catch (err) {
+                    console.error('[Auth] Account deletion failed:', err);
+                    return { success: false, error: err.message };
+                }
+            } else {
+                localStorage.removeItem('bay_current_user');
+                setCurrentUser(null);
+                return { success: true };
+            }
+        },
         isAuthenticated: !!currentUser,
         loading,
         useSupabase,
+        subscriptionNotice: useMemo(() => {
+            if (!currentUser || !currentUser.currentPeriodEnd) return null;
+
+            const end = new Date(currentUser.currentPeriodEnd);
+            const now = new Date();
+            const diffDays = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+
+            if (currentUser.subscriptionStatus === 'past_due') {
+                return {
+                    type: 'error',
+                    message: 'Ödeme başarısız oldu. Lütfen ödeme yönteminizi güncelleyin.',
+                    action: 'manage'
+                };
+            }
+
+            if (currentUser.subscriptionStatus === 'trialing' && diffDays <= 3 && diffDays > 0) {
+                return {
+                    type: 'warning',
+                    message: `Deneme süreniz ${diffDays} gün içinde bitecek. Devam etmek için ödeme yöntemi ekleyin.`,
+                    action: 'upgrade'
+                };
+            }
+
+            if (diffDays <= 3 && diffDays > 0 && !currentUser.cancelAtPeriodEnd) {
+                return {
+                    type: 'info',
+                    message: `Aboneliğiniz ${diffDays} gün içinde yenilenecek.`,
+                    action: 'none'
+                };
+            }
+
+            return null;
+        }, [currentUser]),
         sendPasswordReset: async (email) => {
             if (!useSupabase) return { success: true };
             const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
