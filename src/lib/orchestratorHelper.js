@@ -31,7 +31,7 @@ export const reportToOrchestrator = async (type, payload) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
             signal: controller.signal
-        }).catch(err => console.error("[Orchestrator] Post failed:", err.message))
+        }).then(null, err => console.error("[Orchestrator] Post failed:", err.message))
             .finally(() => clearTimeout(timeout));
 
     } catch (err) {

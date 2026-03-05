@@ -9,7 +9,7 @@ import { Navigate, Outlet } from 'react-router-dom';
  * @param {Boolean} redirectToLogin - If true, non-authenticated users are sent to /login
  * @param {React.Node} fallback - Component to show if user doesn't have required role
  */
-const RoleGuardian = ({ children, allowedRoles = [], redirectToLogin = true, fallback = null }) => {
+const RoleGuard = ({ children, allowedRoles = [], redirectToLogin = true, fallback = null }) => {
     const { currentUser, loading, isAuthenticated } = useAuth();
 
     // Loading handled by ProtectedRoute
@@ -78,4 +78,4 @@ const RoleGuardian = ({ children, allowedRoles = [], redirectToLogin = true, fal
     return children || <Outlet />;
 };
 
-export default RoleGuardian;
+export default RoleGuard;

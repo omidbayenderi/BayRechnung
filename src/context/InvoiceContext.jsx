@@ -109,6 +109,7 @@ export const InvoiceProvider = ({ children }) => {
     const [employees, setEmployees] = useState([]);
     const [messages, setMessages] = useState([]);
     const [dailyReports, setDailyReports] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const isFetchingRef = React.useRef(false);
 
@@ -355,12 +356,32 @@ export const InvoiceProvider = ({ children }) => {
 
             // 1. Instant Load from LocalStorage
             try {
-                const localInvoices = localStorage.getItem(`bay_invoices_${currentUser.id}`);
-                const localQuotes = localStorage.getItem(`bay_quotes_${currentUser.id}`);
-                const localExpenses = localStorage.getItem(`bay_expenses_${currentUser.id}`);
-                const localRecurring = localStorage.getItem(`bay_recurring_templates_${currentUser.id}`);
-                const localStaff = localStorage.getItem(`bay_staff_${currentUser.id}`);
-                const localProfile = localStorage.getItem(`bay_profile_${currentUser.id}`);
+                const getLocalDataWithFallback = (keyPrefix) => {
+                    const currentKey = `${keyPrefix}_${currentUser.id}`;
+                    let data = localStorage.getItem(currentKey);
+
+                    // FALLBACK: If current user has NO data, but there is data from a mock session (starts with 0000 or mock)
+                    // try to migrate it.
+                    if (!data && !currentUser.id.startsWith('0000')) {
+                        const allKeys = Object.keys(localStorage);
+                        const mockKey = allKeys.find(k => k.startsWith(keyPrefix) && (k.includes('0000') || k.includes('mock')));
+                        if (mockKey) {
+                            console.log(`[InvoiceContext] Migrating local data from ${mockKey} to ${currentKey}`);
+                            data = localStorage.getItem(mockKey);
+                            // We don't delete the old one yet, just copy for safety
+                            if (data) localStorage.setItem(currentKey, data);
+                        }
+                    }
+                    return data;
+                };
+
+                const localInvoices = getLocalDataWithFallback('bay_invoices');
+                const localQuotes = getLocalDataWithFallback('bay_quotes');
+                const localExpenses = getLocalDataWithFallback('bay_expenses');
+                const localRecurring = getLocalDataWithFallback('bay_recurring_templates');
+                const localStaff = getLocalDataWithFallback('bay_staff');
+                const localProfile = getLocalDataWithFallback('bay_profile');
+                const localProjects = getLocalDataWithFallback('bay_projects');
 
                 if (localInvoices) setInvoices(JSON.parse(localInvoices));
                 if (localQuotes) setQuotes(JSON.parse(localQuotes));
@@ -368,6 +389,7 @@ export const InvoiceProvider = ({ children }) => {
                 if (localRecurring) setRecurringTemplates(JSON.parse(localRecurring));
                 if (localStaff) setEmployees(JSON.parse(localStaff));
                 if (localProfile) setCompanyProfile(prev => ({ ...prev, ...JSON.parse(localProfile) }));
+                if (localProjects) setProjects(JSON.parse(localProjects));
 
                 setLoading(false);
             } catch (e) {
@@ -386,7 +408,7 @@ export const InvoiceProvider = ({ children }) => {
 
                 // PERFORMANCE_PATCH: Limit initial fetch to last 200 items or 1 year 
                 // to avoid kiling the app for large customers.
-                const [invRes, quoteRes, expRes, settingsRes, msgRes, staffRes, recurringRes, customRes, reportRes] = await Promise.all([
+                const [invRes, quoteRes, expRes, settingsRes, msgRes, staffRes, recurringRes, customRes, reportRes, projectsRes] = await Promise.all([
                     supabase.from('invoices').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(300),
                     supabase.from('quotes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(100),
                     supabase.from('expenses').select('*').eq('user_id', currentUser.id).order('date', { ascending: false }).limit(300),
@@ -395,7 +417,8 @@ export const InvoiceProvider = ({ children }) => {
                     supabase.from('staff').select('*').eq('user_id', currentUser.id).order('name', { ascending: true }),
                     supabase.from('recurring_templates').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
                     supabase.from('invoice_customization').select('*').eq('user_id', currentUser.id).maybeSingle(),
-                    supabase.from('daily_reports').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(200)
+                    supabase.from('daily_reports').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(200),
+                    supabase.from('projects').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false })
                 ]);
 
                 // Safety check: If remote returns error, DO NOT overwrite local data
@@ -452,6 +475,8 @@ export const InvoiceProvider = ({ children }) => {
                 }
 
                 if (reportRes.data) setDailyReports(reportRes.data);
+                if (staffRes.data) setEmployees(mergeWithLocalQueue(staffRes.data, 'staff'));
+                if (projectsRes && projectsRes.data) setProjects(mergeWithLocalQueue(projectsRes.data, 'projects'));
 
             } catch (err) {
                 console.error('Error loading Supabase data:', err);
@@ -1077,6 +1102,8 @@ export const InvoiceProvider = ({ children }) => {
         markMessageAsRead,
         deleteMessage,
         dailyReports,
+        projects,
+        isLoading: loading,
         fetchDailyReports,
         importInvoices,
         exportToDATEV,
@@ -1084,7 +1111,7 @@ export const InvoiceProvider = ({ children }) => {
         syncStatus: syncService.getStatus() // Expose sync status
     }), [
         companyProfile, invoices, quotes, expenses, recurringTemplates,
-        invoiceCustomization, paymentReminders, expenseCategories, employees, messages, dailyReports,
+        invoiceCustomization, paymentReminders, expenseCategories, employees, messages, dailyReports, projects, loading,
         fetchFinancialDataByRange
     ]);
 

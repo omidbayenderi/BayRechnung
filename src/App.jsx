@@ -62,7 +62,7 @@ import BayGrowth from './components/agents/BayGrowth';
 import BayGlobeAgent from './components/agents/BayGlobeAgent';
 import { useBayVision } from './context/BayVisionContext';
 import InternalAutomator from './components/agents/InternalAutomator';
-import RoleGuardian from './components/auth/RoleGuardian';
+import RoleGuard from './components/auth/RoleGuardian';
 import ConnectionDiagnostics from './components/Debug/ConnectionDiagnostics';
 
 import WorkerLayout from './components/worker/WorkerLayout';
@@ -166,7 +166,7 @@ function App() {
             <Route element={<InternalAgentWrapper />}>
               <Route element={<Layout />}>
                 {/* Admin Role Only */}
-                <Route element={<RoleGuardian allowedRoles={['admin']} />}>
+                <Route element={<RoleGuard allowedRoles={['admin']} />}>
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/health" element={<SystemHealth />} />
                   <Route path="/admin/analytics" element={<AdminAnalytics />} />
@@ -178,7 +178,7 @@ function App() {
                   } />
                 </Route>
 
-                <Route element={<RoleGuardian allowedRoles={['admin', 'finance']} />}>
+                <Route element={<RoleGuard allowedRoles={['admin', 'finance']} />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/new" element={<NewInvoice />} />
                   <Route path="/quotes" element={<Quotes />} />
@@ -203,7 +203,7 @@ function App() {
 
                 {/* Appointment System */}
                 <Route path="/appointments/*" element={
-                  <RoleGuardian allowedRoles={['admin', 'finance', 'site_lead']}>
+                  <RoleGuard allowedRoles={['admin', 'finance', 'site_lead']}>
                     <Routes>
                       <Route path="dashboard" element={<AppointmentDashboard />} />
                       <Route path="calendar" element={<AppointmentCalendar />} />
@@ -212,12 +212,12 @@ function App() {
                       <Route path="settings" element={<AppointmentSettings />} />
                       <Route path="*" element={<Navigate to="dashboard" />} />
                     </Routes>
-                  </RoleGuardian>
+                  </RoleGuard>
                 } />
 
                 {/* Stock & Sales Panel */}
                 <Route path="/stock/*" element={
-                  <RoleGuardian allowedRoles={['admin', 'site_lead', 'finance']}>
+                  <RoleGuard allowedRoles={['admin', 'site_lead', 'finance']}>
                     <Routes>
                       <Route path="" element={<Navigate to="dashboard" />} />
                       <Route path="dashboard" element={<StockDashboard />} />
@@ -226,12 +226,12 @@ function App() {
                       <Route path="settings" element={<StockSettings />} />
                       <Route path="*" element={<Navigate to="dashboard" />} />
                     </Routes>
-                  </RoleGuardian>
+                  </RoleGuard>
                 } />
 
                 {/* Website Builder */}
                 <Route path="/website/*" element={
-                  <RoleGuardian allowedRoles={['admin']}>
+                  <RoleGuard allowedRoles={['admin']}>
                     <Routes>
                       <Route path="dashboard" element={<WebsiteDashboard />} />
                       <Route path="wizard" element={<SiteWizard />} />
@@ -239,11 +239,11 @@ function App() {
                       <Route path="settings" element={<WebsiteSettings />} />
                       <Route path="*" element={<Navigate to="/website/dashboard" replace />} />
                     </Routes>
-                  </RoleGuardian>
+                  </RoleGuard>
                 } />
 
                 {/* Worker Specific */}
-                <Route path="/worker" element={<RoleGuardian allowedRoles={['worker', 'admin', 'site_lead']} redirectToLogin={true}><WorkerLayout /></RoleGuardian>}>
+                <Route path="/worker" element={<RoleGuard allowedRoles={['worker', 'admin', 'site_lead']} redirectToLogin={true}><WorkerLayout /></RoleGuard>}>
                   <Route index element={<Navigate to="/worker/home" replace />} />
                   <Route path="home" element={<WorkerHome />} />
                   <Route path="report" element={<DailyReport />} />

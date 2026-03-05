@@ -69,7 +69,7 @@ const WebBuilderEditor = () => {
         } catch (e) {
             console.error("Profile parse error", e);
         }
-        const industry = siteConfig.businessCategory || profile.industry || 'Business';
+        const industry = siteConfig?.businessCategory || profile.industry || 'Business';
 
         let aiData = { ...template.defaultData };
 

@@ -109,7 +109,7 @@ export const AuthProvider = ({ children }) => {
             // Notify sync service
             import('../lib/SyncService').then(({ syncService }) => {
                 syncService.patchUserId(userId);
-            }).catch(e => console.warn('[Auth] SyncService patch failed:', e));
+            }).then(null, e => console.warn('[Auth] SyncService patch failed:', e));
 
             return data;
         } catch (err) {
@@ -437,7 +437,7 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 // Auth Service metadata (Direct call recommended for security updates, but non-blocking)
-                supabase.auth.updateUser({ data: { full_name: updatedData.name, avatar: avatarUrl } }).catch(e => console.warn('[Auth] Metadata sync failed:', e));
+                supabase.auth.updateUser({ data: { full_name: updatedData.name, avatar: avatarUrl } }).then(null, e => console.warn('[Auth] Metadata sync failed:', e));
 
                 const roleMap = { 'Administrator': 'admin', 'Manager': 'site_lead', 'Accountant': 'finance', 'Employee': 'worker' };
                 const normalizedRole = roleMap[updatedData.role] || updatedData.role || currentUser?.role;

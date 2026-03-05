@@ -176,7 +176,7 @@ const SeoAgent = ({ websiteData, profile }) => {
                     keywords_count: baseKeywords.split(',').length,
                     json_ld: industry
                 }
-            }]).catch(() => { });
+            }]).then(null, () => { });
         });
 
         // 4. ANALYTICS INJECTION (Google Analytics)
