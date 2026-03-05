@@ -41,30 +41,32 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const checkDbHealth = async () => {
     if (!supabase) return { success: false, error: 'Client not initialized' };
     try {
-        // Use a 12s timeout for the health check (Fail fast but allow for wake-up)
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 12000));
+        // Increased timeout for wake-up/slow networks
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 20000));
 
-        // Try a very simple query. 
+        // Try a simple query on 'company_settings' or 'users'
+        // Using 'users' as it's the most basic metadata table
         const checkPromise = supabase.from('users').select('id', { head: true }).limit(1);
 
         const { error } = await Promise.race([checkPromise, timeoutPromise]);
 
         if (error) {
-            // Ignore row level security errors as they still indicate the DB is alive
-            if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
-                return { success: true, note: 'Alive (RLS Restricted)' };
+            // PGRST301: Missing JWT/Auth (DB is alive, just needs login)
+            // 42P01: Table not found (DB is alive, schema is wrong)
+            if (error.code === 'PGRST301' || error.code === '42P01' || error.message?.includes('JWT')) {
+                return { success: true, note: `Alive (${error.code || 'Restricted'})` };
             }
             console.error('[Supabase Doctor] Health check error:', error);
-            return { success: false, error: error.message };
+            return { success: false, error: error.message || 'Connection Refused' };
         }
         return { success: true };
     } catch (e) {
         if (e.message === 'DB Timeout') {
             console.warn('[Supabase Doctor] Connection is slow or DB is sleeping.');
-            return { success: false, error: 'Timeout' };
+            return { success: false, error: 'Timeout (Slow Connection)' };
         }
         console.error('[Supabase Doctor] Diagnostic error:', e);
-        return { success: false, error: e.message };
+        return { success: false, error: e.message || 'Unknown Network Error' };
     }
 };
 

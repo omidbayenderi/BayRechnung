@@ -252,7 +252,26 @@ class SyncService {
         }
     }
 
+    resetProcessing() {
+        console.warn("[Sync] Manually resetting isProcessing state...");
+        this.isProcessing = false;
+        this.notifyListeners();
+    }
+
     async syncItem(item) {
+        try {
+            // Add a timeout for the individual sync operation
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timeout')), 15000));
+            const resultPromise = this._performSync(item);
+
+            return await Promise.race([resultPromise, timeoutPromise]);
+        } catch (e) {
+            console.error("[Sync] syncItem failed/timed out:", e.message);
+            return { success: false, error: { message: e.message || 'Operation failed', code: 'TIMEOUT' } };
+        }
+    }
+
+    async _performSync(item) {
         try {
             const { table, action, data, targetId } = item;
             let finalData = data ? { ...data } : null;
@@ -394,6 +413,7 @@ class SyncService {
 
     async forceSync() {
         console.log("[Sync] User requested manual sync...");
+        this.isProcessing = false; // Reset lock just in case
         await this.checkConnectivity();
         return this.processQueue(true);
     }

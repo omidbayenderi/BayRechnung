@@ -100,7 +100,7 @@ const ConnectionDiagnostics = ({ variant = 'floating' }) => {
                         severity: 'info',
                         metadata: { ts: Date.now(), source: 'diag_doctor' }
                     });
-                    const timeoutWrite = new Promise((_, reject) => setTimeout(() => reject(new Error('Write timeout')), 8000));
+                    const timeoutWrite = new Promise((_, reject) => setTimeout(() => reject(new Error('Write timeout')), 15000));
 
                     const { error: writeError } = await Promise.race([writePromise, timeoutWrite]);
 
@@ -164,13 +164,21 @@ const ConnectionDiagnostics = ({ variant = 'floating' }) => {
                         <span style={{ fontWeight: '600' }}>Sync: {syncStats.queueLength}</span>
                     </div>
                     <button
-                        onClick={() => runDiagnostics()}
+                        onClick={() => { runDiagnostics(); syncService.forceSync(); }}
                         disabled={isRefreshing}
                         style={{ border: 'none', background: 'none', color: '#3b82f6', fontSize: '10px', cursor: 'pointer', fontWeight: '700' }}
                     >
                         {isRefreshing ? '...' : 'RE-SCAN'}
                     </button>
                 </div>
+                {syncStats.isProcessing && (
+                    <button
+                        onClick={() => syncService.resetProcessing()}
+                        style={{ width: '100%', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontSize: '9px', cursor: 'pointer', fontWeight: '700', marginTop: '4px', padding: '2px', borderRadius: '4px' }}
+                    >
+                        RESET SYNC LOCK
+                    </button>
+                )}
             </div>
         );
     }
@@ -229,7 +237,7 @@ const ConnectionDiagnostics = ({ variant = 'floating' }) => {
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                 <button
-                    onClick={() => { runDiagnostics(); syncService.processQueue(); }}
+                    onClick={() => { runDiagnostics(); syncService.forceSync(); }}
                     disabled={isRefreshing}
                     style={{
                         flex: 1, padding: '10px',
