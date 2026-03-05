@@ -53,7 +53,8 @@ const AdminDashboard = () => {
             switch (activeTab) {
                 case 'overview': return <SystemOverview />;
                 case 'subscription': return <SubscriptionManagement />;
-                case 'integrations': return <IntegrationSettings />;
+                case 'integrations':
+                    return isPremium() ? <IntegrationSettings /> : <SubscriptionManagement />;
                 case 'reports': return <Reports />;
                 case 'sites':
                     const ind = companyProfile?.industry?.toLowerCase();

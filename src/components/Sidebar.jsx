@@ -144,7 +144,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                                                     </div>
                                                 )}
                                                 {isLocked && (
-                                                    <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#1e293b', color: 'white', borderRadius: '50%', padding: '2px', border: '1px solid white' }}>
+                                                    <div style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#1e293b', color: 'white', borderRadius: '50%', padding: '1px', border: '1px solid white' }}>
                                                         <Lock size={8} />
                                                     </div>
                                                 )}
@@ -152,7 +152,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontSize: '0.85rem', fontWeight: isActive ? '700' : '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     {mod.name}
-                                                    {isLocked && <span style={{ fontSize: '0.6rem', background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>Pro</span>}
+                                                    {isLocked && <span style={{ fontSize: '0.6rem', background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>{t('pro') || 'Pro'}</span>}
                                                 </div>
                                             </div>
                                             {isActive && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--primary)' }}></div>}
@@ -175,15 +175,42 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                         ? (currentFullPath === item.path || (currentFullPath === '/admin' && item.path.includes('tab=overview')))
                         : (location.pathname === item.path && !location.search);
 
+                    const isLocked = item.premium && currentUser?.plan !== 'premium';
+
                     return (
                         <motion.div
                             key={item.path}
-                            onClick={() => { navigate(item.path); closeSidebar(); }}
-                            className={`nav-item ${isActive ? 'active' : ''}`}
-                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                                if (isLocked) {
+                                    navigate('/admin?tab=subscription');
+                                } else {
+                                    navigate(item.path);
+                                }
+                                closeSidebar();
+                            }}
+                            className={`nav-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
+                            style={{ cursor: 'pointer', opacity: isLocked ? 0.7 : 1, position: 'relative' }}
                         >
                             <item.icon size={20} />
                             <span style={{ flex: 1 }}>{item.label}</span>
+
+                            {isLocked && (
+                                <div style={{
+                                    background: '#fef3c7',
+                                    color: '#92400e',
+                                    padding: '2px 6px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}>
+                                    <Lock size={10} />
+                                    {t('pro') || 'PRO'}
+                                </div>
+                            )}
+
                             {item.path.includes('bookings') && pendingCount > 0 && (
                                 <span
                                     className="badge-pulse"

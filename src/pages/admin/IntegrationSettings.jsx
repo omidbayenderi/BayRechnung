@@ -1,10 +1,35 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { CreditCard, Key, Smartphone, Globe, Check, AlertCircle, Copy, Eye, EyeOff } from 'lucide-react';
+import { CreditCard, Key, Smartphone, Globe, Check, AlertCircle, Copy, Eye, EyeOff, Lock } from 'lucide-react';
+import { usePlanGuard } from '../../hooks/usePlanGuard';
+import { useNavigate } from 'react-router-dom';
 
 const IntegrationSettings = () => {
     const { t } = useLanguage();
+    const navigate = useNavigate();
+    const { isPremium } = usePlanGuard();
     const [showKey, setShowKey] = useState({});
+
+    if (!isPremium()) {
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '16px', border: '1px solid #e28f0', margin: '24px' }}>
+                <div style={{ padding: '20px', background: '#fef3c7', borderRadius: '50%', width: 'fit-content', margin: '0 auto 20px', color: '#92400e' }}>
+                    <Lock size={48} />
+                </div>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1e293b', marginBottom: '12px' }}>{t('premium_feature') || 'Premium Özellik'}</h2>
+                <p style={{ color: '#64748b', marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
+                    {t('integrations_locked_desc') || 'API ve Üçüncü Parti entegrasyonlar sadece Pro plan kullanıcılarına özeldir.'}
+                </p>
+                <button
+                    className="primary-btn"
+                    onClick={() => navigate('/admin?tab=subscription')}
+                    style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)' }}
+                >
+                    {t('upgrade_now') || 'Hemen Yükselt'}
+                </button>
+            </div>
+        );
+    }
 
     const toggleKey = (id) => {
         setShowKey(prev => ({ ...prev, [id]: !prev[id] }));

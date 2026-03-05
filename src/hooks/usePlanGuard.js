@@ -21,6 +21,7 @@ export const usePlanGuard = () => {
         multiUser: 'premium',
         aiAssistant: 'premium',
         whatsApp: 'premium',
+        integrations: 'premium',
         unlimitedInvoices: 'standard', // Both plans
         mobileAccess: 'standard' // Both plans
     };
