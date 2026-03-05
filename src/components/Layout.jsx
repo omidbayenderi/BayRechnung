@@ -11,7 +11,7 @@ import SyncStatus from './SyncStatus';
 const Layout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const navigate = useNavigate();
-    const { currentUser, logout } = useAuth();
+    const { currentUser, logout, subscriptionNotice } = useAuth();
     const { t } = useLanguage();
 
     const handleLogout = () => {
