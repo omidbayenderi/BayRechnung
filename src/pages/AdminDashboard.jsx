@@ -39,6 +39,7 @@ import SubscriptionManagement from './admin/SubscriptionManagement';
 import IntegrationSettings from './admin/IntegrationSettings';
 import Reports from './admin/Reports';
 import Dashboard from './accounting/Dashboard';
+import PremiumUpgradeModal from '../components/admin/PremiumUpgradeModal';
 
 const AdminDashboard = () => {
     const { t } = useLanguage();
