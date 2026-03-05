@@ -13,6 +13,21 @@ const IconMap = {
     HelpCircle, MessageSquare, BarChart2
 };
 
+const PriceDisplay = ({ amount, period }) => {
+    const formatted = amount.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const [main, decimal] = formatted.split(',');
+
+    return (
+        <div className="price-amount" style={{ display: 'flex', alignItems: 'flex-start' }}>
+            <span style={{ fontSize: '2rem', fontWeight: '800', lineHeight: 1 }}>{main}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginTop: '2px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', lineHeight: 1 }}>,{decimal}€</span>
+                <span className="price-period" style={{ fontSize: '0.6rem', color: '#94a3b8', marginTop: '2px' }}>{period}</span>
+            </div>
+        </div>
+    );
+};
+
 const EditableText = ({ text, onUpdate, className, style, multiline = false }) => {
     const handleBlur = (e) => {
         const newText = e.target.innerText;
@@ -66,17 +81,19 @@ const LandingPagePreview = ({ pricingPlans, dynamicVideos, dynamicSections, onSe
         ? (heroMain.content.image_url.startsWith('http') ? heroMain.content.image_url : `${basePath}${heroMain.content.image_url.replace(/^\//, '')}`)
         : `${basePath}dashboard_v2.png`;
 
-    const plansUI = pricingPlans.map(p => ({
+    const plansUI = (pricingPlans || []).map(p => ({
         name: t(p.name_key),
-        priceMonthly: `${p.price_monthly.toLocaleString('de-DE')}€`,
-        priceYearly: `${p.price_yearly.toLocaleString('de-DE')}€`,
+        numericPrice: billingCycle === 'monthly' ? p.price_monthly : p.price_yearly,
         savings: billingCycle === 'yearly' ? t('save17') || 'Save 17%' : null,
         badge: p.is_featured ? t('mostPopular') || 'Most Popular' : null,
         features: (p.features || []).map(f => t(f) || f),
         cta: t('getStarted'),
         plan: p.plan_id,
         id: p.id
-    }));
+    })).sort((a, b) => {
+        const orderMap = { standard: 1, premium: 2, vip: 3 };
+        return orderMap[a.plan] - orderMap[b.plan];
+    });
 
     const selectionStyle = (id) => ({
         cursor: onSelect ? 'pointer' : 'default',
@@ -242,9 +259,10 @@ const LandingPagePreview = ({ pricingPlans, dynamicVideos, dynamicSections, onSe
                                             onUpdate={(val) => updatePricing(plan.id, 'name_key', val)}
                                         />
                                     </h3>
-                                    <div className="price-amount" style={{ fontSize: '1.5rem' }}>
-                                        {billingCycle === 'monthly' ? plan.priceMonthly : plan.priceYearly}
-                                    </div>
+                                    <PriceDisplay
+                                        amount={plan.numericPrice}
+                                        period={billingCycle === 'monthly' ? t('perMonth') : t('perYear')}
+                                    />
                                 </div>
                                 <ul className="feature-list-modern" style={{ fontSize: '0.75rem' }}>
                                     {plan.features.map((f, index) => (

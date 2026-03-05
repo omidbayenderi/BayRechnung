@@ -17,6 +17,21 @@ const IconMap = {
     HelpCircle, MessageSquare, BarChart2
 };
 
+const PriceDisplay = ({ amount, period, t, cycle }) => {
+    const formatted = amount.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const [main, decimal] = formatted.split(',');
+
+    return (
+        <div className="price-amount" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
+            <span style={{ fontSize: '3rem', fontWeight: '800', lineHeight: 1 }}>{main}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginTop: '4px' }}>
+                <span style={{ fontSize: '1.2rem', fontWeight: '800', lineHeight: 1 }}>,{decimal}€</span>
+                <span className="price-period" style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '4px' }}>{period}</span>
+            </div>
+        </div>
+    );
+};
+
 const LandingPage = () => {
     const { t, appLanguage, setAppLanguage } = useLanguage();
     const { redirectToCheckout } = useStripeCheckout();
@@ -62,16 +77,17 @@ const LandingPage = () => {
                     }
                     // Update prices for existing ones to match new request
                     plans = plans.map(p => {
-                        if (p.plan_id === 'standard') return { ...p, price_monthly: 19.9, price_yearly: 199 };
-                        if (p.plan_id === 'premium') return { ...p, price_monthly: 79.9, price_yearly: 799, is_featured: true };
+                        if (p.plan_id === 'standard') return { ...p, price_monthly: 19.9, price_yearly: 199, display_order: 1 };
+                        if (p.plan_id === 'premium') return { ...p, price_monthly: 79.9, price_yearly: 799, is_featured: true, display_order: 2 };
+                        if (p.plan_id === 'vip') return { ...p, display_order: 3 };
                         return p;
-                    });
+                    }).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
                     setPricingPlans(plans);
                 } else {
                     setPricingPlans([
-                        { id: 'f-std', plan_id: 'standard', name_key: 'standard', price_monthly: 19.9, price_yearly: 199, is_featured: false, features: ["unlimitedInvoices", "customerManagement", "basicStock", "multiLanguageInvoices", "emailSupport", "mobileAccess", "pdfExport", "dashboardOverview"] },
-                        { id: 'f-prm', plan_id: 'premium', name_key: 'premium', price_monthly: 79.9, price_yearly: 799, is_featured: true, features: ["everythingInStandard", "advancedReports", "fullStockPOS", "employeeManagement", "appointmentSystem", "websiteBuilder", "prioritySupport", "aiAssistant"] },
-                        { id: 'f-vip', plan_id: 'vip', name_key: 'vip', price_monthly: 149, price_yearly: 1490, is_featured: false, features: ["everythingInPremium", "apiIntegrations", "googleAnalytics", "customDomain"] }
+                        { id: 'f-std', plan_id: 'standard', name_key: 'standard', price_monthly: 19.9, price_yearly: 199, is_featured: false, display_order: 1, features: ["unlimitedInvoices", "customerManagement", "basicStock", "multiLanguageInvoices", "emailSupport", "mobileAccess", "pdfExport", "dashboardOverview"] },
+                        { id: 'f-prm', plan_id: 'premium', name_key: 'premium', price_monthly: 79.9, price_yearly: 799, is_featured: true, display_order: 2, features: ["everythingInStandard", "advancedReports", "fullStockPOS", "employeeManagement", "appointmentSystem", "websiteBuilder", "prioritySupport", "aiAssistant"] },
+                        { id: 'f-vip', plan_id: 'vip', name_key: 'vip', price_monthly: 149, price_yearly: 1490, is_featured: false, display_order: 3, features: ["everythingInPremium", "apiIntegrations", "googleAnalytics", "customDomain"] }
                     ]);
                 }
                 if (!vRes.error) setDynamicVideos(vRes.data);
@@ -124,8 +140,7 @@ const LandingPage = () => {
 
     const plansUI = pricingPlans.map(p => ({
         name: t(p.name_key),
-        priceMonthly: `${p.price_monthly.toLocaleString('de-DE')}€`,
-        priceYearly: `${p.price_yearly.toLocaleString('de-DE')}€`,
+        numericPrice: billingCycle === 'monthly' ? p.price_monthly : p.price_yearly,
         savings: billingCycle === 'yearly' ? t('save17') || 'Save 17%' : null,
         badge: p.is_featured ? t('mostPopular') || 'Most Popular' : (p.plan_id === 'vip' ? 'ENTERPRISE' : null),
         features: (p.features || []).map(f => t(f) || f),
@@ -455,15 +470,12 @@ const LandingPage = () => {
                                 )}
                                 <div className="price-header">
                                     <h3>{plan.name}</h3>
-                                    <div className="price-amount">
-                                        {billingCycle === 'monthly' ? plan.priceMonthly : plan.priceYearly}
-                                        <span className="price-period">{billingCycle === 'monthly' ? t('perMonth') : t('perYear')}</span>
-                                    </div>
-                                    {billingCycle === 'yearly' && (
-                                        <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 600, marginTop: 4 }}>
-                                            {t('save17')}
-                                        </div>
-                                    )}
+                                    <PriceDisplay
+                                        amount={plan.numericPrice}
+                                        period={billingCycle === 'monthly' ? t('perMonth') : t('perYear')}
+                                        t={t}
+                                        cycle={billingCycle}
+                                    />
                                 </div>
                                 <button className={`btn-price-modern ${plan.badge ? 'primary' : ''}`} onClick={() => handleTrialSignup(plan.plan, billingCycle)}>
                                     {t('startFreeTrial') || 'Start 14-Day Free Trial'}

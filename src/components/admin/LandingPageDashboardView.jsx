@@ -80,8 +80,9 @@ const LandingPageDashboardView = () => {
             } catch (err) {
                 console.warn('[LandingDCC] Pricing table fetch failed, using mock.');
                 setPricing([
-                    { id: 'mock-1', plan_id: 'standard', name_key: 'standard', price_monthly: 19, price_yearly: 199, is_featured: false, features: ["unlimitedInvoices", "customerManagement"] },
-                    { id: 'mock-2', plan_id: 'premium', name_key: 'premium', price_monthly: 79, price_yearly: 799, is_featured: true, features: ["everythingInStandard", "advancedReports"] }
+                    { id: 'mock-1', plan_id: 'standard', name_key: 'standard', price_monthly: 19.9, price_yearly: 199, is_featured: false, display_order: 1, features: ["unlimitedInvoices", "customerManagement"] },
+                    { id: 'mock-2', plan_id: 'premium', name_key: 'premium', price_monthly: 79.9, price_yearly: 799, is_featured: true, display_order: 2, features: ["everythingInStandard", "advancedReports"] },
+                    { id: 'mock-3', plan_id: 'vip', name_key: 'vip', price_monthly: 149, price_yearly: 1490, is_featured: false, display_order: 3, features: ["everythingInPremium", "apiIntegrations"] }
                 ]);
             }
 
@@ -132,6 +133,7 @@ const LandingPageDashboardView = () => {
                     price_monthly: plan.price_monthly,
                     price_yearly: plan.price_yearly,
                     is_featured: plan.is_featured,
+                    display_order: plan.display_order,
                     features: plan.features
                 });
 
@@ -249,7 +251,7 @@ const LandingPageDashboardView = () => {
         if (type === 'sections') {
             setSections(prev => prev.map(s => s.id === data.id ? data : s));
         } else if (type === 'pricing') {
-            setPricing(prev => prev.map(p => p.id === data.id ? data : p));
+            setPricing(prev => prev.map(p => p.id === data.id ? data : p).sort((a, b) => (a.display_order || 0) - (b.display_order || 0)));
         } else if (type === 'videos') {
             setVideos(prev => prev.map(v => v.id === data.id ? data : v));
         }
@@ -278,6 +280,7 @@ const LandingPageDashboardView = () => {
                 price_monthly: p.price_monthly,
                 price_yearly: p.price_yearly,
                 is_featured: p.is_featured,
+                display_order: p.display_order,
                 features: p.features
             }));
 
@@ -577,17 +580,100 @@ const LandingPageDashboardView = () => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                                                 <input
                                                     value={plan.plan_id}
+                                                    placeholder="PLAN ID"
                                                     onChange={(e) => {
-                                                        if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, plan_id: e.target.value, name_key: e.target.value });
-                                                        else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, plan_id: e.target.value, name_key: e.target.value } : p));
+                                                        const val = e.target.value;
+                                                        if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, plan_id: val, name_key: val });
+                                                        else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, plan_id: val, name_key: val } : p));
                                                     }}
-                                                    style={{ background: 'transparent', border: 'none', color: '#3b82f6', fontWeight: '800', fontSize: '1.1rem', textTransform: 'uppercase', width: '60%' }}
+                                                    style={{ background: 'transparent', border: 'none', color: '#3b82f6', fontWeight: '800', fontSize: '1.1rem', textTransform: 'uppercase', width: '40%' }}
                                                 />
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <input
+                                                        type="number"
+                                                        value={plan.display_order || 0}
+                                                        onChange={(e) => {
+                                                            const val = parseInt(e.target.value);
+                                                            if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, display_order: val });
+                                                            else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, display_order: val } : p));
+                                                        }}
+                                                        style={{ width: '40px', background: '#0f172a', border: '1px solid #334155', borderRadius: '4px', color: 'white', padding: '2px 4px', fontSize: '0.8rem' }}
+                                                        title="Display Order"
+                                                    />
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: '#94a3b8', cursor: 'pointer' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={plan.is_featured}
+                                                            onChange={(e) => {
+                                                                const val = e.target.checked;
+                                                                if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, is_featured: val });
+                                                                else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, is_featured: val } : p));
+                                                            }}
+                                                        /> Featured
+                                                    </label>
+                                                </div>
                                                 <div style={{ display: 'flex', gap: '10px' }}>
                                                     <button onClick={() => handleDeletePricing(plan.id)} style={{ padding: '6px', background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '8px', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '6px' }}>Monthly Price (€)</label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={plan.price_monthly}
+                                                        onChange={(e) => {
+                                                            const val = parseFloat(e.target.value);
+                                                            if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, price_monthly: val });
+                                                            else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, price_monthly: val } : p));
+                                                        }}
+                                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', padding: '10px' }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '6px' }}>Yearly Price (€)</label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={plan.price_yearly}
+                                                        onChange={(e) => {
+                                                            const val = parseFloat(e.target.value);
+                                                            if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, price_yearly: val });
+                                                            else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, price_yearly: val } : p));
+                                                        }}
+                                                        style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', padding: '10px' }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div style={{ marginBottom: '20px' }}>
+                                                <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '6px' }}>Features</label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {(plan.features || []).map((feat, fidx) => (
+                                                        <div key={fidx} style={{ display: 'flex', gap: '8px' }}>
+                                                            <input
+                                                                value={feat}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    const newFeatures = [...plan.features];
+                                                                    newFeatures[fidx] = val;
+                                                                    if (newPlan && newPlan.id === plan.id) setNewPlan({ ...newPlan, features: newFeatures });
+                                                                    else setPricing(prev => prev.map(p => p.id === plan.id ? { ...p, features: newFeatures } : p));
+                                                                }}
+                                                                style={{ flex: 1, background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: 'white', padding: '6px 12px', fontSize: '0.85rem' }}
+                                                            />
+                                                            <button onClick={() => handleRemoveFeature(plan.id, fidx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={14} /></button>
+                                                        </div>
+                                                    ))}
+                                                    <button onClick={() => handleAddFeature(plan.id)} style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '8px', padding: '8px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                        <Plus size={14} /> Add Feature
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '12px' }}>
                                                 <button onClick={() => handleSavePricing(plan)} disabled={saving} style={{ padding: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '700' }}>
                                                     {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save
                                                 </button>
