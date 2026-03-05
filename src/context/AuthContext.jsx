@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { storageService } from '../lib/StorageService';
 
@@ -14,28 +14,25 @@ const MOCK_USERS = [
 const IS_PROD = import.meta.env.VITE_PROD_MODE === 'true';
 
 export const AuthProvider = ({ children }) => {
-    // 1. RECOVERY: Synchronously check for existing session to avoid "Flash of Spinner"
-    const recoveredSession = useMemo(() => {
+    // 1. RECOVERY: Synchronously check for existing session
+    const getInitialSession = () => {
         try {
-            // Find the Supabase auth token in localStorage
             const authKey = Object.keys(localStorage).find(key => key.includes('auth-token') && key.includes('sb-'));
-            if (authKey) {
-                const sessionData = JSON.parse(localStorage.getItem(authKey));
-                return sessionData;
-            }
-            // Fallback for simple auth
+            if (authKey) return JSON.parse(localStorage.getItem(authKey));
             const simpleAuth = localStorage.getItem('bay-simple-auth');
             if (simpleAuth) return JSON.parse(simpleAuth);
         } catch (e) { return null; }
         return null;
-    }, []);
+    };
+
+    const initialSession = getInitialSession();
 
     const [currentUser, setCurrentUser] = useState(() => {
-        if (recoveredSession?.user) {
-            const email = recoveredSession.user.email;
+        if (initialSession?.user) {
+            const email = initialSession.user.email;
             const isAdmin = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com', 'admin@bayzenit.com'].includes(email?.toLowerCase());
             return {
-                id: recoveredSession.user.id,
+                id: initialSession.user.id,
                 email: email,
                 role: isAdmin ? 'admin' : 'worker',
                 plan: isAdmin ? 'premium' : 'free',
@@ -46,8 +43,9 @@ export const AuthProvider = ({ children }) => {
         return null;
     });
 
-    const [session, setSession] = useState(recoveredSession);
-    const [loading, setLoading] = useState(!recoveredSession); // Loading only if NO recovered session
+    const [session, setSession] = useState(initialSession);
+    const [loading, setLoading] = useState(!initialSession);
+    // Loading only if NO recovered session
     const isMockSession = useRef(localStorage.getItem('bay_is_mock') === 'true');
     const isUpdating = useRef(false);
     const currentUserRef = useRef(null);
@@ -128,136 +126,54 @@ export const AuthProvider = ({ children }) => {
                 isSkeleton: false,
                 authMode: 'cloud'
             };
+            console.error('[Auth] Error fetching user data:', err);
+            return null;
         }
-    };
-
-    const fetchUserDataWithTimeout = (userId, email) => {
-        return Promise.race([
-            fetchUserData(userId, email),
-            new Promise((resolve) => setTimeout(() => {
-                console.warn('[Auth] Fetch timed out, using minimal local profile for initialization');
-                const isAdmin = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com', 'admin@bayzenit.com'].includes(email?.toLowerCase());
-
-                let cachedName = 'Local User';
-                try {
-                    const localProfile = localStorage.getItem(`bay_profile_${userId}`);
-                    if (localProfile) {
-                        const parsed = JSON.parse(localProfile);
-                        if (parsed.companyName) cachedName = parsed.owner || parsed.companyName;
-                    }
-                } catch (e) { }
-
-                resolve({
-                    id: userId,
-                    email: email,
-                    name: cachedName,
-                    role: isAdmin ? 'admin' : 'worker',
-                    plan: isAdmin ? 'premium' : 'free',
-                    industry: 'general',
-                    companyName: 'My Company',
-                    isSkeleton: false,
-                    authMode: 'cloud',
-                    isTimeout: true
-                });
-            }, 12000))
-        ]);
-    };
-
-    useEffect(() => {
-        const hasSessionToken = Object.keys(localStorage).some(key =>
-            (key.includes('auth-token') && key.includes('sb-')) || key === 'bay-simple-auth'
-        );
-
-        if (hasSessionToken && !currentUser && useSupabase) {
-            setLoading(true);
-        }
-
-        const safetyTimeout = setTimeout(() => {
-            setLoading(false);
-        }, 4000); // Reduced from 8s as we have synchronous recovery now
-
-        let subscription = null;
-        const lastFetchedId = { current: null };
-
-        if (useSupabase) {
-            const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-                if (event === 'SIGNED_OUT') {
-                    setCurrentUser(null);
-                    setSession(null);
-                    setLoading(false);
-                    return;
-                }
-
-                const newUserId = newSession?.user?.id;
-                const existingUser = currentUserRef.current;
-
-                if (newUserId === lastFetchedId.current && existingUser && !existingUser.isSkeleton) {
-                    return;
-                }
-
-                lastFetchedId.current = newUserId;
-                const hasMock = localStorage.getItem('bay_is_mock') === 'true';
-
-                if (isMockSession.current || hasMock) return;
-                if (isUpdating.current) return;
-
-                setSession(newSession);
-
-                if (newSession?.user) {
-                    const current = currentUserRef.current;
-                    if (current?.id === newSession.user.id && !current.isSkeleton) {
-                        return;
-                    }
-
-                    const isAdmin = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com', 'admin@bayzenit.com'].includes(newSession.user.email?.toLowerCase());
-                    setCurrentUser(prev => {
-                        if (prev && prev.id === newSession.user.id && !prev.isSkeleton) return prev;
-                        return {
-                            id: newSession.user.id,
-                            email: newSession.user.email,
-                            role: isAdmin ? 'admin' : 'worker',
-                            plan: isAdmin ? 'premium' : 'free',
-                            isSkeleton: true,
-                            authMode: 'cloud'
-                        };
-                    });
-
-                    setLoading(false);
-
-                    try {
-                        const userData = await fetchUserDataWithTimeout(newSession.user.id, newSession.user.email);
-                        if (userData) {
-                            setCurrentUser(userData);
-                        }
-
-                        if (userData?.isTimeout) {
-                            fetchUserData(newSession.user.id, newSession.user.email).then(finalData => {
-                                if (finalData && !finalData.isTimeout) {
-                                    setCurrentUser(finalData);
-                                }
-                            });
-                        }
-                    } catch (fetchErr) {
-                        setCurrentUser(prev => ({ ...prev, isSkeleton: false, dbError: 'FETCH_FAILED' }));
-                    }
-                } else {
-                    setCurrentUser(null);
-                    setLoading(false);
-                }
-            });
-            subscription = data.subscription;
-        } else {
-            const saved = localStorage.getItem('bay_current_user');
-            setCurrentUser(saved ? JSON.parse(saved) : null);
-            setLoading(false);
-        }
-
-        return () => {
-            clearTimeout(safetyTimeout);
-            if (subscription) subscription.unsubscribe();
-        };
     }, [useSupabase]);
 
+    // 2. Initial Auth Listener
+    useEffect(() => {
+        if (!useSupabase) {
+            setLoading(false);
+            return;
+        }
+
+        const initializeAuth = async () => {
+            const { data: { session: initialSession } } = await supabase.auth.getSession();
+            if (initialSession) {
+                setSession(initialSession);
+                const userData = await fetchUserData(initialSession.user.id, initialSession.user.email);
+                setCurrentUser({ ...userData, authMode: 'cloud' });
+            }
+            setLoading(false);
+        };
+
+        initializeAuth();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+            console.log('[Auth] State Change:', event);
+            setSession(newSession);
+
+            if (event === 'SIGNED_IN' && newSession) {
+                if (!isUpdating.current) {
+                    const userData = await fetchUserData(newSession.user.id, newSession.user.email);
+                    setCurrentUser({ ...userData, authMode: 'cloud' });
+                }
+            } else if (event === 'SIGNED_OUT') {
+                setCurrentUser(null);
+                setSession(null);
+                isMockSession.current = false;
+            } else if (event === 'USER_UPDATED' && newSession) {
+                const userData = await fetchUserData(newSession.user.id, newSession.user.email);
+                setCurrentUser({ ...userData, authMode: 'cloud' });
+            }
+            setLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
+    }, [useSupabase, fetchUserData]);
+
+    // 3. Mock Session Monitoring
     useEffect(() => {
         if (!useSupabase || isMockSession.current) {
             if (currentUser) {
@@ -270,7 +186,26 @@ export const AuthProvider = ({ children }) => {
         }
     }, [currentUser, useSupabase]);
 
-    const login = async (emailInput, password) => {
+    // 7. Security Logging (Unified)
+    const logSecurityAction = useCallback(async (action, entityType = 'security', entityId = null, metadata = {}, severity = 'info') => {
+        console.log(`[Audit] ${action} on ${entityType}`);
+        if (!useSupabase || !currentUserRef.current) return;
+        try {
+            await supabase.from('audit_logs').insert({
+                user_id: currentUserRef.current.id,
+                action,
+                entity_type: entityType,
+                entity_id: entityId,
+                metadata,
+                severity,
+                source: metadata.source || 'Standard_Auth_Logger'
+            });
+        } catch (err) {
+            console.warn('[Audit] Failed to log security action:', err);
+        }
+    }, [useSupabase]);
+
+    const login = useCallback(async (emailInput, password) => {
         const email = emailInput.toLowerCase().trim();
         if (useSupabase) {
             try {
@@ -320,9 +255,9 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
         }
         return { success: false, error: 'Invalid credentials' };
-    };
+    }, [useSupabase, logSecurityAction, fetchUserData]);
 
-    const register = async (regData) => {
+    const register = useCallback(async (regData) => {
         const email = regData.email.toLowerCase().trim();
         const password = regData.password;
 
@@ -347,7 +282,6 @@ export const AuthProvider = ({ children }) => {
                 console.log('[Auth] Supabase Auth Signup Success:', data.user.id);
 
                 // Try to create profile tables, but don't let failure here block registration
-                // (Often these are handled by DB triggers, and might fail due to RLS before session is active)
                 try {
                     await supabase.from('users').upsert({
                         id: data.user.id,
@@ -355,7 +289,7 @@ export const AuthProvider = ({ children }) => {
                         full_name: regData.name,
                         role: 'admin'
                     });
-                } catch (e) { console.warn('[Auth] users table upsert skipped/failed:', e.message); }
+                } catch (e) { console.warn('[Auth] users table upsert failed:', e.message); }
 
                 try {
                     const dbSupportedIndustries = [
@@ -377,7 +311,7 @@ export const AuthProvider = ({ children }) => {
                         postal_code: regData.zip || '',
                         address: `${regData.street || ''} ${regData.city || ''}`.trim()
                     });
-                } catch (e) { console.warn('[Auth] company_settings upsert skipped/failed:', e.message); }
+                } catch (e) { console.warn('[Auth] company_settings upsert failed:', e.message); }
 
                 try {
                     await supabase.from('subscriptions').upsert({
@@ -385,7 +319,7 @@ export const AuthProvider = ({ children }) => {
                         plan_type: regData.plan || 'standard',
                         status: 'active'
                     });
-                } catch (e) { console.warn('[Auth] subscriptions upsert skipped/failed:', e.message); }
+                } catch (e) { console.warn('[Auth] subscriptions upsert failed:', e.message); }
 
                 return { success: true, data };
             } catch (err) {
@@ -414,9 +348,9 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser({ ...newUser, authMode: 'mock' });
 
         return { success: true, data: { user: newUser } };
-    };
+    }, [useSupabase]);
 
-    const logout = async () => {
+    const logout = useCallback(async () => {
         if (useSupabase) await supabase.auth.signOut();
         isMockSession.current = false;
         setCurrentUser(null);
@@ -424,9 +358,9 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('bay_current_user');
         localStorage.removeItem('bay_is_mock');
         return { success: true };
-    };
+    }, [useSupabase]);
 
-    const updateUser = async (updatedData) => {
+    const updateUser = useCallback(async (updatedData) => {
         if (useSupabase && !isMockSession.current) {
             try {
                 isUpdating.current = true;
@@ -440,16 +374,16 @@ export const AuthProvider = ({ children }) => {
                     if (uploadRes.success) avatarUrl = uploadRes.url;
                 }
 
-                // Auth Service metadata (Direct call recommended for security updates, but non-blocking)
+                // Auth Service metadata
                 supabase.auth.updateUser({ data: { full_name: updatedData.name, avatar: avatarUrl } }).then(null, e => console.warn('[Auth] Metadata sync failed:', e));
 
                 const roleMap = { 'Administrator': 'admin', 'Manager': 'site_lead', 'Accountant': 'finance', 'Employee': 'worker' };
-                const normalizedRole = roleMap[updatedData.role] || updatedData.role || currentUser?.role;
+                const normalizedRole = roleMap[updatedData.role] || updatedData.role || currentUserRef.current?.role;
 
                 // 1. Prepare User Table Update
                 const userUpdateItems = {
                     id: userId,
-                    email: updatedData.email || currentUser?.email,
+                    email: updatedData.email || currentUserRef.current?.email,
                     full_name: updatedData.name,
                     avatar_url: avatarUrl,
                     role: normalizedRole
@@ -471,23 +405,23 @@ export const AuthProvider = ({ children }) => {
                     industry: safeIndustry,
                     phone: updatedData.phone,
                     street: updatedData.street,
-                    house_num: updatedData.house_num || updatedData.houseNum,
+                    house_num: updatedData.houseNum,
                     city: updatedData.city,
                     postal_code: updatedData.zip,
-                    address: `${updatedData.street || ''} ${updatedData.house_num || updatedData.houseNum || ''}`.trim(),
+                    address: `${updatedData.street || ''} ${updatedData.houseNum || ''}`.trim(),
                     stripe_public_key: updatedData.stripePublicKey,
                     stripe_secret_key: updatedData.stripeSecretKey,
                     paypal_client_id: updatedData.paypalClientId
                 };
 
-                // 3. Enqueue to Sync Service (Offline Resilience)
-                const { syncService } = await import('../lib/SyncService');
-                syncService.enqueue('users', 'update', userUpdateItems, userId);
-                syncService.enqueue('company_settings', 'update', companyUpdateItems, userId);
+                // 3. Enqueue to Sync Service
+                const { syncService: liveSyncService } = await import('../lib/SyncService');
+                liveSyncService.enqueue('users', 'update', userUpdateItems, userId);
+                liveSyncService.enqueue('company_settings', 'update', companyUpdateItems, userId);
 
                 // 4. Optimistic UI Update
                 const newUserData = {
-                    ...currentUser,
+                    ...currentUserRef.current,
                     ...updatedData,
                     name: updatedData.name,
                     avatar: avatarUrl,
@@ -496,26 +430,55 @@ export const AuthProvider = ({ children }) => {
                 };
                 setCurrentUser(newUserData);
 
-                // No need to wait for fetchUserData anymore as we have a robust queue
                 return { success: true };
-            } catch (error) {
-                console.error('[Auth] Local update failed:', error);
-                return { success: false, error: error.message };
+            } catch (err) {
+                console.error('[Auth] Profile Update Failed:', err);
+                return { success: false, error: err.message };
             } finally {
                 isUpdating.current = false;
             }
         } else {
-            const updated = { ...currentUser, ...updatedData };
+            // Mock Update
+            const updated = { ...currentUserRef.current, ...updatedData };
             setCurrentUser(updated);
-            const registeredUsers = JSON.parse(localStorage.getItem('bay_registered_users') || '[]');
-            const idx = registeredUsers.findIndex(u => u.id === currentUser?.id || u.email === currentUser?.email);
-            if (idx !== -1) {
-                registeredUsers[idx] = { ...registeredUsers[idx], ...updatedData };
-                localStorage.setItem('bay_registered_users', JSON.stringify(registeredUsers));
-            }
+            localStorage.setItem('bay_current_user', JSON.stringify(updated));
             return { success: true };
         }
-    };
+    }, [useSupabase]);
+
+    const subscriptionNotice = useMemo(() => {
+        if (!currentUser || !currentUser.currentPeriodEnd) return null;
+
+        const end = new Date(currentUser.currentPeriodEnd);
+        const now = new Date();
+        const diffDays = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+
+        if (currentUser.subscriptionStatus === 'past_due') {
+            return {
+                type: 'error',
+                message: 'Ödeme başarısız oldu. Lütfen ödeme yönteminizi güncelleyin.',
+                action: 'manage'
+            };
+        }
+
+        if (currentUser.subscriptionStatus === 'trialing' && diffDays <= 3 && diffDays > 0) {
+            return {
+                type: 'warning',
+                message: `Deneme süreniz ${diffDays} gün içinde bitecek. Devam etmek için ödeme yöntemi ekleyin.`,
+                action: 'upgrade'
+            };
+        }
+
+        if (diffDays <= 3 && diffDays > 0 && !currentUser.cancelAtPeriodEnd) {
+            return {
+                type: 'info',
+                message: `Aboneliğiniz ${diffDays} gün içinde yenilecek.`,
+                action: 'none'
+            };
+        }
+
+        return null;
+    }, [currentUser]);
 
     const authValue = useMemo(() => ({
         currentUser,
@@ -527,7 +490,7 @@ export const AuthProvider = ({ children }) => {
         deleteAccount: async () => {
             if (useSupabase && !isMockSession.current) {
                 try {
-                    const { data, error } = await supabase.functions.invoke('delete-account', {
+                    const { error } = await supabase.functions.invoke('delete-account', {
                         body: {},
                     });
                     if (error) throw error;
@@ -546,62 +509,14 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!currentUser,
         loading,
         useSupabase,
-        subscriptionNotice: useMemo(() => {
-            if (!currentUser || !currentUser.currentPeriodEnd) return null;
-
-            const end = new Date(currentUser.currentPeriodEnd);
-            const now = new Date();
-            const diffDays = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-
-            if (currentUser.subscriptionStatus === 'past_due') {
-                return {
-                    type: 'error',
-                    message: 'Ödeme başarısız oldu. Lütfen ödeme yönteminizi güncelleyin.',
-                    action: 'manage'
-                };
-            }
-
-            if (currentUser.subscriptionStatus === 'trialing' && diffDays <= 3 && diffDays > 0) {
-                return {
-                    type: 'warning',
-                    message: `Deneme süreniz ${diffDays} gün içinde bitecek. Devam etmek için ödeme yöntemi ekleyin.`,
-                    action: 'upgrade'
-                };
-            }
-
-            if (diffDays <= 3 && diffDays > 0 && !currentUser.cancelAtPeriodEnd) {
-                return {
-                    type: 'info',
-                    message: `Aboneliğiniz ${diffDays} gün içinde yenilenecek.`,
-                    action: 'none'
-                };
-            }
-
-            return null;
-        }, [currentUser]),
+        subscriptionNotice,
         sendPasswordReset: async (email) => {
             if (!useSupabase) return { success: true };
             const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
             return error ? { success: false, error: error.message } : { success: true };
         },
-        logSecurityAction: async (action, entityType = 'security', entityId = null, metadata = {}, severity = 'info') => {
-            console.log(`[Audit] ${action} on ${entityType}`);
-            if (!useSupabase || !currentUser) return;
-            try {
-                await supabase.from('audit_logs').insert({
-                    user_id: currentUser.id,
-                    action,
-                    entity_type: entityType,
-                    entity_id: entityId,
-                    metadata,
-                    severity,
-                    source: metadata.source || 'Standard_Auth_Logger'
-                });
-            } catch (err) {
-                console.warn('[Audit] Failed to persist log:', err);
-            }
-        }
-    }), [currentUser, session, loading, useSupabase]);
+        logSecurityAction
+    }), [currentUser, session, loading, useSupabase, subscriptionNotice, login, logout, logSecurityAction, register, updateUser]);
 
     return (
         <AuthContext.Provider value={authValue}>

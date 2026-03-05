@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useNotification } from '../../context/NotificationContext';
 import { motion } from 'framer-motion';
 import {
     FileText,
@@ -72,6 +73,7 @@ const ReportCard = ({ title, date, size, type, author }) => (
 
 const Reports = () => {
     const { t } = useLanguage();
+    const { showNotification } = useNotification();
     const {
         invoices: contextInvoices,
         expenses: contextExpenses,
@@ -281,7 +283,11 @@ const Reports = () => {
 
             const element = document.getElementById('report-content-area');
             if (!element) {
-                alert('Report content not found');
+                showNotification({
+                    type: 'error',
+                    title: t('error') || 'Hata',
+                    message: t('report_not_found') || 'Rapor içeriği bulunamadı.'
+                });
                 setGeneratingReport(false);
                 return;
             }

@@ -43,8 +43,9 @@ import Dashboard from './accounting/Dashboard';
 const AdminDashboard = () => {
     const { t } = useLanguage();
     const { companyProfile } = useInvoice();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { isPremium } = usePlanGuard();
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const activeTab = searchParams.get('tab') || 'overview';
 
@@ -58,10 +59,34 @@ const AdminDashboard = () => {
                 case 'reports': return <Reports />;
                 case 'sites':
                     const ind = companyProfile?.industry?.toLowerCase();
-                    return (['construction', 'general'].includes(ind) && isPremium()) ? <SiteManagement /> : <SystemOverview />;
+                    const hasSites = ['construction', 'general'].includes(ind);
+                    if (hasSites && isPremium()) return <SiteManagement />;
+                    if (hasSites && !isPremium()) {
+                        // Return a placeholder or the Overview with an auto-triggered modal
+                        return (
+                            <div className="restricted-content" style={{ padding: '40px', textAlign: 'center' }}>
+                                <Lock size={48} style={{ color: '#94a3b8', marginBottom: '16px' }} />
+                                <h2>{t('premium_only') || 'Premium Özellik'}</h2>
+                                <p>{t('sites_premium_desc') || 'Şantiye yönetimi ve iş akışı özellikleri için Premium plana geçin.'}</p>
+                                <button className="primary-btn" onClick={() => setShowUpgradeModal(true)} style={{ marginTop: '20px' }}>
+                                    {t('upgrade_now') || 'Şimdi Yükselt'}
+                                </button>
+                            </div>
+                        );
+                    }
+                    return <SystemOverview />;
                 case 'users':
-                    // Safe guard for tab
-                    return isPremium() ? <UserManagement /> : <SystemOverview />;
+                    if (isPremium()) return <UserManagement />;
+                    return (
+                        <div className="restricted-content" style={{ padding: '40px', textAlign: 'center' }}>
+                            <Users size={48} style={{ color: '#94a3b8', marginBottom: '16px' }} />
+                            <h2>{t('premium_only') || 'Premium Özellik'}</h2>
+                            <p>{t('users_premium_desc') || 'Çoklu kullanıcı ve rol yönetimi için Premium plana geçin.'}</p>
+                            <button className="primary-btn" onClick={() => setShowUpgradeModal(true)} style={{ marginTop: '20px' }}>
+                                {t('upgrade_now') || 'Şimdi Yükselt'}
+                            </button>
+                        </div>
+                    );
                 case 'messages': return <AdminMessagingView />;
                 case 'settings': return <Settings />;
                 default: return <SystemOverview />;
@@ -83,6 +108,7 @@ const AdminDashboard = () => {
             <main style={{ padding: '0' }}>
                 {renderContent()}
             </main>
+            <PremiumUpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
         </div>
     );
 };

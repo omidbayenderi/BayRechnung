@@ -12,6 +12,9 @@ const ProjectKanban = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newProjectData, setNewProjectData] = useState({ name: '', client_name: '', budget: '' });
+    const [confirmModal, setConfirmModal] = useState({ open: false, projectId: null });
 
     const STAGES = [
         { id: 'lead', title: t('stage_lead'), color: '#94a3b8' },
@@ -55,30 +58,32 @@ const ProjectKanban = () => {
         syncService.enqueue('projects', 'update', { status: newStatus, updated_at: new Date().toISOString() }, projectId);
 
         if (newStatus === 'billed') {
-            const project = projects.find(p => p.id === projectId);
-            if (window.confirm(t('confirm_invoice_creation') || 'Proje faturalandı olarak işaretlendi. Şimdi fatura oluşturmak ister misiniz?')) {
-                navigate('/new', {
-                    state: {
-                        clientName: project.client_name,
-                        projectName: project.name,
-                        amount: project.budget
-                    }
-                });
-            }
+            setConfirmModal({ open: true, projectId });
         }
     };
 
-    const addProject = async () => {
-        const name = prompt(t('project_name') + ':');
-        if (!name) return;
-        const client = prompt(t('client_name') + ':');
+    const handleConfirmBilling = () => {
+        const project = projects.find(p => p.id === confirmModal.projectId);
+        setConfirmModal({ open: false, projectId: null });
+        navigate('/new', {
+            state: {
+                clientName: project.client_name,
+                projectName: project.name,
+                amount: project.budget
+            }
+        });
+    };
+
+    const handleAddProject = async () => {
+        if (!newProjectData.name) return;
 
         const id = crypto.randomUUID?.() || `proj-${Date.now()}`;
         const newProject = {
             id,
             user_id: currentUser?.id,
-            name,
-            client_name: client,
+            name: newProjectData.name,
+            client_name: newProjectData.client_name,
+            budget: parseFloat(newProjectData.budget) || 0,
             status: 'lead',
             created_at: new Date().toISOString(),
             progress: 5
@@ -89,6 +94,8 @@ const ProjectKanban = () => {
 
         // Enqueue insert for background sync
         syncService.enqueue('projects', 'insert', newProject, id);
+        setShowAddModal(false);
+        setNewProjectData({ name: '', client_name: '', budget: '' });
     };
 
     if (loading) return <div className="p-8 text-center">{t('loading')}</div>;
@@ -100,7 +107,7 @@ const ProjectKanban = () => {
                     <h1>{t('project_kanban')}</h1>
                     <p style={{ color: 'var(--text-muted)' }}>{t('overviewText')}</p>
                 </div>
-                <button className="primary-btn" onClick={addProject}>
+                <button className="primary-btn" onClick={() => setShowAddModal(true)}>
                     <Plus size={20} />
                     {t('new_project')}
                 </button>
@@ -228,6 +235,83 @@ const ProjectKanban = () => {
                     </div>
                 ))}
             </div>
+
+            {/* Modals for Professionalism */}
+            <AnimatePresence>
+                {showAddModal && (
+                    <div className="modal-overlay" style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)'
+                    }}>
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 20 }}
+                            className="card"
+                            style={{ width: '400px', padding: '30px' }}
+                        >
+                            <h2 style={{ marginBottom: '20px' }}>{t('new_project')}</h2>
+                            <div className="form-group">
+                                <label>{t('project_name')}</label>
+                                <input
+                                    className="form-input"
+                                    value={newProjectData.name}
+                                    onChange={e => setNewProjectData({ ...newProjectData, name: e.target.value })}
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>{t('client_name')}</label>
+                                <input
+                                    className="form-input"
+                                    value={newProjectData.client_name}
+                                    onChange={e => setNewProjectData({ ...newProjectData, client_name: e.target.value })}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>{t('budget')} (€)</label>
+                                <input
+                                    className="form-input"
+                                    type="number"
+                                    value={newProjectData.budget}
+                                    onChange={e => setNewProjectData({ ...newProjectData, budget: e.target.value })}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                                <button className="secondary-btn" onClick={() => setShowAddModal(false)} style={{ flex: 1 }}>{t('cancel')}</button>
+                                <button className="primary-btn" onClick={handleAddProject} style={{ flex: 1 }}>{t('save')}</button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+
+                {confirmModal.open && (
+                    <div className="modal-overlay" style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)'
+                    }}>
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="card"
+                            style={{ width: '400px', padding: '30px', textAlign: 'center' }}
+                        >
+                            <div style={{ color: '#f59e0b', marginBottom: '16px' }}>
+                                <DollarSign size={48} style={{ margin: '0 auto' }} />
+                            </div>
+                            <h3 style={{ marginBottom: '12px', border: 'none' }}>{t('confirm_invoice_creation')}</h3>
+                            <p style={{ color: '#64748b', marginBottom: '24px' }}>{t('invoice_now_desc') || 'Proje tamamlandı olarak işaretlendi. Bir fatura oluşturulsun mu?'}</p>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button className="secondary-btn" onClick={() => setConfirmModal({ open: false, projectId: null })} style={{ flex: 1 }}>{t('later') || 'Daha Sonra'}</button>
+                                <button className="primary-btn" onClick={handleConfirmBilling} style={{ flex: 1 }}>{t('create_invoice') || 'Fatura Oluştur'}</button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

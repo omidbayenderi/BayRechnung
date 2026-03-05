@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Activity, HardHat, Camera, MoreVertical, CheckCircle2 } from 'lucide-react';
 
 const SiteControlCenter = ({ t }) => {
