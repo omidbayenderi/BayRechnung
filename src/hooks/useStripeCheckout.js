@@ -4,9 +4,10 @@ export const useStripeCheckout = () => {
     const IS_PROD = import.meta.env.VITE_PROD_MODE === 'true';
 
     const redirectToCheckout = async (priceId, trial = false) => {
-        const handleDemoUnlock = async () => {
+        const handleDemoUnlock = async (errorMessage = null) => {
             if (IS_PROD) {
-                alert('Ödeme sistemi şu anda yapılandırılıyor. Lütfen destek ile iletişime geçin.');
+                const technicalDetail = errorMessage ? `\n\nDetay: ${errorMessage}` : '';
+                alert(`Ödeme sistemi şu anda yapılandırılıyor. Lütfen destek ile iletişime geçin.${technicalDetail}`);
                 return;
             }
             alert('🚀 MVP / Demo Mode Active!\n\nStripe payments are not fully configured yet. We are unlocking Premium Power for your account automatically for testing purposes. Please wait a moment...');
@@ -39,14 +40,26 @@ export const useStripeCheckout = () => {
                 body: {
                     priceId,
                     trial, // Pass trial flag
-                    successUrl: import.meta.env.VITE_SUCCESS_URL || window.location.origin + '/BayRechnung/success',
-                    cancelUrl: import.meta.env.VITE_CANCEL_URL || window.location.origin + '/BayRechnung/',
+                    successUrl: import.meta.env.VITE_SUCCESS_URL || window.location.origin + '/success',
+                    cancelUrl: import.meta.env.VITE_CANCEL_URL || window.location.origin + '/',
                 },
             });
 
             if (error) {
                 console.error('Checkout session creation error:', error);
-                await handleDemoUnlock();
+                
+                // Inspect the error object to get more details
+                let msg = error.message || 'Bilinmeyen bir hata oluştu.';
+                if (error.context) {
+                    try {
+                        const body = await error.context.json();
+                        if (body.error) msg = body.error;
+                    } catch (e) {
+                         // ignore
+                    }
+                }
+                
+                await handleDemoUnlock(msg);
                 return;
             }
 
@@ -57,7 +70,7 @@ export const useStripeCheckout = () => {
             }
         } catch (err) {
             console.error('Stripe checkout error:', err);
-            await handleDemoUnlock();
+            await handleDemoUnlock(err.message);
         }
     };
 
