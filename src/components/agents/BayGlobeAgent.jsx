@@ -3,6 +3,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { Globe, RefreshCw, CheckCircle, Sparkles, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { useAuth } from '../../context/AuthContext';
+
 /**
  * BayGlobe Agent 🌐
  * Responsible for 24/7 Dynamic Localization & i18n Quality Control.
@@ -11,6 +13,9 @@ import { motion, AnimatePresence } from 'framer-motion';
  * - Ensures the UI stays compliant with selected app language.
  */
 const BayGlobeAgent = () => {
+    const { currentUser } = useAuth();
+    const isAdmin = currentUser?.email === 'admin@bayrechnung.com';
+
     const { appLanguage, updateAiTranslation, LANGUAGES, translations, aiTranslations } = useLanguage();
     const [pendingTranslations, setPendingTranslations] = useState([]);
     const [isTranslating, setIsTranslating] = useState(false);
@@ -212,7 +217,7 @@ const BayGlobeAgent = () => {
 
     return (
         <AnimatePresence>
-            {showStatus && (
+            {(showStatus && isAdmin) && (
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}

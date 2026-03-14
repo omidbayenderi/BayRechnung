@@ -126,7 +126,7 @@ export const WebsiteProvider = ({ children }) => {
         const syncData = {
             user_id: currentUser.id,
             config: { siteConfig: newConfig, sections: newSections },
-            domain: newConfig.domain || '',
+            domain: newConfig.domain ? newConfig.domain : null,
             slug: newConfig.slug || slugify(newConfig.domain || '') || slugify(currentUser.id.substring(0, 8)),
             is_published: !!newConfig.isPublished,
             updated_at: new Date().toISOString()

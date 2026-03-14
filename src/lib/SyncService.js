@@ -292,6 +292,11 @@ class SyncService {
                     validColumns.forEach(col => {
                         if (finalData[col] !== undefined) cleanData[col] = finalData[col];
                     });
+                    
+                    if (table === 'website_configs' && cleanData.domain === '') {
+                        cleanData.domain = null;
+                    }
+
                     finalData = cleanData;
                 }
 

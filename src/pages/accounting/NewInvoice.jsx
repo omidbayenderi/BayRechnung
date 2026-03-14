@@ -24,6 +24,7 @@ const NewInvoice = () => {
     // Local state - industryData stores dynamic fields based on selected industry
     const [invoiceData, setInvoiceData] = useState({
         recipientName: prefillData.recipientName || '',
+        recipientEmail: prefillData.recipientEmail || '',
         recipientStreet: '',
         recipientHouseNum: '',
         recipientZip: '',
@@ -217,6 +218,10 @@ const NewInvoice = () => {
                         <div className="form-group">
                             <label>{t('customer')}</label>
                             <input className="form-input" name="recipientName" value={invoiceData.recipientName} onChange={handleChange} placeholder="e.g. Max Mustermann" />
+                        </div>
+                        <div className="form-group">
+                            <label>{t('email') || 'E-Mail'}</label>
+                            <input type="email" className="form-input" name="recipientEmail" value={invoiceData.recipientEmail || ''} onChange={handleChange} placeholder="kunde@beispiel.de" />
                         </div>
                         <div className="form-row">
                             <div className="form-group" style={{ flex: 2 }}>

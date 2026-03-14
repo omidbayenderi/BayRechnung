@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useBayGuard } from '../../context/BayGuardContext';
 import { useLanguage } from '../../context/LanguageContext'; // Imported
 import { Shield, AlertTriangle, CheckCircle, RefreshCw, Globe } from 'lucide-react'; // Added Globe icon
+import { useAuth } from '../../context/AuthContext';
 
 const BayGuardAgent = () => {
+    const { currentUser } = useAuth();
+    const isAdmin = currentUser?.email === 'admin@bayrechnung.com';
+
     const { addLog, addIntervention, logs, health, logMtdEvent, mtdState } = useBayGuard();
     const { appLanguage, serviceLanguages, t } = useLanguage(); // Get language context
     const [showNotice, setShowNotice] = useState(false);
@@ -81,7 +85,7 @@ const BayGuardAgent = () => {
         setTimeout(() => setShowNotice(false), 5000);
     };
 
-    if (!showNotice && health === 'green') return null;
+    if ((!showNotice && health === 'green') || !isAdmin) return null;
 
     return (
         <div className="no-print" style={{

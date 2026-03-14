@@ -23,6 +23,7 @@ const InvoiceEdit = ({ type = 'invoice' }) => {
 
     const [invoiceData, setInvoiceData] = useState({
         recipientName: '',
+        recipientEmail: '',
         recipientStreet: '',
         recipientHouseNum: '',
         recipientZip: '',
@@ -41,6 +42,7 @@ const InvoiceEdit = ({ type = 'invoice' }) => {
         if (existingInvoice) {
             setInvoiceData({
                 recipientName: existingInvoice.recipientName || '',
+                recipientEmail: existingInvoice.recipientEmail || '',
                 recipientStreet: existingInvoice.recipientStreet || '',
                 recipientHouseNum: existingInvoice.recipientHouseNum || '',
                 recipientZip: existingInvoice.recipientZip || '',
@@ -176,6 +178,10 @@ const InvoiceEdit = ({ type = 'invoice' }) => {
                         <div className="form-group">
                             <label>{t('customer')}</label>
                             <input className="form-input" name="recipientName" value={invoiceData.recipientName} onChange={handleChange} />
+                        </div>
+                        <div className="form-group">
+                            <label>{t('email') || 'E-Mail'}</label>
+                            <input type="email" className="form-input" name="recipientEmail" value={invoiceData.recipientEmail || ''} onChange={handleChange} placeholder="kunde@beispiel.de" />
                         </div>
                         <div className="form-row">
                             <div className="form-group" style={{ flex: 2 }}>
