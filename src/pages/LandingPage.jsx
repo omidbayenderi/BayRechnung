@@ -37,7 +37,13 @@ const LandingPage = () => {
     const { redirectToCheckout } = useStripeCheckout();
     const [billingCycle, setBillingCycle] = React.useState('monthly');
     const [activeVideo, setActiveVideo] = React.useState(null);
-    const [pricingPlans, setPricingPlans] = React.useState([]);
+    const DEFAULT_PLANS = [
+        { id: 'f-std', plan_id: 'standard', name_key: 'standard', price_monthly: 19.9, price_yearly: 199, is_featured: false, display_order: 1, features: ["unlimitedInvoices", "customerManagement", "basicStock", "multiLanguageInvoices", "emailSupport", "mobileAccess", "pdfExport", "dashboardOverview"] },
+        { id: 'f-prm', plan_id: 'premium', name_key: 'premium', price_monthly: 79.9, price_yearly: 799, is_featured: true, display_order: 2, features: ["everythingInStandard", "advancedReports", "fullStockPOS", "employeeManagement", "appointmentSystem", "websiteBuilder", "prioritySupport", "aiAssistant"] },
+        { id: 'f-vip', plan_id: 'vip', name_key: 'vip', price_monthly: 149, price_yearly: 1490, is_featured: false, display_order: 3, features: ["everythingInPremium", "apiIntegrations", "googleAnalytics", "customDomain"] }
+    ];
+
+    const [pricingPlans, setPricingPlans] = React.useState(DEFAULT_PLANS);
     const [dynamicVideos, setDynamicVideos] = React.useState([]);
     const [dynamicSections, setDynamicSections] = React.useState([]);
     const [globalConfig, setGlobalConfig] = React.useState({
@@ -55,50 +61,43 @@ const LandingPage = () => {
     React.useEffect(() => {
         const fetchContent = async () => {
             try {
-                const [pRes, vRes, sRes] = await Promise.all([
-                    supabase.from('landing_pricing').select('*').order('created_at', { ascending: true }),
-                    supabase.from('landing_videos').select('*').order('display_order', { ascending: true }),
-                    supabase.from('landing_sections').select('*').order('display_order', { ascending: true })
-                ]);
+                // Fetch Pricing independently for speed
+                supabase.from('landing_pricing').select('*').order('created_at', { ascending: true })
+                    .then(({ data: pData, error: pError }) => {
+                        if (!pError && pData?.length >= 2) {
+                            let plans = [...pData];
+                            if (!plans.find(p => p.plan_id === 'vip')) {
+                                plans.push(DEFAULT_PLANS[2]);
+                            }
+                            plans = plans.map(p => {
+                                if (p.plan_id === 'standard') return { ...p, price_monthly: 19.9, price_yearly: 199, display_order: 1 };
+                                if (p.plan_id === 'premium') return { ...p, price_monthly: 79.9, price_yearly: 799, is_featured: true, display_order: 2 };
+                                if (p.plan_id === 'vip') return { ...p, display_order: 3 };
+                                return p;
+                            }).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                            setPricingPlans(plans);
+                        }
+                    });
 
-                if (!pRes.error && pRes.data?.length >= 2) {
-                    // Ensure VIP is present if not in DB
-                    let plans = [...pRes.data];
-                    if (!plans.find(p => p.plan_id === 'vip')) {
-                        plans.push({
-                            id: 'temp-vip',
-                            plan_id: 'vip',
-                            name_key: 'vip',
-                            price_monthly: 149,
-                            price_yearly: 1490,
-                            is_featured: false,
-                            features: ["everythingInPremium", "apiIntegrations", "googleAnalytics", "customDomain"]
-                        });
-                    }
-                    // Update prices for existing ones to match new request
-                    plans = plans.map(p => {
-                        if (p.plan_id === 'standard') return { ...p, price_monthly: 19.9, price_yearly: 199, display_order: 1 };
-                        if (p.plan_id === 'premium') return { ...p, price_monthly: 79.9, price_yearly: 799, is_featured: true, display_order: 2 };
-                        if (p.plan_id === 'vip') return { ...p, display_order: 3 };
-                        return p;
-                    }).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-                    setPricingPlans(plans);
-                } else {
-                    setPricingPlans([
-                        { id: 'f-std', plan_id: 'standard', name_key: 'standard', price_monthly: 19.9, price_yearly: 199, is_featured: false, display_order: 1, features: ["unlimitedInvoices", "customerManagement", "basicStock", "multiLanguageInvoices", "emailSupport", "mobileAccess", "pdfExport", "dashboardOverview"] },
-                        { id: 'f-prm', plan_id: 'premium', name_key: 'premium', price_monthly: 79.9, price_yearly: 799, is_featured: true, display_order: 2, features: ["everythingInStandard", "advancedReports", "fullStockPOS", "employeeManagement", "appointmentSystem", "websiteBuilder", "prioritySupport", "aiAssistant"] },
-                        { id: 'f-vip', plan_id: 'vip', name_key: 'vip', price_monthly: 149, price_yearly: 1490, is_featured: false, display_order: 3, features: ["everythingInPremium", "apiIntegrations", "googleAnalytics", "customDomain"] }
-                    ]);
-                }
-                if (!vRes.error) setDynamicVideos(vRes.data);
-                if (!sRes.error) {
-                    setDynamicSections(sRes.data);
-                    const config = sRes.data.find(s => s.slug === 'global-config');
-                    if (config?.content) setGlobalConfig(config.content);
-                }
+                // Fetch Videos
+                supabase.from('landing_videos').select('*').order('display_order', { ascending: true })
+                    .then(({ data: vData, error: vError }) => {
+                        if (!vError) setDynamicVideos(vData);
+                    });
+
+                // Fetch Sections & Config
+                supabase.from('landing_sections').select('*').order('display_order', { ascending: true })
+                    .then(({ data: sData, error: sError }) => {
+                        if (!sError) {
+                            setDynamicSections(sData);
+                            const config = sData.find(s => s.slug === 'global-config');
+                            if (config?.content) setGlobalConfig(config.content);
+                        }
+                        setLoading(false);
+                    });
+
             } catch (err) {
                 console.error('LandingPage Content Load Error:', err);
-            } finally {
                 setLoading(false);
             }
         };
