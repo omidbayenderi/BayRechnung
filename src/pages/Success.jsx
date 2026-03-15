@@ -44,7 +44,7 @@ const Success = () => {
                     <Link to="/dashboard" className="cta-button">
                         Go to Dashboard
                     </Link>
-                    <Link to="/new-invoice" className="secondary-button">
+                    <Link to="/new" className="secondary-button">
                         Start Creating Invoices
                     </Link>
                 </div>

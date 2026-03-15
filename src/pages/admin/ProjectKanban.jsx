@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../../lib/supabase';
-import { syncService } from '../../lib/SyncService';
-import { useAuth } from '../../context/AuthContext';
+import { useInvoice } from '../../context/InvoiceContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { Plus, MoreVertical, Calendar, DollarSign, User, ArrowRight } from 'lucide-react';
 
 import './ProjectKanban.css';
 
-const ProjectKanban = () => {
+const ProjectKanban = ({ hideHeader = false }) => {
     const { t } = useLanguage();
-    const { currentUser } = useAuth();
+    const { projects = [], saveProject, isLoading } = useInvoice(); // Use centralized state
     const navigate = useNavigate();
-    const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [newProjectData, setNewProjectData] = useState({ name: '', client_name: '', budget: '' });
     const [confirmModal, setConfirmModal] = useState({ open: false, projectId: null });
@@ -27,33 +23,11 @@ const ProjectKanban = () => {
         { id: 'billed', title: t('stage_billed'), color: '#f59e0b' }
     ];
 
-    useEffect(() => {
-        const fetchProjects = async () => {
-            if (!currentUser?.id) return;
-            // Mock data if no supabase connection or empty
-            const { data, error } = await supabase
-                .from('projects')
-                .select('*')
-                .eq('user_id', currentUser.id)
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('[Kanban] Database error:', error);
-                setProjects([]); // Live mode: empty state instead of mock data
-            }
-            else setProjects(data || []);
-            setLoading(false);
-        };
-
-        fetchProjects();
-    }, [currentUser?.id]);
-
     const handleMove = async (projectId, newStatus) => {
-        // Optimistic update
-        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
-
-        // Enqueue update for background sync
-        syncService.enqueue('projects', 'update', { status: newStatus, updated_at: new Date().toISOString() }, projectId);
+        const project = projects.find(p => p.id === projectId);
+        if (!project) return;
+        
+        await saveProject({ ...project, status: newStatus, updated_at: new Date().toISOString() });
 
         if (newStatus === 'billed') {
             setConfirmModal({ open: true, projectId });
@@ -74,42 +48,34 @@ const ProjectKanban = () => {
 
     const handleAddProject = async () => {
         if (!newProjectData.name) return;
-
-        const id = crypto.randomUUID?.() || `proj-${Date.now()}`;
-        const newProject = {
-            id,
-            user_id: currentUser?.id,
+        
+        await saveProject({
             name: newProjectData.name,
             client_name: newProjectData.client_name,
             budget: parseFloat(newProjectData.budget) || 0,
-            status: 'lead',
-            created_at: new Date().toISOString(),
-            progress: 5
-        };
+            status: 'lead'
+        });
 
-        // Update UI immediately (Optimistic)
-        setProjects(prev => [newProject, ...prev]);
-
-        // Enqueue insert for background sync
-        syncService.enqueue('projects', 'insert', newProject, id);
         setShowAddModal(false);
         setNewProjectData({ name: '', client_name: '', budget: '' });
     };
 
-    if (loading) return <div className="p-8 text-center">{t('loading')}</div>;
+    if (isLoading) return <div className="p-8 text-center">{t('loading')}</div>;
 
     return (
         <div className="kanban-wrapper">
-            <header className="kanban-header">
-                <div>
-                    <h1 style={{ fontSize: '1.25rem', color: 'var(--text-main)', margin: 0 }}>{t('project_kanban')}</h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>{t('overviewText')}</p>
-                </div>
-                <button className="primary-btn" onClick={() => setShowAddModal(true)}>
-                    <Plus size={18} />
-                    {t('new_project')}
-                </button>
-            </header>
+            {!hideHeader && (
+                <header className="kanban-header">
+                    <div>
+                        <h1 style={{ fontSize: '1.25rem', color: 'var(--text-main)', margin: 0 }}>{t('project_kanban')}</h1>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>{t('overviewText')}</p>
+                    </div>
+                    <button className="primary-btn" onClick={() => setShowAddModal(true)}>
+                        <Plus size={18} />
+                        {t('new_project')}
+                    </button>
+                </header>
+            )}
 
             <div className="kanban-board">
                 {STAGES.map(stage => (

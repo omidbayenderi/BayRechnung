@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useStock } from '../../context/StockContext';
 import { useNotification } from '../../context/NotificationContext';
 import { motion } from 'framer-motion';
 import {
@@ -59,12 +60,14 @@ const Reports = () => {
     // ... existing state and hooks
     const { t } = useLanguage();
     const { showNotification } = useNotification();
+    const { products = [] } = useStock();
     const {
         invoices: contextInvoices,
         expenses: contextExpenses,
         companyProfile,
         dailyReports,
         employees,
+        projects = [],
         fetchFinancialDataByRange
     } = useInvoice();
 
@@ -197,16 +200,32 @@ const Reports = () => {
     ];
     if (isConstruction) tabs.push({ id: 'progress', label: t('site_progress') || 'Gelişim', icon: BarChart2 });
 
-    const reportsData = {
-        daily: (dailyReports || []).map(r => ({
-            id: r.id,
-            title: `DAILY-LOG-${new Date(r.created_at).toLocaleDateString()}`,
-            date: new Date(r.created_at).toLocaleDateString(),
-            size: '0.4 MB', type: 'REP', author: (employees || []).find(e => e.id === r.user_id)?.name || 'Worker'
-        })),
-        stock: [{ id: 1, title: 'STOK-DURUM-MART', date: '01.03.2024', size: '1.2 MB', type: 'PDF', author: 'Sistem' }],
-        progress: [{ id: 1, title: 'SAHA-OZETI-A1', date: '05.03.2024', size: '5.6 MB', type: 'PDF', author: 'Saha Şefi' }]
-    };
+    const reportsData = useMemo(() => {
+        return {
+            daily: (dailyReports || []).map(r => ({
+                id: r.id,
+                title: `DAILY-LOG-${new Date(r.created_at).toLocaleDateString()}`,
+                date: new Date(r.created_at).toLocaleDateString(),
+                size: '0.4 MB', type: 'REP', author: (employees || []).find(e => e.id === r.user_id)?.name || 'Worker'
+            })),
+            stock: products.length > 0 ? products.map(p => ({
+                id: p.id,
+                title: `STOCK-${p.name.toUpperCase()}`,
+                date: new Date().toLocaleDateString(),
+                size: `${p.stock} adet`,
+                type: p.stock <= (p.minStock || 5) ? 'CRIT' : 'OK',
+                author: p.category || 'General'
+            })) : [{ id: 1, title: 'STOK-DURUM-MART', date: '01.03.2024', size: '1.2 MB', type: 'PDF', author: 'Sistem' }],
+            progress: projects.length > 0 ? projects.map(p => ({
+                id: p.id,
+                title: `PROGRESS-${p.name.toUpperCase()}`,
+                date: new Date(p.updated_at || p.created_at).toLocaleDateString(),
+                size: `%${p.progress || 0}`,
+                type: 'PDF',
+                author: p.manager_name || 'Project Manager'
+            })) : [{ id: 1, title: 'SAHA-OZETI-A1', date: '05.03.2024', size: '5.6 MB', type: 'PDF', author: 'Saha Şefi' }]
+        };
+    }, [dailyReports, products, projects, employees]);
 
     const [generatingReport, setGeneratingReport] = useState(false);
     const handleGenerateReport = async (type) => {
@@ -289,7 +308,15 @@ const Reports = () => {
                 {activeTab === 'timeline' && (
                     <TimelineGantt
                         title={t('business_timeline') || 'Genel İş Akışı Çizelgesi'}
-                        data={[
+                        data={projects.length > 0 ? projects.map(p => ({
+                            id: p.id,
+                            name: p.name,
+                            start_date: p.start_date || p.created_at,
+                            due_date: p.due_date || new Date(new Date(p.created_at).getTime() + 86400000 * 30).toISOString(),
+                            progress: p.progress || 0,
+                            color: p.color || 'var(--primary)',
+                            category: p.category || 'Şantiye'
+                        })) : [
                             { id: 1, name: 'Kuzey Rezidans', start_date: '2024-02-01', due_date: '2024-05-15', progress: 65, color: 'var(--primary)', category: 'Şantiyeler' },
                             { id: 2, name: 'Güney Metro', start_date: '2024-03-10', due_date: '2024-08-20', progress: 20, color: '#ef4444', category: 'Şantiyeler' },
                             { id: 3, name: 'Doğu İş Merkezi', start_date: '2024-01-15', due_date: '2024-04-10', progress: 95, color: '#10b981', category: 'Projeler' },

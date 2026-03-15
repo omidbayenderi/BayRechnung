@@ -4,20 +4,42 @@ import { MapPin, Activity, HardHat, Camera, MoreVertical, CheckCircle2 } from 'l
 
 import './SiteControlCenter.css';
 
-const SiteControlCenter = ({ t }) => {
+const SiteControlCenter = ({ t, projects = [] }) => {
     const [selectedSite, setSelectedSite] = useState(null);
 
-    const sites = [
-        { id: 1, name: 'Kuzey Rezidans', pos: { x: 120, y: 80 }, progress: 65, status: 'active', workers: 12, lastUpdate: '10:00' },
-        { id: 2, name: 'Güney Metro', pos: { x: 250, y: 150 }, progress: 20, status: 'warning', workers: 8, lastUpdate: '09:30' },
-        { id: 3, name: 'Doğu İş Merkezi', pos: { x: 80, y: 220 }, progress: 95, status: 'active', workers: 4, lastUpdate: '11:15' }
-    ];
+    // Map projects to the simulated SVG coordinate system
+    const mappedSites = React.useMemo(() => {
+        if (!projects || projects.length === 0) return [];
+        
+        return projects.map((p, index) => {
+            // Deterministic position based on project ID or name
+            const hash = p.id ? p.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : index;
+            const x = 50 + (hash * 13) % 300;
+            const y = 40 + (hash * 7) % 220;
+            
+            return {
+                ...p,
+                pos: { x, y },
+                progress: p.progress || 10,
+                status: p.status === 'lead' ? 'warning' : 'active',
+                workers: Math.floor((hash % 15) + 3),
+                lastUpdate: '14:30' // Simulated
+            };
+        });
+    }, [projects]);
 
-    const logs = [
-        { id: 101, siteId: 1, phase: 'Kaba İnşaat', task: 'Beton Dökümü', user: 'Ahmet Şef', time: '1 saat önce', image: true },
-        { id: 102, siteId: 2, phase: 'Temel', task: 'Hafriyat', user: 'Mehmet Lider', time: '2 saat önce', image: false },
-        { id: 103, siteId: 1, phase: 'Tesisat', task: 'Elektrik Dağıtım', user: 'Can Usta', time: '4 saat önce', image: true }
-    ];
+    const logs = React.useMemo(() => {
+        if (!projects || projects.length === 0) return [];
+        return projects.slice(0, 3).map((p, i) => ({
+            id: `log-${i}`,
+            siteName: p.name,
+            phase: p.status === 'in_progress' ? 'Kaba İnşaat' : 'Planlama',
+            task: i === 0 ? 'Beton Dökümü' : i === 1 ? 'Hafriyat' : 'İlave Malzeme Siparişi',
+            user: i === 0 ? 'Ahmet Şef' : 'Mehmet Lider',
+            time: `${i + 1} saat önce`,
+            image: i % 2 === 0
+        }));
+    }, [projects]);
 
     return (
         <div className="control-center-wrapper">
@@ -25,7 +47,7 @@ const SiteControlCenter = ({ t }) => {
             <div className="card map-container">
                 <div className="map-overlay-title">
                     <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800' }}>{t('site_map') || 'Şantiye Haritası'}</h3>
-                    <p style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>{sites.length} aktif proje</p>
+                    <p style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>{mappedSites.length} aktif proje</p>
                 </div>
 
                 {/* Simulated SVG Map */}
@@ -35,7 +57,7 @@ const SiteControlCenter = ({ t }) => {
                     <path d="M50 0 L50 300 M100 0 L100 300 M150 0 L150 300 M200 0 L200 300 M250 0 L250 300 M300 0 L300 300 M350 0 L350 300" stroke="#94a3b8" strokeWidth="0.5" opacity="0.3" />
 
                     {/* Site Markers */}
-                    {sites.map(site => (
+                    {mappedSites.map(site => (
                         <g
                             key={site.id}
                             style={{ cursor: 'pointer' }}
@@ -43,13 +65,13 @@ const SiteControlCenter = ({ t }) => {
                         >
                             <motion.circle
                                 cx={site.pos.x} cy={site.pos.y} r="14"
-                                fill={site.status === 'warning' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)'}
+                                fill={site.status === 'warning' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(124, 58, 237, 0.1)'}
                                 animate={{ scale: [1, 1.3, 1] }}
                                 transition={{ repeat: Infinity, duration: 2.5 }}
                             />
                             <circle
                                 cx={site.pos.x} cy={site.pos.y} r="7"
-                                fill={site.status === 'warning' ? '#ef4444' : 'var(--primary)'}
+                                fill={site.status === 'warning' ? '#ef4444' : '#7c3aed'}
                                 stroke="white"
                                 strokeWidth="2"
                             />
@@ -70,8 +92,8 @@ const SiteControlCenter = ({ t }) => {
                                 <div style={{
                                     padding: '4px 8px',
                                     borderRadius: '6px',
-                                    background: selectedSite.status === 'warning' ? '#fee2e2' : '#dcfce7',
-                                    color: selectedSite.status === 'warning' ? '#ef4444' : '#10b981',
+                                    background: selectedSite.status === 'warning' ? '#fee2e2' : '#f5f3ff',
+                                    color: selectedSite.status === 'warning' ? '#ef4444' : '#7c3aed',
                                     fontSize: '0.7rem',
                                     fontWeight: '700',
                                     textTransform: 'uppercase'
@@ -81,7 +103,7 @@ const SiteControlCenter = ({ t }) => {
                             </div>
                             <div style={{ fontSize: '0.85rem', color: '#475569' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                    <span>İlerleme</span>
+                                    <span>{t('progress') || 'İlerleme'}</span>
                                     <span style={{ fontWeight: '800', color: 'var(--primary)' }}>%{selectedSite.progress}</span>
                                 </div>
                                 <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '3px', marginBottom: '16px' }}>
@@ -89,11 +111,11 @@ const SiteControlCenter = ({ t }) => {
                                 </div>
                                 <div style={{ display: 'flex', gap: '16px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <HardHat size={16} strokeWidth={2.5} color="#64748b" />
+                                        <HardHat size={16} strokeWidth={2} color="#64748b" />
                                         <span style={{ fontWeight: '700' }}>{selectedSite.workers}</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <Activity size={16} strokeWidth={2.5} color="#64748b" />
+                                        <Activity size={16} strokeWidth={2} color="#64748b" />
                                         <span style={{ fontWeight: '700' }}>{selectedSite.lastUpdate}</span>
                                     </div>
                                 </div>
@@ -117,13 +139,13 @@ const SiteControlCenter = ({ t }) => {
 
             {/* Logs Section */}
             <div className="card logs-container">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800' }}>{t('site_logs') || 'Canlı Akış'}</h3>
                     <div className="badge-premium">Live</div>
                 </div>
 
                 <div className="logs-scroll-area">
-                    {logs.map(log => (
+                    {logs.length > 0 ? logs.map(log => (
                         <div key={log.id} className="log-item">
                             <div className="log-timeline-line"></div>
                             <div className="log-icon-wrapper">
@@ -134,7 +156,9 @@ const SiteControlCenter = ({ t }) => {
                                     <div style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)' }}>{log.task}</div>
                                     <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '600' }}>{log.time}</div>
                                 </div>
-                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', fontWeight: '500' }}>{log.phase} • <span style={{ color: 'var(--primary)', fontWeight: '700' }}>{log.user}</span></div>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', fontWeight: '500' }}>
+                                    <span style={{ color: '#1e293b', fontWeight: '700' }}>{log.siteName}</span> • {log.phase} • <span style={{ color: 'var(--primary)', fontWeight: '700' }}>{log.user}</span>
+                                </div>
                                 {log.image && (
                                     <div className="log-image-placeholder">
                                         <Camera size={24} color="#cbd5e1" strokeWidth={1.5} />
@@ -142,7 +166,12 @@ const SiteControlCenter = ({ t }) => {
                                 )}
                             </div>
                         </div>
-                    ))}
+                    )) : (
+                        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
+                            <Activity size={32} strokeWidth={1.5} style={{ opacity: 0.5, marginBottom: '12px' }} />
+                            <p>{t('no_logs_yet') || 'Henüz aktivite kaydı yok.'}</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

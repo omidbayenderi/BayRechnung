@@ -715,6 +715,11 @@ const translations = {
                 project_name: 'Projektname',
                 client_name: 'Kundenname',
                 workers: 'Mitarbeiter',
+                all_active_sites: 'Alle aktiven Baustellen',
+                track_all_locations_and_workflows: 'Alle Standorte und Workflows verfolgen',
+                add_new_site: 'Neue Baustelle hinzufügen',
+                workflow: 'Workflow',
+                gantt_chart: 'Gantt-Diagramm',
                 securityCheck: 'Zugriff verweigert: Dieses Modul ist nur für die Baubranche verfügbar.',
 
                 // BayPilot Agent
@@ -3731,6 +3736,11 @@ const translations = {
                 defaultLowStock: 'Varsayılan Kritik Stok Limiti',
                 manageCategories: 'Kategori Yönetimi',
                 manageCategoriesDesc: 'Ürünleriniz için kategorileri ekleyin, düzenleyin veya silin.',
+                all_active_sites: 'Tüm Aktif Şantiyeler',
+                track_all_locations_and_workflows: 'Tüm konumları ve iş akışlarını izleyin',
+                add_new_site: 'Yeni Şantiye Ekle',
+                workflow: 'İş Akışı',
+                gantt_chart: 'Gantt Şeması',
                 newCategoryPlaceholder: 'Yeni kategori adı...',
                 confirmDeleteCategory: 'kategorisini silmek istediğinize emin misiniz?',
                 newCategoryName: 'Kategori adı...',

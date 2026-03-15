@@ -1003,6 +1003,36 @@ export const InvoiceProvider = ({ children }) => {
         syncService.enqueue('messages', 'delete', null, id);
     };
 
+    const saveProject = async (projectData) => {
+        if (!currentUser?.id) return null;
+        const id = projectData.id || uuidv4();
+        const projectItem = {
+            id,
+            user_id: currentUser.id,
+            name: projectData.name,
+            client_name: projectData.client_name || projectData.clientName || '',
+            status: projectData.status || 'lead',
+            budget: parseFloat(projectData.budget) || 0,
+            due_date: projectData.due_date || projectData.dueDate || null,
+            progress: parseInt(projectData.progress) || 0,
+            created_at: projectData.created_at || new Date().toISOString()
+        };
+
+        setProjects(prev => {
+            const exists = prev.find(p => String(p.id) === String(id));
+            if (exists) return prev.map(p => String(p.id) === String(id) ? projectItem : p);
+            return [projectItem, ...prev];
+        });
+
+        syncService.enqueue('projects', 'insert', projectItem, id);
+        return projectItem;
+    };
+
+    const deleteProject = async (id) => {
+        setProjects(prev => prev.filter(p => String(p.id) !== String(id)));
+        syncService.enqueue('projects', 'delete', null, id);
+    };
+
     const fetchDailyReports = async () => {
         if (!currentUser?.id) return;
         const { data, error } = await supabase.from('daily_reports').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
@@ -1119,6 +1149,8 @@ export const InvoiceProvider = ({ children }) => {
         deleteMessage,
         dailyReports,
         projects,
+        saveProject,
+        deleteProject,
         isLoading: loading,
         fetchDailyReports,
         importInvoices,
