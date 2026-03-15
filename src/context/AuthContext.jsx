@@ -51,11 +51,12 @@ export const AuthProvider = ({ children }) => {
         currentUserRef.current = currentUser;
     }, [currentUser]);
 
-    const fetchUserData = useCallback(async (userId, userEmail = '') => {
+    const fetchUserData = useCallback(async (userId, userEmail = '', retryCount = 0) => {
         if (!userId) return null;
-        console.log('[Auth] Fetching user data for:', userId);
+        console.log(`[Auth] Fetching user data for: ${userId} (Attempt: ${retryCount + 1})`);
         try {
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Fetch timeout')), 10000));
+            // Increased timeout to 30s to handle Supabase cold starts/pauses
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Fetch timeout')), 30000));
 
             const profileReq = supabase.from('users').select('*').eq('id', userId).single();
             const subReq = supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle();
@@ -116,6 +117,13 @@ export const AuthProvider = ({ children }) => {
             return data;
         } catch (err) {
             console.error('[Auth] FETCH_ERROR:', err);
+            
+            // Auto-retry once if it was a timeout
+            if (err.message === 'Fetch timeout' && retryCount < 1) {
+                console.log('[Auth] Retrying fetchUserData due to timeout...');
+                return fetchUserData(userId, userEmail, retryCount + 1);
+            }
+
             const isAdmin = ['admin@bayrechnung.com', 'omidbayenderi@gmail.com', 'admin@bayzenit.com'].includes(userEmail?.toLowerCase());
             return {
                 id: userId,

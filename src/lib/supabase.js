@@ -41,8 +41,8 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const checkDbHealth = async () => {
     if (!supabase) return { success: false, error: 'Client not initialized' };
     try {
-        // Increased timeout for wake-up/slow networks
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 20000));
+        // Increased timeout to 30s for slow networks and cold starts
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 30000));
 
         // Try a simple query on 'company_settings' or 'users'
         // Using 'users' as it's the most basic metadata table
