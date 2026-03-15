@@ -1,0 +1,120 @@
+/* Site Control Center Styles */
+.control-center-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 24px;
+    height: 100%;
+}
+
+.map-container {
+    position: relative;
+    overflow: hidden;
+    min-height: 500px;
+    background: #cbd5e1; /* Replaced subtle pattern with solid for better visibility */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+}
+
+.map-overlay-title {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.site-card-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    padding: 16px;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    width: 280px;
+    border: 1px solid white;
+}
+
+.logs-container {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.logs-scroll-area {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+}
+
+.log-item {
+    display: flex;
+    gap: 16px;
+    position: relative;
+}
+
+.log-timeline-line {
+    width: 2px;
+    height: calc(100% - 32px);
+    background: var(--bg-body);
+    position: absolute;
+    left: 16px;
+    top: 32px;
+}
+
+.log-icon-wrapper {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    z-index: 1;
+    border: 1px solid var(--border);
+}
+
+.log-image-placeholder {
+    margin-top: 12px;
+    width: 100%;
+    height: 100px;
+    background: var(--bg-body);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--border);
+    transition: all 0.2s;
+}
+
+.log-image-placeholder:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .control-center-wrapper {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .site-card-overlay {
+        width: calc(100% - 48px);
+        bottom: 12px;
+        left: 12px;
+    }
+    
+    .map-container {
+        min-height: 400px;
+    }
+}

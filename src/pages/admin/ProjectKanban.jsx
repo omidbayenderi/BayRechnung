@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { syncService } from '../../lib/SyncService';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { Plus, MoreVertical, Calendar, DollarSign, User, ArrowRight } from 'lucide-react';
+
+import './ProjectKanban.css';
 
 const ProjectKanban = () => {
     const { t } = useLanguage();
@@ -35,13 +38,8 @@ const ProjectKanban = () => {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                // Fallback for demo/dev if table doesn't exist
-                console.log('Using mock data for Kanban');
-                setProjects([
-                    { id: 1, name: 'Villa Renovation', client_name: 'Schmidt GmbH', status: 'in_progress', budget: 15000, due_date: '2024-05-20' },
-                    { id: 2, name: 'Office Complex A', client_name: 'TechStart Inc', status: 'lead', budget: 45000, due_date: '2024-06-15' },
-                    { id: 3, name: 'Kitchen Remodel', client_name: 'Mrs. Weber', status: 'completed', budget: 8500, due_date: '2024-04-10' },
-                ]);
+                console.error('[Kanban] Database error:', error);
+                setProjects([]); // Live mode: empty state instead of mock data
             }
             else setProjects(data || []);
             setLoading(false);
@@ -101,129 +99,69 @@ const ProjectKanban = () => {
     if (loading) return <div className="p-8 text-center">{t('loading')}</div>;
 
     return (
-        <div className="kanban-container" style={{ maxWidth: '100%', overflowX: 'auto', height: '100%' }}>
-            <header className="page-header" style={{ marginBottom: '24px' }}>
+        <div className="kanban-wrapper">
+            <header className="kanban-header">
                 <div>
-                    <h1>{t('project_kanban')}</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>{t('overviewText')}</p>
+                    <h1 style={{ fontSize: '1.25rem', color: 'var(--text-main)', margin: 0 }}>{t('project_kanban')}</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>{t('overviewText')}</p>
                 </div>
                 <button className="primary-btn" onClick={() => setShowAddModal(true)}>
-                    <Plus size={20} />
+                    <Plus size={18} />
                     {t('new_project')}
                 </button>
             </header>
 
-            <div style={{
-                display: 'flex',
-                gap: '20px',
-                paddingBottom: '20px',
-                height: 'calc(100vh - 220px)',
-                minHeight: '500px'
-            }}>
+            <div className="kanban-board">
                 {STAGES.map(stage => (
-                    <div key={stage.id} style={{
-                        flex: '1',
-                        minWidth: '280px',
-                        maxWidth: '350px',
-                        background: '#f8fafc',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        border: '1px solid #e2e8f0',
-                        height: '100%'
-                    }}>
-                        <div style={{
-                            padding: '16px',
-                            borderBottom: '3px solid ' + stage.color,
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            background: 'white',
-                            borderTopLeftRadius: '12px',
-                            borderTopRightRadius: '12px'
-                        }}>
-                            <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#334155' }}>{stage.title}</h3>
-                            <span style={{
-                                background: '#f1f5f9',
-                                color: '#64748b',
-                                padding: '2px 10px',
-                                borderRadius: '12px',
-                                fontSize: '12px',
-                                fontWeight: '600'
-                            }}>
+                    <div key={stage.id} className="kanban-column">
+                        <div className="column-header" style={{ borderBottomColor: stage.color }}>
+                            <h3 className="column-title">{stage.title}</h3>
+                            <span className="column-count">
                                 {projects.filter(p => p.status === stage.id).length}
                             </span>
                         </div>
 
-                        <div style={{ padding: '12px', flex: 1, overflowY: 'auto' }}>
+                        <div className="column-content">
                             {projects
                                 .filter(p => p.status === stage.id)
                                 .map(project => (
-                                    <div key={project.id} className="card" style={{
-                                        padding: '16px',
-                                        marginBottom: '12px',
-                                        cursor: 'grab',
-                                        position: 'relative',
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-                                        border: '1px solid #e2e8f0'
-                                    }}>
-                                        <div style={{ fontWeight: '600', marginBottom: '8px', fontSize: '0.95rem' }}>{project.name}</div>
+                                    <div key={project.id} className="project-card">
+                                        <div className="project-name">{project.name}</div>
 
-                                        <div style={{ display: 'grid', gap: '6px', fontSize: '13px', color: '#64748b' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <User size={14} className="text-muted" /> {project.client_name || '-'}
+                                        <div className="project-meta">
+                                            <div className="meta-item">
+                                                <User size={14} /> {project.client_name || '-'}
                                             </div>
                                             {project.due_date && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Calendar size={14} className="text-muted" /> {project.due_date}
+                                                <div className="meta-item">
+                                                    <Calendar size={14} /> {project.due_date}
                                                 </div>
                                             )}
                                             {project.budget > 0 && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: '600' }}>
-                                                    <DollarSign size={14} className="text-muted" /> {project.budget}
+                                                <div className="meta-item" style={{ color: 'var(--text-main)', fontWeight: '700' }}>
+                                                    <DollarSign size={14} /> {project.budget.toLocaleString()} €
                                                 </div>
                                             )}
                                         </div>
 
-                                        <div style={{ marginTop: '12px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>
+                                        <div className="project-progress-container">
+                                            <div className="progress-labels">
                                                 <span>{t('progress') || 'İlerleme'}</span>
-                                                <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{project.progress || (stage.id === 'completed' || stage.id === 'billed' ? 100 : stage.id === 'in_progress' ? 65 : stage.id === 'quoted' ? 25 : 5)}%</span>
+                                                <span style={{ fontWeight: '800', color: stage.color }}>{project.progress || (stage.id === 'completed' || stage.id === 'billed' ? 100 : stage.id === 'in_progress' ? 65 : stage.id === 'quoted' ? 25 : 5)}%</span>
                                             </div>
-                                            <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
-                                                <div style={{
-                                                    height: '100%',
+                                            <div className="progress-bar-bg">
+                                                <div className="progress-bar-fill" style={{
                                                     width: `${project.progress || (stage.id === 'completed' || stage.id === 'billed' ? 100 : stage.id === 'in_progress' ? 65 : stage.id === 'quoted' ? 25 : 5)}%`,
-                                                    background: stage.color,
-                                                    transition: 'width 0.3s ease'
+                                                    background: stage.color
                                                 }} />
                                             </div>
                                         </div>
 
-                                        <div style={{
-                                            marginTop: '16px',
-                                            display: 'flex',
-                                            justifyContent: 'flex-end',
-                                            gap: '8px',
-                                            borderTop: '1px solid #f1f5f9',
-                                            paddingTop: '12px'
-                                        }}>
+                                        <div className="project-actions">
                                             {stage.id !== 'billed' && (
                                                 <button
                                                     onClick={() => handleMove(project.id, STAGES[STAGES.findIndex(s => s.id === stage.id) + 1].id)}
-                                                    style={{
-                                                        background: 'transparent',
-                                                        border: '1px solid #e2e8f0',
-                                                        color: '#3b82f6',
-                                                        fontSize: '12px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        cursor: 'pointer',
-                                                        padding: '4px 8px',
-                                                        borderRadius: '4px',
-                                                        fontWeight: '500'
-                                                    }}
+                                                    className="btn-move"
                                                 >
                                                     {t('move_forward')} <ArrowRight size={14} />
                                                 </button>
@@ -235,6 +173,7 @@ const ProjectKanban = () => {
                     </div>
                 ))}
             </div>
+
 
             {/* Modals for Professionalism */}
             <AnimatePresence>

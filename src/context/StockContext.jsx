@@ -115,17 +115,51 @@ export const StockProvider = ({ children }) => {
             const userId = currentUser.id;
 
             try {
-                // Load from LocalStorage first for instant UI
-                const localProds = localStorage.getItem(`bay_products_${userId}`);
-                const localSales = localStorage.getItem(`bay_sales_${userId}`);
+                const getLocalDataWithFallback = (keyPrefix, tableName) => {
+                    const currentKey = `${keyPrefix}_${userId}`;
+                    let data = localStorage.getItem(currentKey);
+
+                    // FALLBACK MIGRATION: If new user has no data, look for mock/demo session data to preserve
+                    if (!data && !userId.startsWith('0000')) {
+                        const allKeys = Object.keys(localStorage);
+                        const mockKey = allKeys.find(k => k.startsWith(keyPrefix) && (k.includes('0000') || k.includes('mock')));
+                        
+                        if (mockKey) {
+                            console.log(`[StockContext] Migrating local data from ${mockKey} to ${currentKey} for table ${tableName}`);
+                            const mockDataStr = localStorage.getItem(mockKey);
+                            if (mockDataStr) {
+                                try {
+                                    const parsed = JSON.parse(mockDataStr);
+                                    localStorage.setItem(currentKey, mockDataStr);
+                                    data = mockDataStr;
+
+                                    // Enqueue for background sync to Supabase
+                                    if (tableName && Array.isArray(parsed)) {
+                                        parsed.forEach(item => {
+                                            const itemWithUser = { ...item, user_id: userId };
+                                            syncService.enqueue(tableName, 'insert', itemWithUser, item.id);
+                                        });
+                                    } else if (tableName && parsed && typeof parsed === 'object') {
+                                        const itemWithUser = { ...parsed, user_id: userId };
+                                        syncService.enqueue(tableName, 'insert', itemWithUser, userId);
+                                    }
+                                } catch (e) {
+                                    console.error("[Stock] Migration parse error", e);
+                                }
+                            }
+                        }
+                    }
+                    return data;
+                };
+
+                const localProds = getLocalDataWithFallback('bay_products', 'products');
+                const localSales = getLocalDataWithFallback('bay_sales', 'sales');
+                const localSettings = getLocalDataWithFallback('bay_stock_settings', 'stock_settings');
+
                 if (localProds) setProducts(JSON.parse(localProds));
                 if (localSales) setSales(JSON.parse(localSales));
 
-                // CRITICAL: Stop loading when local data is ready
-                setLoading(false);
-
                 // 1. If it's a mock user (demo), STOP HERE. 
-                // DB sync will fail anyway due to foreign key constraints.
                 if (currentUser.authMode === 'mock' || userId.startsWith('0000')) {
                     console.log('[Stock] Mock session detected, skipping Supabase sync');
                     setLoading(false);

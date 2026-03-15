@@ -8,12 +8,14 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { emailService } from '../../lib/EmailService';
 import { Mail, Loader2 } from 'lucide-react';
+import { useNotification } from '../../context/NotificationContext';
 
 const InvoiceView = ({ type = 'invoice' }) => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { invoices, quotes, deleteInvoice, deleteQuote, saveInvoice, companyProfile } = useInvoice();
     const { t } = useLanguage();
+    const { showNotification } = useNotification();
 
     const list = type === 'quote' ? quotes : invoices;
     const invoice = list.find(inv => inv.id === Number(id) || inv.id === id);
@@ -87,7 +89,11 @@ const InvoiceView = ({ type = 'invoice' }) => {
 
     const handleSendEmail = async () => {
         if (!invoice.recipientEmail) {
-            alert(t('no_recipient_email') || 'Müşteri e-posta adresi bulunamadı.');
+            showNotification({
+                title: t('error') || 'Fehler',
+                message: t('no_recipient_email') || 'Müşteri e-posta adresi bulunamadı.',
+                type: 'error'
+            });
             return;
         }
 
@@ -102,13 +108,25 @@ const InvoiceView = ({ type = 'invoice' }) => {
             });
 
             if (result.success) {
-                alert(t('email_sent_success') || 'E-posta başarıyla gönderildi.');
+                showNotification({
+                    title: t('success') || 'Erfolg',
+                    message: t('email_sent_success') || 'E-Mail erfolgreich versendet.',
+                    type: 'success'
+                });
             } else {
-                alert(t('email_sent_error') || 'E-posta gönderilirken bir hata oluştu.');
+                showNotification({
+                    title: t('error') || 'Fehler',
+                    message: result.error || t('email_sent_error') || 'E-posta gönderilirken bir hata oluştu.',
+                    type: 'error'
+                });
             }
         } catch (error) {
             console.error('Email error:', error);
-            alert(t('email_sent_error') || 'E-posta gönderilirken bir hata oluştu.');
+            showNotification({
+                title: t('error') || 'Fehler',
+                message: t('email_sent_error') || 'E-posta gönderilirken bir hata oluştu.',
+                type: 'error'
+            });
         } finally {
             setIsSending(false);
         }

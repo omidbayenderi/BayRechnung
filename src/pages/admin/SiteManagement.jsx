@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import ProjectKanban from './ProjectKanban';
 import SiteControlCenter from '../../components/SiteControlCenter';
-import { Layout, Map, Kanban, Calendar } from 'lucide-react';
+import { Layout, Map, Kanban, Calendar, Layers, Activity, Plus } from 'lucide-react';
 import TimelineGantt from '../../components/admin/TimelineGantt';
 import { useInvoice } from '../../context/InvoiceContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import './SiteManagement.css';
 
 const SiteManagement = () => {
     const { t } = useLanguage();
     const { invoices } = useInvoice();
     const [view, setView] = useState('kanban'); // 'kanban', 'map', 'timeline'
 
-    // Mock projects for timeline if real ones aren't enough
     const timelineData = [
         { id: 1, name: 'Kuzey Rezidans', start_date: '2024-02-01', due_date: '2024-05-15', progress: 65, color: '#4f46e5', category: 'İnşaat' },
         { id: 2, name: 'Güney Metro', start_date: '2024-03-10', due_date: '2024-08-20', progress: 20, color: '#8b5cf6', category: 'Altyapı' },
@@ -19,96 +20,79 @@ const SiteManagement = () => {
     ];
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Sub-Header for View Switching */}
-            <div style={{
-                padding: '16px 24px',
-                background: 'white',
-                borderBottom: '1px solid #e2e8f0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
-                <div>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>
+        <div className="site-management-wrapper animate-in">
+            <header className="site-subheader glass-header">
+                <div className="site-title-container">
+                    <h2 style={{ 
+                        fontSize: '2rem', 
+                        fontWeight: '800', 
+                        margin: 0, 
+                        background: 'linear-gradient(135deg, var(--text-main) 0%, var(--primary) 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
+                    }}>
                         {t('site_management')}
                     </h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500, margin: '4px 0 0 0' }}>
+                        {t('track_all_locations_and_workflows')}
+                    </p>
                 </div>
 
-                <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                <div className="view-switcher" style={{ background: 'rgba(15, 23, 42, 0.05)', padding: '6px', borderRadius: '14px' }}>
                     <button
                         onClick={() => setView('kanban')}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            padding: '8px 16px',
-                            border: 'none',
-                            borderRadius: '6px',
-                            background: view === 'kanban' ? 'white' : 'transparent',
-                            color: view === 'kanban' ? '#0f172a' : '#64748b',
-                            boxShadow: view === 'kanban' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                            fontWeight: '500',
-                            fontSize: '0.9rem',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
+                        className={`view-btn ${view === 'kanban' ? 'active' : ''}`}
                     >
-                        <Kanban size={16} />
-                        {t('project_kanban')}
+                        <Kanban size={18} />
+                        <span>{t('workflow')}</span>
                     </button>
                     <button
                         onClick={() => setView('timeline')}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            padding: '8px 16px',
-                            border: 'none',
-                            borderRadius: '6px',
-                            background: view === 'timeline' ? 'white' : 'transparent',
-                            color: view === 'timeline' ? '#0f172a' : '#64748b',
-                            boxShadow: view === 'timeline' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                            fontWeight: '500',
-                            fontSize: '0.9rem',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
+                        className={`view-btn ${view === 'timeline' ? 'active' : ''}`}
                     >
-                        <Calendar size={16} />
-                        {t('timeline')}
+                        <Calendar size={18} />
+                        <span>{t('gantt_chart')}</span>
                     </button>
                     <button
                         onClick={() => setView('map')}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            padding: '8px 16px',
-                            border: 'none',
-                            borderRadius: '6px',
-                            background: view === 'map' ? 'white' : 'transparent',
-                            color: view === 'map' ? '#0f172a' : '#64748b',
-                            boxShadow: view === 'map' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                            fontWeight: '500',
-                            fontSize: '0.9rem',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
+                        className={`view-btn ${view === 'map' ? 'active' : ''}`}
                     >
-                        <Map size={16} />
-                        {t('site_control_center')}
+                        <Map size={18} />
+                        <span>{t('site_map')}</span>
                     </button>
                 </div>
-            </div>
 
-            {/* Content Area */}
-            <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
-                {view === 'kanban' ? (
-                    <div style={{ height: '100%' }}>
-                        <ProjectKanban />
-                    </div>
-                ) : view === 'timeline' ? (
-                    <TimelineGantt title={t('site_timeline') || 'Şantiye İş Programı'} data={timelineData} />
-                ) : (
-                    <div className="page-container" style={{ padding: 0 }}>
-                        <SiteControlCenter t={t} />
-                    </div>
-                )}
+                <div className="header-actions">
+                    <button className="primary-btn-premium" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '12px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', boxShadow: '0 8px 16px rgba(79, 70, 229, 0.15)' }}>
+                        <Plus size={20} />
+                        {t('add_new_site')}
+                    </button>
+                </div>
+            </header>
+
+            <div className="site-content-area" style={{ background: 'linear-gradient(to bottom, #f8fafc, #ffffff)' }}>
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={view}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -15 }}
+                        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                        style={{ height: '100%' }}
+                    >
+                        {view === 'kanban' ? (
+                            <div className="kanban-view-container">
+                                <ProjectKanban />
+                            </div>
+                        ) : view === 'timeline' ? (
+                            <TimelineGantt title={t('site_timeline') || 'Şantiye İş Programı'} data={timelineData} />
+                        ) : (
+                            <div style={{ height: '100%', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(15, 23, 42, 0.1)', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
+                                <SiteControlCenter t={t} />
+                            </div>
+                        )}
+                    </motion.div>
+                </AnimatePresence>
             </div>
         </div>
     );

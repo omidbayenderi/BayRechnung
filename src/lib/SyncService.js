@@ -212,9 +212,10 @@ class SyncService {
 
                         // AGENT ORCHESTRATION: Log failed sync to BaySync
                         supabase.from('audit_logs').insert({
+                            user_id: item.data?.user_id || item.data?.userId,
                             action: 'SYNC_RETIRED',
-                            entity_type: item.table,
-                            entity_id: item.targetId,
+                            entity_type: item.table || 'sync_event',
+                            entity_id: (item.targetId && item.targetId.length === 36) ? item.targetId : null,
                             severity: 'critical',
                             source: 'BaySync',
                             metadata: {

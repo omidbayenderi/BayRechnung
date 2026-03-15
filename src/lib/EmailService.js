@@ -6,7 +6,7 @@
 
 class EmailService {
     constructor() {
-        this.provider = 'mock'; // Can be 'resend', 'sendgrid', or 'mock'
+        this.provider = import.meta.env.VITE_EMAIL_PROVIDER || 'resend'; // Default to resend for production
         this.apiKey = import.meta.env.VITE_EMAIL_API_KEY || null;
     }
 
@@ -16,11 +16,11 @@ class EmailService {
     async sendInvoiceEmail({ to, invoiceNumber, customerName, amount, currency, pdfBlob }) {
         console.log(`[EmailService] Preparing email for ${to}...`);
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Small delay
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const emailData = {
-            from: 'billing@bayrechnung.com',
+            from: 'BayRechnung <billing@bayrechnung.com>',
             to,
             subject: `Fatura #${invoiceNumber} - BayRechnung`,
             html: `
@@ -29,7 +29,7 @@ class EmailService {
                     <p>İşleminiz başarıyla tamamlanmıştır. <strong>${invoiceNumber}</strong> numaralı faturanız ekte yer almaktadır.</p>
                     <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin: 24px 0;">
                         <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 4px;">Toplam Tutar</div>
-                        <div style="font-size: 1.5rem; fontWeight: 700; color: #0f172a;">${amount} ${currency}</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #0f172a;">${amount} ${currency}</div>
                     </div>
                     <p>Ödemenizi vadesinde gerçekleştirdiğiniz için teşekkür ederiz.</p>
                     <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
@@ -40,7 +40,7 @@ class EmailService {
             `
         };
 
-        if (this.provider === 'mock' && !this.apiKey) {
+        if (this.provider === 'mock' || !this.apiKey) {
             console.log('%c[MOCK EMAIL SENT]', 'background: #10b981; color: white; padding: 4px 8px; border-radius: 4px;', emailData);
             return { success: true, messageId: 'mock_' + Math.random().toString(36).substr(2, 9) };
         }
@@ -54,7 +54,7 @@ class EmailService {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    from: 'billing@bayrechnung.com',
+                    from: emailData.from,
                     to: emailData.to,
                     subject: emailData.subject,
                     html: emailData.html
@@ -62,11 +62,11 @@ class EmailService {
             });
 
             if (response.ok) {
-                return await response.json();
+                return { success: true, ...(await response.json()) };
             } else {
                 const err = await response.json();
                 console.error('[EmailService] Resend Error:', err);
-                return { success: false, error: err.message };
+                return { success: false, error: err.message || 'Email service error' };
             }
         } catch (error) {
             console.error('[EmailService] API Exception:', error);

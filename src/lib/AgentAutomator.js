@@ -84,14 +84,15 @@ export const startAutomatedDuty = (userId) => {
             const { error } = await supabase.from('audit_logs').insert([{
                 user_id: userId,
                 action: 'AUTOMATED_DUTY',
+                entity_type: 'system_agent_duty',
                 source: randomAgentId,
                 severity: 'info',
-                metadata: JSON.stringify({
+                metadata: {
                     duty: randomDuty,
                     status: 'COMPLETED',
                     efficiency: '100%',
                     is_automated: true
-                })
+                }
             }]);
             if (error) {
                 // Silently ignore schema/RLS errors — audit_logs is non-critical

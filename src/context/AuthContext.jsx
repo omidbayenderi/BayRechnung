@@ -5,14 +5,9 @@ import { storageService } from '../lib/StorageService';
 const AuthContext = createContext();
 
 // Fallback mock users for when Supabase is not configured
-const MOCK_USERS = [
-    { id: '00000000-0000-0000-0000-000000000001', email: 'demo@bayrechnung.com', password: 'demo123', name: 'Caner Arslan', plan: 'standard', companyName: 'Arslan İnşaat ve Mimarlık', role: 'admin' },
-    { id: '00000000-0000-0000-0000-000000000002', email: 'demo@bayzenit.com', password: 'demo123', name: 'Elif Yılmaz', plan: 'standard', companyName: 'Vizyon Yapı Proje', role: 'admin' },
-    { id: '00000000-0000-0000-0000-000000000005', email: 'worker@bayrechnung.com', password: 'demo', name: 'Ahmet Kaya', plan: 'standard', companyName: 'BayRechnung LTD', role: 'worker' }
-];
-
+// MOCK_USERS removed for Live Mode. All users must authenticate via Supabase.
 const IS_PROD = import.meta.env.VITE_PROD_MODE === 'true';
-
+const VERSION = '4.2.0_LIVE';
 export const AuthProvider = ({ children }) => {
     // 1. RECOVERY: Synchronously check for existing session
     const getInitialSession = () => {
@@ -211,53 +206,31 @@ export const AuthProvider = ({ children }) => {
 
     const login = useCallback(async (emailInput, password) => {
         const email = emailInput.toLowerCase().trim();
-        if (useSupabase) {
-            try {
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                if (!error && data?.user) {
-                    setSession(data.session);
-                    const userData = await fetchUserData(data.user.id, data.user.email);
-                    setCurrentUser({ ...userData, authMode: 'cloud' });
+        
+        if (!useSupabase) {
+            return { success: false, error: 'Database connection offline. Please check your configuration.' };
+        }
 
-                    // Orchestrator Log
-                    logSecurityAction('USER_LOGIN', 'users', data.user.id, { email, status: 'SUCCESS' });
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (!error && data?.user) {
+                setSession(data.session);
+                const userData = await fetchUserData(data.user.id, data.user.email);
+                setCurrentUser({ ...userData, authMode: 'cloud' });
 
-                    return { success: true };
-                }
-                if (error) {
-                    if (email.includes('admin@bayrechnung.com') || email.includes('admin@bayzenit.com')) {
-                        return { success: false, error: error.message };
-                    }
-                }
-            } catch (err) {
-                console.error(err);
+                // Orchestrator Log
+                logSecurityAction('USER_LOGIN', 'users', data.user.id, { email, status: 'SUCCESS' });
+
+                return { success: true };
             }
-        }
-        if (IS_PROD) {
-            console.warn('[Auth] Mock login attempt blocked in production.');
-            return { success: false, error: 'Invalid credentials' };
+            if (error) {
+                return { success: false, error: error.message };
+            }
+        } catch (err) {
+            console.error('[Auth] Login exception:', err);
+            return { success: false, error: 'Sunucuya bağlanılamadı.' };
         }
 
-        const mockUser = MOCK_USERS.find(u => u.email.toLowerCase() === email && u.password === password);
-        const registeredUsers = JSON.parse(localStorage.getItem('bay_registered_users') || '[]');
-        const registeredUser = registeredUsers.find(u => u.email.toLowerCase() === email && u.password === password);
-        const authenticatedUser = mockUser || registeredUser;
-
-        if (authenticatedUser) {
-            const validId = authenticatedUser.id && authenticatedUser.id.length === 36 ? authenticatedUser.id : '00000000-0000-0000-0000-000000000009';
-            isMockSession.current = true;
-            setCurrentUser({
-                id: validId,
-                email: authenticatedUser.email,
-                name: authenticatedUser.name,
-                plan: authenticatedUser.plan,
-                companyName: authenticatedUser.companyName,
-                role: authenticatedUser.role || 'admin',
-                industry: authenticatedUser.industry || 'general',
-                authMode: 'mock'
-            });
-            return { success: true };
-        }
         return { success: false, error: 'Invalid credentials' };
     }, [useSupabase, logSecurityAction, fetchUserData]);
 

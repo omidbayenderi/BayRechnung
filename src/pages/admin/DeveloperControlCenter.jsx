@@ -126,11 +126,8 @@ const DeveloperControlCenter = () => {
             });
 
             if (formattedUsers.length === 0) {
-                console.warn('[DCC] No users in Supabase, using mock fallback list.');
-                setUserRegistry([
-                    { id: '1', email: 'demo@bayrechnung.com', name: 'Caner Arslan (Mock)', plan: 'standard', status: 'active', joined: '2024-01-10' },
-                    { id: '2', email: 'admin@bayrechnung.com', name: 'Süleyman Bayenderi (Mock)', plan: 'premium', status: 'active', joined: '2023-12-05' }
-                ]);
+                console.warn('[DCC] No users found in Supabase registry.');
+                setUserRegistry([]);
             } else {
                 setUserRegistry(formattedUsers);
             }
