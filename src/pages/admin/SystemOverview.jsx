@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+const useMemo = React.useMemo;
+const useCallback = React.useCallback;
 import { useNavigate } from 'react-router-dom';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAppointments } from '../../context/AppointmentContext';
@@ -57,10 +59,10 @@ const SystemOverview = () => {
     // --- Aggregated Metrics ---
 
     // 1. Financials (Refined logic for Enterprise accuracy)
-    const activeInvoices = useMemo(() => (invoices || []).filter(inv => inv && inv.status !== 'cancelled' && inv.status !== 'draft'), [invoices]);
+    const activeInvoices = React.useMemo(() => (invoices || []).filter(inv => inv && inv.status !== 'cancelled' && inv.status !== 'draft'), [invoices]);
 
     // 1. Financials (Memoized for Enterprise accuracy)
-    const { totalRevenue, cashInHand, totalExpenses, totalUnpaid, totalPayables, invoiceRevenue, paidRevenue, stockRevenue } = useMemo(() => {
+    const { totalRevenue, cashInHand, totalExpenses, totalUnpaid, totalPayables, invoiceRevenue, paidRevenue, stockRevenue } = React.useMemo(() => {
         const invRev = activeInvoices.reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
         const paidRev = (invoices || []).filter(inv => inv && inv.status === 'paid').reduce((sum, inv) => sum + (parseFloat(inv?.total) || 0), 0);
         const stRev = (sales || []).filter(s => s).reduce((sum, sale) => sum + (parseFloat(sale?.total) || 0), 0);
@@ -75,14 +77,14 @@ const SystemOverview = () => {
     const netProfit = cashInHand - totalExpenses;
 
     // 2. Operational (Memoized)
-    const activeStaff = useMemo(() => (employees || []).filter(e => e).length, [employees]);
-    const { lowStockItems, criticalStockItems } = useMemo(() => {
+    const activeStaff = React.useMemo(() => (employees || []).filter(e => e).length, [employees]);
+    const { lowStockItems, criticalStockItems } = React.useMemo(() => {
         const items = (products || []).filter(p => p && p.stock <= (p.minStock || 3));
         return { criticalStockItems: items, lowStockItems: items.length };
     }, [products]);
 
     // Filter appointments for TODAY only (Memoized)
-    const todaysAppointments = useMemo(() => {
+    const todaysAppointments = React.useMemo(() => {
         const todayAtStart = new Date();
         todayAtStart.setHours(0, 0, 0, 0);
         const todayAtEnd = new Date();
@@ -96,17 +98,17 @@ const SystemOverview = () => {
     }, [appointments]);
 
     const upcomingAppointments = todaysAppointments.length;
-    const onlineSalesTotal = useMemo(() => sales.reduce((sum, sale) => sum + (sale.total || 0), 0), [sales]);
+    const onlineSalesTotal = React.useMemo(() => sales.reduce((sum, sale) => sum + (sale.total || 0), 0), [sales]);
     const onlineOrdersCount = sales.length;
     const isWebsiteLive = siteConfig?.isPublished;
 
     // --- Trend Calculations (Memoized Helpers) ---
-    const revenueData = useMemo(() => [
+    const revenueData = React.useMemo(() => [
         ...invoices.map(inv => ({ total: inv.total, date: inv.date })),
         ...sales.map(sale => ({ total: sale.total, date: sale.createdAt || sale.created_at }))
     ], [invoices, sales]);
 
-    const expenseData = useMemo(() => expenses.map(exp => ({ amount: exp.amount, date: exp.date || exp.created_at })), [expenses]);
+    const expenseData = React.useMemo(() => expenses.map(exp => ({ amount: exp.amount, date: exp.date || exp.created_at })), [expenses]);
 
     const calculateTrendValue = (data, valueKey, dateKey = 'date') => {
         const now = new Date();
@@ -129,10 +131,10 @@ const SystemOverview = () => {
         return parseFloat(((currentPeriod - previousPeriod) / previousPeriod * 100).toFixed(1));
     };
 
-    const revenueTrend = useMemo(() => calculateTrendValue(revenueData, 'total'), [revenueData]);
-    const expenseTrend = useMemo(() => calculateTrendValue(expenseData, 'amount'), [expenseData]);
+    const revenueTrend = React.useMemo(() => calculateTrendValue(revenueData, 'total'), [revenueData]);
+    const expenseTrend = React.useMemo(() => calculateTrendValue(expenseData, 'amount'), [expenseData]);
 
-    const profitTrend = useMemo(() => {
+    const profitTrend = React.useMemo(() => {
         const now = new Date();
         const t30 = new Date(); t30.setDate(now.getDate() - 30);
         const t60 = new Date(); t60.setDate(now.getDate() - 60);
@@ -218,10 +220,9 @@ const SystemOverview = () => {
         const [displayValue, setDisplayValue] = useState(0);
 
         useEffect(() => {
-            let start = 0;
-            const end = parseFloat(value);
+            let start = displayValue; // Start from current display value, not 0
+            const end = parseFloat(value) || 0;
             if (start === end) {
-                setDisplayValue(end);
                 return;
             }
 
@@ -236,7 +237,7 @@ const SystemOverview = () => {
                 const easedProgress = progress * (2 - progress); // easeOutQuad
                 setDisplayValue(start + (end - start) * easedProgress);
 
-                if (frame === totalFrames) {
+                if (frame >= totalFrames) {
                     setDisplayValue(end);
                     clearInterval(timer);
                 }

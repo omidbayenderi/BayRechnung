@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+const useMemo = React.useMemo;
 import { useLanguage } from '../../context/LanguageContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useStock } from '../../context/StockContext';

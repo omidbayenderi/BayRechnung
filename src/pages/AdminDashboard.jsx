@@ -40,6 +40,7 @@ import IntegrationSettings from './admin/IntegrationSettings';
 import Reports from './admin/Reports';
 import Dashboard from './accounting/Dashboard';
 import PremiumUpgradeModal from '../components/admin/PremiumUpgradeModal';
+import ConstructionAdminPanel from '../features/admin/ConstructionAdminPanel';
 
 const AdminDashboard = () => {
     const { t } = useLanguage();
@@ -103,6 +104,10 @@ const AdminDashboard = () => {
             );
         }
     };
+
+    if (companyProfile?.industry?.toLowerCase() === 'construction' && isPremium()) {
+        return <ConstructionAdminPanel />;
+    }
 
     return (
         <div className="admin-dashboard-unified-wrapper" style={{ minHeight: 'calc(100vh - 80px)', background: '#f8fafc' }}>
