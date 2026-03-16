@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useInvoice } from '../../context/InvoiceContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { ArrowLeft, Camera, User, Mail, Shield, Key, Save, Check, Globe, CreditCard, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Camera, User, Mail, Shield, Key, Save, Check, Globe, AlertCircle } from 'lucide-react';
 
 const ProfileSettings = () => {
     const navigate = useNavigate();
     const { currentUser, updateUser } = useAuth();
-    const { appLanguage, setAppLanguage, serviceLanguages, setServiceLanguage, t, LANGUAGES } = useLanguage();
+    const { companyProfile, updateProfile } = useInvoice();
+    const { appLanguage, setAppLanguage, t, LANGUAGES } = useLanguage();
 
     // ... (rest of state)
 
@@ -35,12 +37,11 @@ const ProfileSettings = () => {
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
-        stripePublicKey: currentUser?.stripePublicKey || '',
-        stripeSecretKey: currentUser?.stripeSecretKey || '',
-        paypalClientId: currentUser?.paypalClientId || ''
+        stripePublicKey: companyProfile?.stripeApiKey || '',
+        paypalClientId: companyProfile?.paypalClientId || ''
     });
 
-    // Sync form data with currentUser once loaded/updated
+    // Sync form data when currentUser or companyProfile loads/updates
     useEffect(() => {
         if (currentUser) {
             setFormData(prev => ({
@@ -48,12 +49,19 @@ const ProfileSettings = () => {
                 name: currentUser.name || prev.name,
                 email: currentUser.email || prev.email,
                 role: currentUser.role || prev.role,
-                stripePublicKey: currentUser.stripePublicKey || prev.stripePublicKey,
-                stripeSecretKey: currentUser.stripeSecretKey || prev.stripeSecretKey,
-                paypalClientId: currentUser.paypalClientId || prev.paypalClientId
             }));
         }
     }, [currentUser]);
+
+    useEffect(() => {
+        if (companyProfile) {
+            setFormData(prev => ({
+                ...prev,
+                stripePublicKey: companyProfile.stripeApiKey || prev.stripePublicKey,
+                paypalClientId: companyProfile.paypalClientId || prev.paypalClientId,
+            }));
+        }
+    }, [companyProfile]);
     const [saved, setSaved] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [toast, setToast] = useState(null);
@@ -84,26 +92,29 @@ const ProfileSettings = () => {
     };
 
     const handleSave = async () => {
-        if (updateUser) {
-            setIsLoading(true);
-            const result = await updateUser({
+        if (!updateUser) return;
+        setIsLoading(true);
+
+        const [userResult] = await Promise.all([
+            updateUser({
                 ...currentUser,
                 name: formData.name,
                 email: formData.email,
                 role: formData.role,
-                stripePublicKey: formData.stripePublicKey,
-                stripeSecretKey: formData.stripeSecretKey,
-                paypalClientId: formData.paypalClientId
-            });
-            setIsLoading(false);
+            }),
+            updateProfile({
+                stripeApiKey: formData.stripePublicKey,
+                paypalClientId: formData.paypalClientId,
+            }),
+        ]);
 
-            if (result.success) {
-                setSaved(true);
-                showToast(t('saveSuccessful') || 'Başarıyla güncellendi!', 'success');
-                setTimeout(() => setSaved(false), 2000);
-            } else {
-                showToast(result.error || 'Update failed', 'error');
-            }
+        setIsLoading(false);
+        if (userResult.success) {
+            setSaved(true);
+            showToast(t('saveSuccessful') || 'Başarıyla güncellendi!', 'success');
+            setTimeout(() => setSaved(false), 2000);
+        } else {
+            showToast(userResult.error || 'Update failed', 'error');
         }
     };
 

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+const useMemo = React.useMemo;
 import { useStock } from '../../context/StockContext';
 import { Search, ShoppingCart, Package, AlertTriangle, ChevronRight, X, Trash2, CreditCard, Banknote, Droplet, Wrench, Settings, Box, Zap, Plus, Wallet, Smartphone, QrCode } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';

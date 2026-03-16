@@ -9,9 +9,11 @@ import {
     Type, Image as ImageIcon, List, FileText, CheckCircle,
     ChevronRight, Save, LayoutTemplate, X, Briefcase, Calendar, Map, Globe,
     ChevronDown, Plus, MessageSquare, Layers, Paperclip, Star, Hash, Settings, Palette,
-    GripVertical, Smartphone, Tablet, Monitor as DesktopIcon, Sun, Moon, FileJson
+    GripVertical, Smartphone, Tablet, Monitor as DesktopIcon, Sun, Moon, FileJson,
+    Search, PlusSquare, PenTool, MoreHorizontal, HelpCircle, AlertCircle, Info,
+    Sparkles, ShoppingBag
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import PublicWebsite from '../../../pages/public/PublicWebsite';
 
 // ─── GOOGLE FONTS LIST ───
@@ -37,13 +39,42 @@ const WebBuilderEditor = () => {
     const navigate = useNavigate();
 
     // UI State
-    const [activeTab, setActiveTab] = useState('sections');
+    // React Router URL Search Params
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tabParam = searchParams.get('tab');
+
+    // UI State
+    const [activeTab, setActiveTab] = useState(tabParam || null);
+
+    // Sync activeTab with URL tab parameter
+    React.useEffect(() => {
+        if (tabParam) {
+            setActiveTab(tabParam);
+        } else {
+            // If no tab in URL, we could either clear activeTab or keep it.
+            // But usually being on /website/editor without param means we show the elements tab by default or nothing.
+        }
+    }, [tabParam]);
+
+    const handleTabChange = (newTab) => {
+        if (newTab === activeTab) {
+            // Toggle off if same tab clicked? Main sidebar handles navigation though.
+            // If we want to allow closing the flyout:
+            setSearchParams({});
+            setActiveTab(null);
+        } else {
+            setSearchParams({ tab: newTab });
+            setActiveTab(newTab);
+        }
+    };
+
     const [bgMode, setBgMode] = useState('light');
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingSection, setEditingSection] = useState(null); // section id for modal
     const [editModalTab, setEditModalTab] = useState('content');
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, tablet, mobile
     const [draggedIdx, setDraggedIdx] = useState(null);
+    const [activeEditorPagePath, setActiveEditorPagePath] = useState('/');
 
     // ─── SECTION TEMPLATES ───
     const SECTION_TEMPLATES = useMemo(() => [
@@ -62,8 +93,10 @@ const WebBuilderEditor = () => {
         { type: 'stats', icon: <Hash size={18} />, label: t('theme_section_stats') || 'Stats', defaultData: { items: [{ label: 'Happy Customers', value: '1000+' }] } }
     ], [t]);
 
+    // ─── MAIN NAV ITEMS (Integrated into Sidebar) ───
+
     // ─── HANDLERS ───
-    const handleAddSection = useCallback((template) => {
+    const handleAddSection = useCallback((template, index = -1) => {
         let profile = {};
         try {
             profile = JSON.parse(localStorage.getItem('bay_profile') || '{}');
@@ -87,7 +120,7 @@ const WebBuilderEditor = () => {
             visible: true,
             data: { ...aiData, style: { backgrounds: { light: { type: 'color', value: 'default' }, dark: { type: 'color', value: 'default' } }, padding: 'normal' } }
         };
-        addSection(newSection);
+        addSection(newSection, index);
         setShowAddModal(false);
     }, [addSection, siteConfig.businessCategory]);
 
@@ -126,6 +159,7 @@ const WebBuilderEditor = () => {
             profile: companyProfile || {},
             config: siteConfig || {},
             sections: sections || [],
+            activeEditorPagePath,
             products: [], // Can be extracted from invoices/services if needed
             appointmentSettings: {
                 services: Array.isArray(services) && services.length > 0 ? services : [
@@ -139,249 +173,429 @@ const WebBuilderEditor = () => {
             },
             onSectionSelect: openSectionEditor,
             activeSectionId: editingSection,
+            deleteSection,
+            moveSection,
+            addSection,
+            onAddSection: handleAddSection,
             slug: siteConfig.domain || 'demo'
         };
-    }, [siteConfig, sections, openSectionEditor, editingSection, companyProfile, staff, services]);
+    }, [siteConfig, sections, openSectionEditor, editingSection, companyProfile, staff, services, activeEditorPagePath]);
 
     // ─── PREVIEW WIDTH ───
     const previewWidth = previewMode === 'mobile' ? '375px' : previewMode === 'tablet' ? '768px' : '100%';
 
     // ─── RENDER ───
     return (
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0f172a', fontFamily: '"Inter", sans-serif' }}>
+        <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', background: '#f8fafc', fontFamily: '"Outfit", sans-serif' }}>
+            {/* Hostinger Primary Sidebar removed as it is now integrated into the main application sidebar */}
 
-            {/* ═══ LEFT SIDEBAR ═══ */}
-            <div style={{ width: '300px', minWidth: '300px', background: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', zIndex: 30 }}>
-
-                {/* Header */}
-                <div style={{ padding: '20px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                        <button onClick={() => navigate('/website/dashboard')} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '8px', cursor: 'pointer', color: '#64748b' }}>
-                            <ArrowLeft size={18} />
-                        </button>
-                        <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', letterSpacing: '-0.02em' }}>WebBuilder Pro</h2>
-                    </div>
-
-                    {/* Tab Switcher */}
-                    <div style={{ display: 'flex', gap: '2px', padding: '4px', background: '#f1f5f9', borderRadius: '12px' }}>
-                        {[
-                            { id: 'sections', icon: Layout, label: t('sections') || 'Sections' },
-                            { id: 'design', icon: Palette, label: t('design') || 'Design' },
-                            { id: 'seo', icon: Globe, label: 'SEO' }
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                style={{
-                                    flex: 1, padding: '8px 4px', borderRadius: '10px', border: 'none',
-                                    background: activeTab === tab.id ? 'white' : 'transparent',
-                                    color: activeTab === tab.id ? '#3b82f6' : '#64748b',
-                                    fontWeight: '800', fontSize: '0.7rem', cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                                    boxShadow: activeTab === tab.id ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <tab.icon size={13} /> {tab.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Sidebar Content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-
-                    {/* ── SECTIONS TAB ── */}
-                    {activeTab === 'sections' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <button
-                                onClick={() => setShowAddModal(true)}
-                                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px dashed #bfdbfe', background: '#eff6ff', color: '#3b82f6', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.8rem', marginBottom: '8px' }}
-                            >
-                                <PlusCircle size={16} /> {t('add_new_section') || 'Add Section'}
-                            </button>
-
-                            {sections.map((section, idx) => (
-                                <div
-                                    key={section.id}
-                                    draggable
-                                    onDragStart={() => handleDragStart(idx)}
-                                    onDragOver={handleDragOver}
-                                    onDrop={() => handleDrop(idx)}
-                                    style={{
-                                        padding: '12px 14px', borderRadius: '12px', cursor: 'grab',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        background: editingSection === section.id ? '#eff6ff' : '#f8fafc',
-                                        border: '1px solid ' + (editingSection === section.id ? '#93c5fd' : '#f1f5f9'),
-                                        opacity: section.visible === false ? 0.5 : 1,
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                                        <GripVertical size={14} color="#cbd5e1" />
-                                        <div style={{ color: editingSection === section.id ? '#3b82f6' : '#94a3b8', flexShrink: 0 }}>
-                                            {SECTION_TEMPLATES.find(temp => temp.type.toUpperCase() === section.type.toUpperCase())?.icon || <Layout size={16} />}
-                                        </div>
-                                        <div style={{ minWidth: 0 }}>
-                                            <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{section.data?.title || section.type}</div>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                                        <button onClick={(e) => { e.stopPropagation(); openSectionEditor(section.id); }} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '4px' }}><Edit3 size={14} /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); moveSection(section.id, 'up'); }} title="Move Up" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}><ChevronDown size={14} style={{ transform: 'rotate(180deg)' }} /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); moveSection(section.id, 'down'); }} title="Move Down" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}><ChevronDown size={14} /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); toggleSectionVisibility(section.id); }} title="Toggle Visibility" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}>
-                                            {section.visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
-                                        </button>
-                                        {section.type !== 'HERO' && (
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteSection(section.id); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: '4px' }}><Trash2 size={14} /></button>
-                                        )}
-                                    </div>
+            {/* ═══ SECONDARY PANEL (Flyout) ═══ */}
+            <AnimatePresence mode="wait">
+                {activeTab && (
+                    <motion.div
+                        key={activeTab}
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -20, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        style={{ width: '340px', minWidth: '340px', background: 'white', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', zIndex: 40, boxShadow: '20px 0 40px rgba(0,0,0,0.03)' }}
+                    >
+                        {/* Panel Header */}
+                        <div style={{ padding: '28px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.02em', textTransform: 'capitalize' }}>
+                                    {{
+                                        setup: 'Kurulum',
+                                        elements: 'Öğeler',
+                                        pages: 'Sayfalar',
+                                        styles: 'Stiller',
+                                        ai: 'YZ Araçları',
+                                        blog: 'Blog',
+                                        store: 'Mağaza',
+                                        seo: 'SEO',
+                                        more: 'Daha Fazla'
+                                    }[activeTab] || activeTab}
+                                </h3>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', fontWeight: '600' }}>
+                                    {(activeTab === 'elements' || activeTab === 'setup') && (t('manage_sections_desc') || 'Yapı ve bölümleri yönet')}
+                                    {activeTab === 'pages' && (t('manage_pages_desc') || 'Menü ve navigasyonu düzenle')}
+                                    {activeTab === 'styles' && (t('manage_styles_desc') || 'Global renkler ve yazı tipleri')}
+                                    {activeTab === 'blog' && (t('manage_blog_desc') || 'İçerik ve makaleleri yönet')}
+                                    {activeTab === 'store' && (t('manage_store_desc') || 'Satış ve ürün yönetimi')}
+                                    {activeTab === 'seo' && (t('manage_seo_desc') || 'Arama motoru optimizasyonu')}
+                                    {activeTab === 'ai' && (t('manage_ai_desc') || 'Yapay zeka asistanı')}
+                                    {activeTab === 'more' && (t('manage_more_desc') || 'Ek seçenekler ve ayarlar')}
                                 </div>
-                            ))}
+                            </div>
+                            <button onClick={() => setSearchParams({})} style={{ background: '#f8fafc', border: 'none', borderRadius: '12px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}>
+                                <X size={18} />
+                            </button>
                         </div>
-                    )}
 
-                    {/* ── DESIGN TAB ── */}
-                    {activeTab === 'design' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {/* Appearance Mode */}
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Appearance</h4>
-                                <EditorField
-                                    label={t('theme_mode') || 'Display Mode'}
-                                    type="select"
-                                    options={[
-                                        { label: 'System / Auto', value: 'auto' },
-                                        { label: 'Light Mode', value: 'light' },
-                                        { label: 'Dark Mode', value: 'dark' }
-                                    ]}
-                                    value={siteConfig.mode || 'auto'}
-                                    onChange={(val) => updateSiteConfig({ mode: val })}
-                                />
-                            </div>
-
-                            {/* Brand Color */}
-                            <EditorField label={t('primary_color') || 'Brand Color'} type="color" value={siteConfig.theme?.primaryColor} onChange={(val) => updateSiteConfig({ theme: { primaryColor: val } })} />
-
-                            {/* Font Family */}
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Typography</h4>
-                                <EditorField
-                                    label={t('font_family') || 'Font Family'}
-                                    type="select"
-                                    options={GOOGLE_FONTS.map(f => ({ label: f, value: `"${f}", sans-serif` }))}
-                                    value={siteConfig.theme?.fontFamily || '"Inter", sans-serif'}
-                                    onChange={(val) => updateSiteConfig({ theme: { fontFamily: val } })}
-                                />
-                                <EditorField label={t('border_radius') || 'Corner Radius'} type="select" options={[
-                                    { label: 'None (Square)', value: '0px' },
-                                    { label: 'Small', value: '4px' },
-                                    { label: 'Default', value: '12px' },
-                                    { label: 'Large', value: '24px' },
-                                    { label: 'Full (Pill)', value: '9999px' }
-                                ]} value={siteConfig.theme?.radius || '12px'} onChange={(val) => updateSiteConfig({ theme: { radius: val } })} />
-                            </div>
-
-                            {/* Global Palette Overrides */}
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                    <h4 style={{ margin: 0, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Global Palette Overrides</h4>
-                                    <div style={{ display: 'flex', gap: 2, background: '#e2e8f0', padding: 2, borderRadius: 6 }}>
-                                        {['light', 'dark'].map(m => (
-                                            <button key={m} onClick={() => setBgMode(m)} style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: bgMode === m ? 'white' : 'transparent', color: bgMode === m ? '#3b82f6' : '#94a3b8', fontSize: '0.6rem', fontWeight: '800', cursor: 'pointer' }}>{m.toUpperCase()}</button>
-                                        ))}
+                        {/* Panel Content Scrollable */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+                            
+                            {/* ── SETUP PANEL ── */}
+                            {activeTab === 'setup' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ padding: '20px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #eef2f6' }}>
+                                        <h4 style={{ margin: '0 0 12px', fontSize: '1rem', fontWeight: '900' }}>Web sitesi kurulumu</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {[
+                                                { label: 'Web sitesi yolculuğunuza başlayın!', checked: true },
+                                                { label: 'Başlık metnini düzenleyin', checked: !!siteConfig.siteName },
+                                                { label: 'Logonuzu güncelleyin', checked: !!siteConfig.logo },
+                                                { label: 'Sosyal medya bağlantılarını güncelleyin', checked: !!siteConfig.social },
+                                                { label: 'Kurumsal bilgileri kontrol edin', checked: !!companyProfile?.name },
+                                                { label: 'Yayınla!', checked: siteConfig.isPublished }
+                                            ].map((task, i) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.85rem', fontWeight: '600', color: task.checked ? '#0f172a' : '#94a3b8' }}>
+                                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: task.checked ? '2px solid #10b981' : '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', background: task.checked ? '#f0fdf4' : 'transparent' }}>
+                                                        {task.checked && <CheckCircle size={14} color="#10b981" />}
+                                                    </div>
+                                                    <span style={{ textDecoration: task.checked ? 'line-through' : 'none', opacity: task.checked ? 0.6 : 1 }}>{task.label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <button onClick={() => setActiveTab('seo')} style={{ textAlign: 'left', padding: '12px', background: 'none', border: 'none', color: '#6C3BFF', fontWeight: '800', fontSize: '0.8rem', cursor: 'pointer' }}>Google için optimize edin</button>
+                                        <button onClick={() => openSectionEditor('site_header')} style={{ textAlign: 'left', padding: '12px', background: 'none', border: 'none', color: '#6C3BFF', fontWeight: '800', fontSize: '0.8rem', cursor: 'pointer' }}>Logoyu değiştir</button>
                                     </div>
                                 </div>
-                                <EditorField label={`Bg Color (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.bg} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], bg: v } } } })} />
-                                <EditorField label={`Surface (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.surface} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], surface: v } } } })} />
-                                <EditorField label={`Text Color (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.text} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], text: v } } } })} />
-                                <EditorField label={`Border (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.border} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], border: v } } } })} />
-                            </div>
+                            )}
 
-                            {/* Global Backgrounds */}
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #eef2f6' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                    <h4 style={{ margin: '0', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}><ImageIcon size={12} /> Backgrounds</h4>
-                                    <div style={{ display: 'flex', gap: 2, background: '#e2e8f0', padding: 3, borderRadius: 8 }}>
-                                        {['light', 'dark'].map(m => (
-                                            <button key={m} onClick={() => setBgMode(m)} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: bgMode === m ? 'white' : 'transparent', color: bgMode === m ? '#3b82f6' : '#64748b', fontSize: '0.65rem', fontWeight: '800', cursor: 'pointer' }}>{m === 'light' ? <Sun size={12} /> : <Moon size={12} />}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {['hero', 'body', 'footer'].map(zone => (
-                                        <BackgroundSelector
-                                            key={zone}
-                                            label={zone.charAt(0).toUpperCase() + zone.slice(1)}
-                                            bgMode={bgMode}
-                                            value={siteConfig.theme?.backgrounds?.[zone]?.[bgMode] || { type: 'color', value: 'default' }}
-                                            onChange={(val) => updateSiteConfig({ theme: { backgrounds: { [zone]: { [bgMode]: val } } } })}
-                                        />
+                            {/* ── ELEMENTS PANEL ── */}
+                            {activeTab === 'elements' && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    {SECTION_TEMPLATES.map((template, i) => (
+                                        <div 
+                                            key={i} 
+                                            draggable
+                                            onDragStart={(e) => {
+                                                e.dataTransfer.setData('section_template', JSON.stringify(template));
+                                            }}
+                                            onClick={() => handleAddSection(template)}
+                                            style={{ padding: '16px 12px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #eef2f6', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s' }} 
+                                            onMouseEnter={e => e.currentTarget.style.borderColor = '#6C3BFF'}
+                                            onMouseLeave={e => e.currentTarget.style.borderColor = '#eef2f6'}
+                                        >
+                                            <div style={{ color: '#6C3BFF' }}>{template.icon}</div>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: '800', textAlign: 'center' }}>{template.label}</span>
+                                        </div>
                                     ))}
                                 </div>
-                                <div style={{ height: '1px', background: '#eef2f6', margin: '12px 0' }} />
-                                <EditorField label="Text Color" type="color" value={siteConfig.theme?.colors?.[bgMode]?.text || (bgMode === 'dark' ? '#ffffff' : '#1e293b')} onChange={(val) => updateSiteConfig({ theme: { colors: { [bgMode]: { text: val } } } })} />
-                                <EditorField label="Secondary Color" type="color" value={siteConfig.theme?.colors?.[bgMode]?.textSecondary || (bgMode === 'dark' ? '#94a3b8' : '#64748b')} onChange={(val) => updateSiteConfig({ theme: { colors: { [bgMode]: { textSecondary: val } } } })} />
-                            </div>
+                            )}
+
+                            {/* ── STYLES PANEL ── */}
+                            {activeTab === 'styles' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '12px' }}>
+                                        {['Renkler', 'Fontlar'].map((tab, i) => (
+                                            <button 
+                                                key={tab} 
+                                                onClick={() => setEditModalTab(tab === 'Renkler' ? 'colors' : 'fonts')}
+                                                style={{ flex: 1, padding: '8px 4px', fontSize: '0.7rem', fontWeight: '800', border: 'none', borderRadius: '8px', background: (editModalTab === 'colors' || editModalTab === 'fonts' ? (tab === 'Renkler' ? editModalTab === 'colors' : editModalTab === 'fonts') : i === 0) ? 'white' : 'transparent', color: '#6C3BFF', cursor: 'pointer' }}
+                                            >
+                                                {tab}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* Color Palettes */}
+                                    {editModalTab !== 'fonts' && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {[
+                                                '#3b82f6', '#6C3BFF', '#10b981', '#f59e0b', '#ef4444', 
+                                                '#0f172a', '#ec4899', '#8b5cf6', '#06b6d4'
+                                            ].map((color, i) => (
+                                                <div 
+                                                    key={i} 
+                                                    onClick={() => updateSiteConfig({ theme: { primaryColor: color } })}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', background: siteConfig.theme?.primaryColor === color ? '#f3efff' : '#f8fafc', borderRadius: '12px', cursor: 'pointer', border: siteConfig.theme?.primaryColor === color ? '1px solid #6C3BFF' : '1px solid transparent' }}
+                                                >
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: color, border: '1px solid #e2e8f0' }} />
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: '800', fontSize: '0.85rem' }}>{color}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '600' }}>{siteConfig.theme?.primaryColor === color ? 'Seçili Renk' : 'Tema Rengi'}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Font List */}
+                                    {editModalTab === 'fonts' && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {GOOGLE_FONTS.slice(0, 15).map((font, i) => (
+                                                <button 
+                                                    key={i} 
+                                                    onClick={() => updateSiteConfig({ theme: { fontHeading: font, fontBody: font } })}
+                                                    style={{ width: '100%', padding: '12px 16px', textAlign: 'left', background: siteConfig.theme?.fontHeading === font ? '#f3efff' : '#f8fafc', border: siteConfig.theme?.fontHeading === font ? '1px solid #6C3BFF' : '1px solid #f1f5f9', borderRadius: '12px', fontSize: '0.9rem', fontWeight: '700', fontFamily: font, cursor: 'pointer' }}
+                                                >
+                                                    {font}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ── AI TOOLS PANEL ── */}
+                            {activeTab === 'ai' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ padding: '20px', background: 'linear-gradient(135deg, #6C3BFF, #4c28cc)', borderRadius: '20px', color: 'white', marginBottom: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                                            <Sparkles size={24} />
+                                            <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '900' }}>YZ Araçları</h4>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: '600', opacity: 0.9 }}>Yapay zeka ile saniyeler içinde sitenizi oluşturun ve geliştirin.</p>
+                                    </div>
+                                    {[
+                                        "YZ Görsel Oluşturucu", "YZ Yazar", "YZ Sayfa Oluşturucu", "YZ Bölüm Oluşturucu",
+                                        "YZ Blog Oluşturucu", "YZ Ürün Bilgisi Üretici", "Yapay Zeka SEO Asistanı", "YZ Logo Oluşturucu"
+                                    ].map((tool, i) => (
+                                        <button key={i} style={{ width: '100%', padding: '16px', textAlign: 'left', background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '16px', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#6C3BFF'}>
+                                            {tool}
+                                            <ChevronRight size={16} color="#cbd5e1" />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* ── PAGES PANEL ── */}
+                            {activeTab === 'pages' && (() => {
+                                const defaultPages = siteConfig?.pages || [
+                                    { id: 'default-home', path: '/', title: 'Ana Sayfa', customElements: [], isHidden: false }
+                                ];
+                                
+                                const handleAddPage = () => {
+                                    const title = prompt('Yeni sayfa adı:', 'Yeni Sayfa');
+                                    if (title) {
+                                        const newPage = {
+                                            id: `page-${Date.now()}`,
+                                            path: `/${title.toLowerCase().replace(/\s+/g, '-')}`,
+                                            title,
+                                            customElements: [],
+                                            isHidden: false
+                                        };
+                                        updateSiteConfig({ pages: [...defaultPages, newPage] });
+                                    }
+                                };
+
+                                const togglePageHidden = (pageId) => {
+                                    updateSiteConfig({
+                                        pages: defaultPages.map(p => p.id === pageId ? { ...p, isHidden: !p.isHidden } : p)
+                                    });
+                                };
+
+                                const visiblePages = defaultPages.filter(p => !p.isHidden);
+                                const hiddenPages = defaultPages.filter(p => p.isHidden);
+
+                                return (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        <div>
+                                            <h4 style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>ANA NAVİGASYON</h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {visiblePages.map((page) => (
+                                                    <div 
+                                                        key={page.id} 
+                                                        onClick={() => setActiveEditorPagePath(page.path)}
+                                                        style={{ padding: '14px 18px', background: activeEditorPagePath === page.path ? '#e2e8f0' : '#f8fafc', borderRadius: '14px', border: activeEditorPagePath === page.path ? `1px solid #94a3b8` : '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <GripVertical size={14} color="#cbd5e1" />
+                                                            <span style={{ fontWeight: '800', fontSize: '0.9rem' }}>{page.title}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            <Eye size={16} color="#94a3b8" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); togglePageHidden(page.id); }} />
+                                                            <Settings size={16} color="#94a3b8" style={{ cursor: 'pointer' }} onClick={(e) => e.stopPropagation()} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        
+                                        {hiddenPages.length > 0 && (
+                                            <div>
+                                                <h4 style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>GİZLİ SAYFALAR</h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {hiddenPages.map((page) => (
+                                                        <div 
+                                                            key={page.id} 
+                                                            onClick={() => setActiveEditorPagePath(page.path)}
+                                                            style={{ padding: '14px 18px', background: activeEditorPagePath === page.path ? '#e2e8f0' : '#f8fafc', borderRadius: '14px', border: activeEditorPagePath === page.path ? `1px solid #94a3b8` : '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: 0.7, cursor: 'pointer' }}
+                                                        >
+                                                            <span style={{ fontWeight: '800', fontSize: '0.9rem' }}>{page.title}</span>
+                                                            <EyeOff size={16} color="#94a3b8" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); togglePageHidden(page.id); }} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        <button onClick={handleAddPage} style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#6C3BFF', color: 'white', fontWeight: '950', border: 'none', cursor: 'pointer', boxShadow: '0 8px 16px -4px rgba(108, 59, 255, 0.4)' }}>
+                                            Sayfa Ekle
+                                        </button>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* ── BLOG PANEL ── */}
+                            {activeTab === 'blog' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '12px' }}>
+                                        {['Hepsi', 'Taslaklar', 'Planlandı', 'Yayınlanmış'].map((t, i) => (
+                                            <button key={i} style={{ flex: 1, padding: '8px 2px', fontSize: '0.65rem', fontWeight: '800', border: 'none', borderRadius: '8px', background: i === 0 ? 'white' : 'transparent', color: i === 0 ? '#6C3BFF' : '#64748b', cursor: 'pointer' }}>{t}</button>
+                                        ))}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {[
+                                            {title: "Winter Reflections: Learning…", date: "2/4/2025", category: "Genel"},
+                                            {title: "Wonderful Festival in Our Villa…", date: "6/9/2024", category: "Genel"},
+                                            {title: "Hallo World", date: "6/5/2024", category: "Genel"}
+                                        ].map((post, i) => (
+                                            <div key={i} style={{ padding: '16px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
+                                                <div style={{ fontWeight: '800', fontSize: '0.85rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.title}</div>
+                                                <div style={{ display: 'flex', gap: '12px', fontSize: '0.7rem', color: '#94a3b8', fontWeight: '600' }}>
+                                                    <span>{post.date}</span>
+                                                    <span>{post.category}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#6C3BFF', color: 'white', fontWeight: '950', border: 'none', cursor: 'pointer', marginTop: '10px' }}>Yeni Yazı Oluştur</button>
+                                </div>
+                            )}
+
+                            {/* ── STORE & APPOINTMENTS PANEL ── */}
+                            {activeTab === 'store' && (
+                                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                                    <div style={{ width: 80, height: 80, background: '#f5f3ff', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#6C3BFF' }}>
+                                        <ShoppingCart size={40} />
+                                    </div>
+                                    <h4 style={{ fontSize: '1.25rem', fontWeight: '900', color: '#0f172a', marginBottom: '8px' }}>Mağaza & Stok</h4>
+                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '24px', fontWeight: '600', lineHeight: 1.5 }}>BayZenit uygulamanız üzerinden ürün, stok ve siparişlerinizi yönetin.</p>
+                                    <button onClick={() => navigate('/stock')} style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#6C3BFF', color: 'white', border: 'none', fontWeight: '900', cursor: 'pointer', fontSize: '0.95rem', boxShadow: '0 8px 16px -4px rgba(108, 59, 255, 0.4)', marginBottom: '16px' }}>
+                                        Stok & Satış panelini aç
+                                    </button>
+                                    
+                                    <div style={{ width: 80, height: 80, background: '#f5f3ff', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '24px auto 20px', color: '#6C3BFF' }}>
+                                        <Calendar size={40} />
+                                    </div>
+                                    <h4 style={{ fontSize: '1.25rem', fontWeight: '900', color: '#0f172a', marginBottom: '8px' }}>Randevular</h4>
+                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '24px', fontWeight: '600', lineHeight: 1.5 }}>Müşteri randevularını ve hizmet atamalarınızı yönetin.</p>
+                                    <button onClick={() => navigate('/appointments')} style={{ width: '100%', padding: '16px', borderRadius: '16px', background: 'white', color: '#6C3BFF', border: '2px solid #6C3BFF', fontWeight: '900', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                        Randevu Yönetimi
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* ── MORE PANEL ── */}
+                            {activeTab === 'more' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {[
+                                        "Blog", "Randevular", "Genel ayarlar", "Entegrasyonlar", "Form gönderimleri",
+                                        "Analizler", "Medya kütüphanesi", "Site Dilleri", "Yedekleri yönet",
+                                        "İçeriği WordPress'e aktar", "Yardım ve Kaynaklar", "Yenilikler"
+                                    ].map((item, i) => (
+                                        <button key={i} style={{ width: '100%', padding: '14px 18px', textAlign: 'left', background: 'none', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '0.9rem', color: '#334155', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                            {item}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                             {/* ── SEO PANEL ── */}
+                             {activeTab === 'seo' && (
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                             <label style={{ fontSize: '0.75rem', fontWeight: '900', color: '#64748b' }}>SİTE BAŞLIĞI (SEO)</label>
+                                             <input 
+                                                 type="text" 
+                                                 value={siteConfig.seo?.title || ''} 
+                                                 onChange={e => updateSiteConfig({ seo: { title: e.target.value } })}
+                                                 placeholder="Google'da nasıl görünecek?"
+                                                 style={{ padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem', fontWeight: '600' }}
+                                             />
+                                         </div>
+                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                             <label style={{ fontSize: '0.75rem', fontWeight: '900', color: '#64748b' }}>SİTE AÇIKLAMASI (META)</label>
+                                             <textarea 
+                                                 rows={4}
+                                                 value={siteConfig.seo?.description || ''} 
+                                                 onChange={e => updateSiteConfig({ seo: { description: e.target.value } })}
+                                                 placeholder="Siteniz hakkında kısa bir bilgi..."
+                                                 style={{ padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem', fontWeight: '600', resize: 'none' }}
+                                             />
+                                         </div>
+                                     </div>
+                                     <div style={{ padding: '20px', background: '#f0fdf4', borderRadius: '20px', border: '1px solid #dcfce7', display: 'flex', gap: '12px' }}>
+                                         <CheckCircle size={20} color="#10b981" />
+                                         <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '700', color: '#166534', lineHeight: 1.4 }}>İçeriğiniz yayınlandığında otomatik olarak indekslenecektir.</p>
+                                     </div>
+                                 </div>
+                             )}
+
                         </div>
-                    )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-                    {/* ── SEO TAB ── */}
-                    {activeTab === 'seo' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <EditorField label={t('seo_title') || 'Meta Title'} value={siteConfig.seo?.title} onChange={(val) => updateSiteConfig({ seo: { title: val } })} />
-                            <EditorField label={t('seo_desc') || 'Meta Description'} isTextArea value={siteConfig.seo?.description} onChange={(val) => updateSiteConfig({ seo: { description: val } })} />
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Advanced</h4>
-                                <EditorField label={t('custom_css') || 'Custom CSS'} isTextArea placeholder="body { ... }" value={siteConfig.advanced?.customCss} onChange={(val) => updateSiteConfig({ advanced: { customCss: val } })} />
-                                <EditorField label={t('head_scripts') || 'Header Scripts'} isTextArea placeholder="<!-- Analytics -->" value={siteConfig.advanced?.headScripts} onChange={(val) => updateSiteConfig({ advanced: { headScripts: val } })} />
-                            </div>
-                        </div>
-                    )}
-                </div>
+            {/* ═══ MAIN CONTENT AREA ═══ */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+                
+                {/* Modern Top Header (Hostinger-Inspired) */}
+                <div style={{ height: '76px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', zIndex: 30, boxShadow: '0 4px 12px rgba(0,0,0,0.01)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '10px 20px', background: '#f1f5f9', borderRadius: '14px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}>
+                            <div style={{ width: 10, height: 10, background: '#3b82f6', borderRadius: '3px' }} />
+                            <span style={{ fontSize: '0.9rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.01em' }}>{siteConfig.siteName || 'Projem'}</span>
+                            <ChevronDown size={16} color="#64748b" />
+                         </div>
 
-                {/* Bottom Actions */}
-                <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
-                    <button
-                        onClick={() => window.open(`/s/demo?domain=${siteConfig.domain || 'demo'}`, '_blank')}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}
-                    >
-                        <Eye size={16} /> {t('preview') || 'Preview'}
-                    </button>
-                    <button
-                        onClick={() => { publishSite(); alert(t('site_published') || 'Site published!'); }}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px', borderRadius: '12px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: '800', cursor: 'pointer', fontSize: '0.8rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}
-                    >
-                        <Globe size={16} /> {siteConfig.isPublished ? (t('republish') || 'Republish') : (t('publish') || 'Publish')}
-                    </button>
-                </div>
-            </div>
-
-            {/* ═══ MAIN PREVIEW AREA ═══ */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-                {/* Preview Toolbar */}
-                <div style={{ height: '50px', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', borderBottom: '1px solid #334155', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', gap: '4px', background: '#334155', padding: '4px', borderRadius: '10px' }}>
-                        {[
-                            { id: 'desktop', icon: DesktopIcon, label: 'Desktop' },
-                            { id: 'tablet', icon: Tablet, label: 'Tablet' },
-                            { id: 'mobile', icon: Smartphone, label: 'Mobile' }
-                        ].map(d => (
-                            <button key={d.id} onClick={() => setPreviewMode(d.id)} title={d.label} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: previewMode === d.id ? '#3b82f6' : 'transparent', color: previewMode === d.id ? 'white' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', fontWeight: '700' }}>
-                                <d.icon size={14} /> {d.label}
-                            </button>
-                        ))}
+                         {/* Preview Mode Selector */}
+                         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '6px', borderRadius: '14px' }}>
+                            {[
+                                { id: 'desktop', icon: DesktopIcon },
+                                { id: 'tablet', icon: Tablet },
+                                { id: 'mobile', icon: Smartphone }
+                            ].map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setPreviewMode(item.id)}
+                                    style={{
+                                        width: '44px', height: '38px', borderRadius: '10px', border: 'none',
+                                        background: previewMode === item.id ? 'white' : 'transparent',
+                                        color: previewMode === item.id ? '#3b82f6' : '#64748b',
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: previewMode === item.id ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <item.icon size={18} strokeWidth={2.5} />
+                                </button>
+                            ))}
+                         </div>
                     </div>
-                    <div style={{ position: 'absolute', right: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.5)' }} />
-                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '600' }}>{t('autosaved') || 'Auto-saved'}</span>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontSize: '0.8rem', fontWeight: '900', padding: '10px 20px', background: '#f0fdf4', borderRadius: '100px', border: '1px solid #dcfce7' }}>
+                            <RefreshCw size={14} />
+                            Kaydedildi
+                        </div>
+                        <button onClick={() => window.open(`https://${siteConfig.domain}.bayrechnung.com`, '_blank')} style={{ background: 'white', border: '1px solid #e2e8f0', color: '#0f172a', padding: '12px 28px', borderRadius: '14px', fontWeight: '900', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}>
+                            <Eye size={18} /> Önizle
+                        </button>
+                        <button onClick={publishSite} style={{ background: 'linear-gradient(135deg, #4f46e5, #3b82f6)', color: 'white', border: 'none', padding: '12px 40px', borderRadius: '14px', fontWeight: '950', fontSize: '0.95rem', cursor: 'pointer', boxShadow: '0 12px 24px -6px rgba(79,70,229,0.4)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+                            Yayınla
+                        </button>
                     </div>
                 </div>
 
                 {/* Live Preview Container */}
-                <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', padding: previewMode !== 'desktop' ? '24px' : '0', background: '#0f172a' }}>
+                <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: previewMode !== 'desktop' ? '24px' : '0', background: '#0f172a' }}>
                     <div style={{
                         width: previewWidth,
                         maxWidth: '100%',

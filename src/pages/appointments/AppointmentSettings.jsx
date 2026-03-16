@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { useAppointments } from '../../context/AppointmentContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Plus, Trash2, Clock, Users, Calendar, X, Save } from 'lucide-react';
+import { Plus, Trash2, Clock, Users, Calendar, X, Save, Edit2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AppointmentSettings = () => {
-    const { settings, staff, addStaff, deleteStaff, updateSettings } = useAppointments();
+    const { settings, staff, addStaff, deleteStaff, updateStaff, updateSettings } = useAppointments();
     const { t } = useLanguage();
 
     const [activeTab, setActiveTab] = useState('schedule');
 
     // Local state for forms
     const [newStaff, setNewStaff] = useState({ name: '', role: '', color: '#3b82f6' });
+    const [editingStaffId, setEditingStaffId] = useState(null);
+    const [editStaffData, setEditStaffData] = useState({ name: '', role: '', color: '' });
     const [localWorkingDays, setLocalWorkingDays] = useState(settings.workingDays || []);
     const [localDailyHours, setLocalDailyHours] = useState(settings.dailyHours || {
         Mon: { start: '09:00', end: '18:00' },
@@ -359,25 +361,91 @@ const AppointmentSettings = () => {
                             ) : (
                                 staff.map(member => (
                                     <div key={member.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderBottom: '1px solid var(--border)', background: 'white' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: member.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
-                                                {member.name?.charAt(0) || '?'}
+                                        {editingStaffId === member.id ? (
+                                            <div style={{ display: 'flex', gap: '12px', width: '100%', alignItems: 'center' }}>
+                                                <input
+                                                    className="form-input"
+                                                    style={{ flex: 1, padding: '8px' }}
+                                                    value={editStaffData.name}
+                                                    onChange={e => setEditStaffData({ ...editStaffData, name: e.target.value })}
+                                                    placeholder={t('fullName')}
+                                                />
+                                                <input
+                                                    className="form-input"
+                                                    style={{ flex: 1, padding: '8px' }}
+                                                    value={editStaffData.role}
+                                                    onChange={e => setEditStaffData({ ...editStaffData, role: e.target.value })}
+                                                    placeholder={t('role')}
+                                                />
+                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                    {['#3b82f6', '#10b981', '#ef4444', '#f59e0b'].map(c => (
+                                                        <div
+                                                            key={c}
+                                                            onClick={() => setEditStaffData({ ...editStaffData, color: c })}
+                                                            style={{
+                                                                width: '20px',
+                                                                height: '20px',
+                                                                borderRadius: '50%',
+                                                                background: c,
+                                                                cursor: 'pointer',
+                                                                border: editStaffData.color === c ? '2px solid black' : '2px solid transparent'
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        className="icon-btn"
+                                                        style={{ color: '#10b981' }}
+                                                        onClick={() => {
+                                                            updateStaff({ id: member.id, ...editStaffData });
+                                                            setEditingStaffId(null);
+                                                        }}
+                                                    >
+                                                        <Check size={18} />
+                                                    </button>
+                                                    <button
+                                                        className="icon-btn"
+                                                        onClick={() => setEditingStaffId(null)}
+                                                    >
+                                                        <X size={18} />
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div style={{ fontWeight: '600', fontSize: '1rem' }}>{member.name}</div>
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{member.role}</div>
-                                            </div>
-                                        </div>
-                                        {/* Don't allow deleting the last staff member to prevent errors */}
-                                        <button
-                                            className="icon-btn delete"
-                                            onClick={() => deleteStaff(member.id)}
-                                            disabled={staff.length <= 1}
-                                            title={staff.length <= 1 ? "En az bir personel olmalı" : "Sil"}
-                                            style={staff.length <= 1 ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
+                                        ) : (
+                                            <>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: member.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' }}>
+                                                        {member.name?.charAt(0) || '?'}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: '600', fontSize: '1rem' }}>{member.name}</div>
+                                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{member.role}</div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        className="icon-btn"
+                                                        onClick={() => {
+                                                            setEditingStaffId(member.id);
+                                                            setEditStaffData({ name: member.name, role: member.role, color: member.color || '#3b82f6' });
+                                                        }}
+                                                        title={t('edit', 'Düzenle')}
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button
+                                                        className="icon-btn delete"
+                                                        onClick={() => deleteStaff(member.id)}
+                                                        disabled={staff.length <= 1}
+                                                        title={staff.length <= 1 ? "En az bir personel olmalı" : "Sil"}
+                                                        style={staff.length <= 1 ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 ))
                             )}
