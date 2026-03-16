@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import ResetPassword from './pages/auth/ResetPassword';
 import Dashboard from './pages/accounting/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import SystemHealth from './pages/admin/SystemHealth';
@@ -28,8 +29,6 @@ import Quotes from './pages/accounting/Quotes';
 import NewQuote from './pages/accounting/NewQuote';
 import UserManagement from './pages/settings/UserManagement';
 import MessagesCenter from './pages/MessagesCenter';
-import { PanelProvider } from './context/PanelContext';
-import { StockProvider } from './context/StockContext';
 
 import AppointmentDashboard from './pages/appointments/AppointmentDashboard';
 import AppointmentCalendar from './pages/appointments/AppointmentCalendar';
@@ -45,7 +44,11 @@ import StockSettings from './pages/stock/StockSettings';
 
 import { WebsiteProvider } from './context/WebsiteContext';
 import WebsiteDashboard from './pages/website/WebsiteDashboard';
-import WebBuilderEditor from './features/webbuilder/components/WebBuilderEditor';
+import WebsiteEditor from './pages/website/WebsiteEditor';
+import WebsitePages from './pages/website/WebsitePages';
+import WebsiteBlogs from './pages/website/WebsiteBlogs';
+import WebsiteStore from './pages/website/WebsiteStore';
+import WebsiteAITools from './pages/website/WebsiteAITools';
 import WebsiteSettings from './pages/website/WebsiteSettings';
 import SiteWizard from './features/webbuilder/wizard/SiteWizard';
 import PublicWebsite from './pages/public/PublicWebsite';
@@ -53,17 +56,17 @@ import Terms from './pages/public/Terms';
 import Privacy from './pages/public/Privacy';
 
 import { BayGuardProvider } from './context/BayGuardContext';
-import BayGuardAgent from './components/agents/BayGuardAgent';
-import BayPilot from './components/agents/BayPilot'; // New User Assistant
-import BayCreative from './components/agents/BayCreative';
-import BayTermin from './components/agents/BayTermin';
-import BayInStock from './components/agents/BayInStock';
-import BayGrowth from './components/agents/BayGrowth';
-import BayGlobeAgent from './components/agents/BayGlobeAgent';
-import { useBayVision } from './context/BayVisionContext';
-import InternalAutomator from './components/agents/InternalAutomator';
 import RoleGuard from './components/auth/RoleGuardian';
-import ConnectionDiagnostics from './components/Debug/ConnectionDiagnostics';
+
+// AI agents — lazy loaded so they don't block initial bundle
+const BayGuardAgent   = React.lazy(() => import('./components/agents/BayGuardAgent'));
+const BayPilot        = React.lazy(() => import('./components/agents/BayPilot'));
+const BayCreative     = React.lazy(() => import('./components/agents/BayCreative'));
+const BayTermin       = React.lazy(() => import('./components/agents/BayTermin'));
+const BayInStock      = React.lazy(() => import('./components/agents/BayInStock'));
+const BayGrowth       = React.lazy(() => import('./components/agents/BayGrowth'));
+const BayGlobeAgent   = React.lazy(() => import('./components/agents/BayGlobeAgent'));
+const InternalAutomator = React.lazy(() => import('./components/agents/InternalAutomator'));
 
 import WorkerLayout from './components/worker/WorkerLayout';
 import WorkerHome from './pages/worker/WorkerHome';
@@ -71,12 +74,12 @@ import DailyReport from './pages/worker/DailyReport';
 
 import SecuritySettings from './pages/admin/SecuritySettings';
 import Onboarding from './pages/admin/Onboarding';
+import AdminCockpit from './pages/admin/cockpit/AdminCockpit';
 
 import { NotificationProvider } from './context/NotificationContext';
 
 function App() {
   const { isAuthenticated, currentUser } = useAuth();
-  const vision = useBayVision(); // CEO Agent
 
   // Domain detection logic
   const hostname = window.location.hostname;
@@ -147,15 +150,16 @@ function App() {
           )}
 
           {/* Path-based fallback: bayzenit.com/s/firmaadi (always available) */}
-          <Route path="/s/:domain" element={
+          <Route path="/s/:domain/*" element={
             <WebsiteProvider>
               <PublicWebsite />
             </WebsiteProvider>
           } />
 
-          {/* 2. Public Platform Routes (Already moved essentials up) */}
+          {/* 2. Public Platform Routes */}
           <Route path="/login" element={isAuthenticated ? <Navigate to="/admin" /> : <Login />} />
           <Route path="/register" element={isAuthenticated ? <Navigate to="/admin" /> : <Register />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
 
           {/* Legacy Path Fix */}
@@ -168,6 +172,7 @@ function App() {
                 {/* Admin Role Only */}
                 <Route element={<RoleGuard allowedRoles={['admin']} />}>
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/cockpit" element={<AdminCockpit />} />
                   <Route path="/admin/health" element={<SystemHealth />} />
                   <Route path="/admin/analytics" element={<AdminAnalytics />} />
                   <Route path="/admin/kanban" element={<ProjectKanban />} />
@@ -235,7 +240,11 @@ function App() {
                     <Routes>
                       <Route path="dashboard" element={<WebsiteDashboard />} />
                       <Route path="wizard" element={<SiteWizard />} />
-                      <Route path="editor" element={<WebBuilderEditor />} />
+                      <Route path="editor" element={<WebsiteEditor />} />
+                      <Route path="pages" element={<WebsitePages />} />
+                      <Route path="blogs" element={<WebsiteBlogs />} />
+                      <Route path="store" element={<WebsiteStore />} />
+                      <Route path="ai-tools" element={<WebsiteAITools />} />
                       <Route path="settings" element={<WebsiteSettings />} />
                       <Route path="*" element={<Navigate to="/website/dashboard" replace />} />
                     </Routes>
@@ -258,9 +267,9 @@ function App() {
   );
 }
 
-// Helper to wrap Internal Agents (only for logged-in management area)
+// Lazy-loaded agents wrapped in Suspense (null fallback = agents don't block UI)
 const InternalAgentWrapper = () => (
-  <>
+  <React.Suspense fallback={null}>
     <BayGuardAgent />
     <BayCreative />
     <BayTermin />
@@ -270,7 +279,7 @@ const InternalAgentWrapper = () => (
     <BayGlobeAgent />
     <InternalAutomator />
     <Outlet />
-  </>
+  </React.Suspense>
 );
 
 export default App;

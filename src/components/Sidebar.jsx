@@ -81,12 +81,14 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                         }}
                     >
                         <div className="logo-icon" style={{ background: currentModule.color }}>
-                            {currentModule.name?.charAt(0) || 'B'}
+                            {companyProfile?.company_name?.charAt(0) || currentModule.name?.charAt(0) || 'B'}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <h2 style={{ fontSize: '1.1rem' }}>{currentModule.name}</h2>
+                            <h2 style={{ fontSize: '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
+                                {companyProfile?.company_name || 'BayRechnung'}
+                            </h2>
                             <span style={{ fontSize: '0.7rem', color: showPanelSwitcher ? 'var(--primary)' : 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
-                                {t('module_switch') || 'Sistem Değiştir'} {showPanelSwitcher ? '▴' : '▾'}
+                                {currentModule.name} {showPanelSwitcher ? '▴' : '▾'}
                             </span>
                         </div>
                     </div>

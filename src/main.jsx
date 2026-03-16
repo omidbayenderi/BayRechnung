@@ -26,8 +26,8 @@ if (!rootElement) {
     <React.StrictMode>
       <ErrorBoundary>
         <BrowserRouter>
-          <LanguageProvider>
-            <AuthProvider>
+          <AuthProvider>
+            <LanguageProvider>
               <FeatureFlagProvider>
                 <InvoiceProvider>
                   <AppointmentProvider>
@@ -45,8 +45,8 @@ if (!rootElement) {
                   </AppointmentProvider>
                 </InvoiceProvider>
               </FeatureFlagProvider>
-            </AuthProvider>
-          </LanguageProvider>
+            </LanguageProvider>
+          </AuthProvider>
         </BrowserRouter>
       </ErrorBoundary>
     </React.StrictMode>,
