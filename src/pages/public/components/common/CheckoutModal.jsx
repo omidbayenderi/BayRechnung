@@ -1,15 +1,13 @@
 
-import React from 'react';
 import {
-    ShoppingBag, ChevronLeft, X, Trash2, ArrowRight, User, MapPin,
-    CreditCard, Phone, Package, Download, ExternalLink
+    ShoppingBag, ChevronLeft, X, Trash2, ArrowRight, User, MapPin, CreditCard
 } from 'lucide-react';
 
 const CheckoutModal = ({
     isOpen, onClose, theme,
     step, setStep,
     cart, updateQuantity, removeFromCart,
-    total, subtotal, discountCode, setDiscountCode, handleApplyDiscount, discountAmount, appliedDiscount,
+    total, subtotal, discountCode, setDiscountCode, handleApplyDiscount, discountAmount,
     currentUser, setCurrentUser,
     authMode, setAuthMode, authForm, setAuthForm, handleAuthAction,
     handlePlaceOrder, profile, // Company profile for payment links
@@ -243,7 +241,7 @@ const CheckoutModal = ({
                             </div>
                             <p style={{ fontWeight: '600', marginBottom: '12px', color: '#334155', fontSize: '0.9rem' }}>Ödeme Yöntemi Seçiniz:</p>
                             <div style={{ display: 'grid', gap: '12px' }}>
-                                {(profile?.stripeLink || profile?.stripeApiKey) && (
+                                {(profile?.stripeLink || profile?.stripePublicKey) && (
                                     <button onClick={async () => {
                                         try {
                                             const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL || 'https://ceqitkloquydkgxwikvk.supabase.co'}/functions/v1/create-checkout-session`, {

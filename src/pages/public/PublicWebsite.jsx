@@ -124,12 +124,20 @@ const fetchPublicSiteData = async (domainOrSlug) => {
         }
 
         if (!userId) {
-            console.error('🛑 [Public] USER NOT FOUND. Checked slug:', effectiveSlug);
-            return null;
+            console.error('🛑 [Public] USER NOT FOUND. Checked slug/domain:', domainOrSlug, effectiveSlug);
+            // Check if we have ANY admin to show as demo fallback
+            const { data: anyAdmin } = await supabase.from('users').select('id').limit(1).maybeSingle();
+            if (anyAdmin) {
+                userId = anyAdmin.id;
+                console.warn('⚠️ [Public] Falling back to generic admin ID for demo:', userId);
+            } else {
+                return null;
+            }
         }
 
         // 3. Parallel Fetch all data (Ensure RLS is open)
-        let configRes = { data: null }, svcRes = { data: [] }, staffRes = { data: [] }, prodRes = { data: [] }, settingsRes = { data: null }, profileRes = { data: null };
+        console.warn('📡 [Public] Fetching modules for userId:', userId);
+        let configRes = { data: null }, svcRes = { data: [] }, staffRes = { data: [] }, prodRes = { data: [] }, settingsRes = { data: null }, profileRes = { data: null }, blogRes = { data: [] };
 
         try {
             const results = await Promise.allSettled([
@@ -138,6 +146,7 @@ const fetchPublicSiteData = async (domainOrSlug) => {
                 supabase.from('staff').select('*').eq('user_id', userId).order('name', { ascending: true }),
                 supabase.from('products').select('*').eq('user_id', userId).order('name', { ascending: true }),
                 supabase.from('appointment_settings').select('*').eq('user_id', userId).maybeSingle(),
+                supabase.from('blog_posts').select('*').eq('user_id', userId).eq('status', 'published').order('created_at', { ascending: false }),
                 supabase.from('company_settings').select('*').eq('user_id', userId).maybeSingle()
             ]);
 
@@ -146,17 +155,11 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             if (results[2].status === 'fulfilled') staffRes = results[2].value;
             if (results[3].status === 'fulfilled') prodRes = results[3].value;
             if (results[4].status === 'fulfilled') settingsRes = results[4].value;
-            if (results[5].status === 'fulfilled') profileRes = results[5].value;
+            if (results[5].status === 'fulfilled') blogRes = results[5].value; 
+            if (results[6].status === 'fulfilled') profileRes = results[6].value;
 
-            console.warn('📊 [Public] Parallel Fetch Results:', {
-                config: !!configRes.data,
-                services: svcRes.data?.length || 0,
-                staff: staffRes.data?.length || 0,
-                products: prodRes.data?.length || 0,
-                settings: !!settingsRes.data,
-                profile: !!profileRes.data
-            });
-
+            if (configRes.error) console.error('🛑 [Public] Config fetch error:', configRes.error.message);
+            if (profileRes.error) console.error('🛑 [Public] Profile fetch error:', profileRes.error.message);
             if (svcRes.error) console.error('🛑 [Public] Services fetch error:', svcRes.error.message);
             if (prodRes.error) console.error('🛑 [Public] Products fetch error:', prodRes.error.message);
         } catch (e) {
@@ -170,6 +173,7 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             category: profileData.industry || 'standard'
         };
 
+        const pages = configRes?.data?.config?.pages || null;
         const sections = configRes?.data?.config?.sections || [
             { id: 'hero', type: 'hero', visible: true, data: { title: profileData.company_name || 'BayZenit Üyesi İşletme', subtitle: 'Kaliteli hizmetin adresi.' } },
             { id: 'services', type: 'services', visible: true, data: { autoPull: true, title: 'Hizmetlerimiz' } },
@@ -198,14 +202,12 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             }
         };
 
-        // 4. SMART RECOVERY: If core data exists but section is missing from config, inject it.
+        // 4. SMART RECOVERY
         const finalSections = [...sections];
         if (svcRes.data?.length > 0 && !finalSections.find(s => s.type === 'services')) {
-            console.warn('🛠️ [Public] Smart Recovery: Injecting missing Services section');
             finalSections.push({ id: 'recovered-services', type: 'services', visible: true, data: { autoPull: true, title: 'Hizmetlerimiz' } });
         }
         if (prodRes.data?.length > 0 && !finalSections.find(s => s.type === 'products')) {
-            console.warn('🛠️ [Public] Smart Recovery: Injecting missing Products section');
             finalSections.push({ id: 'recovered-products', type: 'products', visible: true, data: { autoPull: true, title: 'Ürünlerimiz' } });
         }
 
@@ -213,29 +215,24 @@ const fetchPublicSiteData = async (domainOrSlug) => {
             domain: domainOrSlug,
             slug: effectiveSlug,
             config,
+            pages: pages || [{ id: 'home', title: 'Home', slug: '/', sections: finalSections }],
             sections: finalSections,
             profile: {
-                companyName: profileData.company_name || 'BayZenit Üyesi İşletme',
-                email: profileData.email || '',
-                phone: profileData.phone || '',
-                address: profileData.address || '',
-                logo: profileData.logo_url || null,
+                ...profileData,
+                companyName: profileData.company_name || profileData.name || config?.companyName || 'BayRechnung Üyesi',
+                logo: profileData.logo_url || profileData.logo || config?.logo || null,
+                currency: profileData.currency || (rawSettings.currency) || '€',
                 social: profileData.social_links || {},
                 industry: profileData.industry || 'general',
-                city: profileData.city || '',
-                zip: profileData.postal_code || profileData.zip || '',
-                street: profileData.street || profileData.address || '',
-                houseNum: profileData.house_num || profileData.houseNum || '',
-                brand_palette: profileData.brand_palette || null,
                 user_id: userId
             },
             userId,
             products: (prodRes.data || []).map(p => ({
                 ...p,
-                image: p.image_url // Map image_url for templates
+                image: p.image_url 
             })),
+            blogs: blogRes?.data || [],
             appointmentSettings: normalizedSettings
-
         };
     } catch (err) {
         console.error('[Public] Error in fetchPublicSiteData:', err);
@@ -301,7 +298,8 @@ const getPublicSiteData = (domainOrSlug, userId = null) => {
         products: stockProducts ? JSON.parse(stockProducts) : [],
         customization: savedCustomization ? JSON.parse(savedCustomization) : null,
         appointmentSettings: appointmentSettings,
-        slug: domainOrSlug // Ensure slug is always available
+        slug: domainOrSlug,
+        userId // Added for context
     };
 };
 
@@ -375,6 +373,7 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
     const [authMode, setAuthMode] = useState('login'); // login, register
     const [hoveredProductId, setHoveredProductId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const params = useParams(); // Fixed: Moved to top level to avoid conditional hook call error
 
     useEffect(() => {
         const savedUser = localStorage.getItem('bay_current_user');
@@ -521,6 +520,7 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
 
             try {
                 const remoteData = await fetchPublicSiteData(effectiveDomain);
+                console.warn('✅ [Public] fetchPublicSiteData finished:', !!remoteData);
                 if (remoteData) {
                     setSiteData(prev => {
                         if (!prev) return remoteData;
@@ -537,9 +537,14 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
                             appointmentSettings: remoteData.appointmentSettings || prev.appointmentSettings
                         };
                     });
+                } else if (!localData || !localData.config) {
+                    // Force false if no data anywhere
+                    console.error('🛑 [Public] No local or remote data found.');
+                    setLoading(false);
                 }
             } catch (err) {
-                console.warn('[Public] Remote fetch failed.', err);
+                console.warn('[Public] Remote fetch CRITICAL failure.', err);
+                setLoading(false);
             } finally {
                 setLoading(false);
             }
@@ -554,6 +559,14 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center', fontFamily: 'sans-serif' }}>
             <h1 style={{ fontSize: '2rem', marginBottom: '16px' }}>Site Hazırlanıyor</h1>
             <p style={{ color: '#64748b' }}>Yapılandırma yüklenirken bir hata oluştu veya site henüz oluşturulmadı.</p>
+        </div>
+    );
+
+    if (!siteData.config.isPublished && !overrideData) return (
+        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center', fontFamily: '"Inter", sans-serif' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🚧</div>
+            <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: '#0f172a', marginBottom: '16px', letterSpacing: '-0.02em' }}>Under Construction</h1>
+            <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '500px', lineHeight: 1.6 }}>This website is currently being updated. Please check back later.</p>
         </div>
     );
 
@@ -618,11 +631,31 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
 
     const editorActions = {
         onSectionSelect: overrideData?.onSectionSelect,
-        activeSectionId: overrideData?.activeSectionId
+        activeSectionId: overrideData?.activeSectionId,
+        deleteSection: overrideData?.deleteSection,
+        moveSection: overrideData?.moveSection,
+        addSection: overrideData?.addSection,
+        onAddSection: overrideData?.onAddSection,
+        setActivePageId: overrideData?.setActivePageId,
+        activePageId: overrideData?.activePageId
     };
 
     const isEditor = !!overrideData;
-    const finalSections = (siteData.sections || []).filter(s => {
+    
+    // 1. Determine current page from URL or Editor State
+    const urlPath = params['*'] || ''; 
+    const currentPath = `/${urlPath}`.replace('//', '/');
+
+    const activePage = isEditor
+        ? (siteData.pages || []).find(p => p.id === overrideData.activePageId) || siteData.pages?.[0]
+        : ((siteData.pages || []).find(p => p.slug === currentPath) 
+            || (siteData.pages || []).find(p => p.slug === '/') 
+            || siteData.pages?.[0]);
+
+    const baseSections = activePage?.sections || siteData.sections || [];
+
+    // 2. Filter sections for visibility
+    const finalSections = baseSections.filter(s => {
         if (!s.visible && !isEditor) return false;
         if (!isEditor && s.type === 'pricing') return false;
         return true;
@@ -647,6 +680,8 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
         return isCategoryMatch || isNameMatch || isDescMatch;
     });
 
+    const pageCustomElements = activePage?.customElements || siteData.config?.customElements || [];
+
     const enrichedSiteData = {
         ...siteData,
         sections: finalSections,
@@ -655,7 +690,12 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
         mode: activeMode,
         categories,
         searchQuery,
-        setSearchQuery
+        setSearchQuery,
+        activePage,
+        config: {
+            ...siteData.config,
+            customElements: pageCustomElements
+        }
     };
 
     const renderOverlays = () => (
@@ -731,7 +771,7 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
     const { config, sections, profile } = siteData;
     const products = siteData.products || [];
     const visibleSections = sections.filter(s => s.visible !== false);
-    const hasPaymentMethods = !!(profile?.stripeLink || profile?.stripeApiKey || profile?.paypalMe || profile?.iban);
+    const hasPaymentMethods = !!(profile?.stripeLink || profile?.stripePublicKey || profile?.paypalMe || profile?.iban);
 
     return (
         <ErrorBoundary>
@@ -773,19 +813,23 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
 
                         {/* Desktop Nav */}
                         <nav className="desktop-nav" style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-                            {visibleSections.map(s => (
-                                <a
-                                    key={s.id}
-                                    href={`#${s.id}`}
-                                    style={{ textDecoration: 'none', color: '#64748b', fontWeight: '500', textTransform: 'capitalize', fontSize: '0.95rem' }}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' });
-                                    }}
-                                >
-                                    {s.data.title || s.id}
-                                </a>
-                            ))}
+                            {defaultPages.filter(p => !p.isHidden).map(p => {
+                                const isPublicRoot = !!customDomain;
+                                const targetUrl = isPublicRoot ? p.path : `/s/${effectiveDomain}${p.path === '/' ? '' : p.path}`;
+                                const isActive = activePage?.path === p.path;
+                                return (
+                                    <a
+                                        key={p.id}
+                                        href={isEditor ? '#' : targetUrl}
+                                        style={{ textDecoration: 'none', color: isActive ? theme.primaryColor : '#64748b', fontWeight: isActive ? '700' : '500', textTransform: 'capitalize', fontSize: '0.95rem' }}
+                                        onClick={(e) => {
+                                            if (isEditor) e.preventDefault();
+                                        }}
+                                    >
+                                        {p.title}
+                                    </a>
+                                );
+                            })}
                             <button
                                 onClick={() => {
                                     if (currentUser) {
@@ -910,22 +954,27 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
                             display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center',
                             zIndex: 999
                         }}>
-                            {visibleSections.map(s => (
-                                <a
-                                    key={s.id}
-                                    href={`#${s.id}`}
-                                    onClick={() => {
-                                        setMobileMenuOpen(false);
-                                        document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' });
-                                    }}
-                                    style={{
-                                        fontSize: '1.25rem', fontWeight: '600', color: '#1e293b', textDecoration: 'none', textTransform: 'capitalize',
-                                        padding: '12px', width: '100%', textAlign: 'center', borderBottom: '1px solid #f1f5f9'
-                                    }}
-                                >
-                                    {s.data.title || s.id}
-                                </a>
-                            ))}
+                            {defaultPages.filter(p => !p.isHidden).map(p => {
+                                const isPublicRoot = !!customDomain;
+                                const targetUrl = isPublicRoot ? p.path : `/s/${effectiveDomain}${p.path === '/' ? '' : p.path}`;
+                                const isActive = activePage?.path === p.path;
+                                return (
+                                    <a
+                                        key={p.id}
+                                        href={isEditor ? '#' : targetUrl}
+                                        onClick={(e) => {
+                                            if (!isEditor) setMobileMenuOpen(false);
+                                            if (isEditor) e.preventDefault();
+                                        }}
+                                        style={{
+                                            fontSize: '1.25rem', fontWeight: isActive ? '800' : '600', color: isActive ? theme.primaryColor : '#1e293b', textDecoration: 'none', textTransform: 'capitalize',
+                                            padding: '12px', width: '100%', textAlign: 'center', borderBottom: '1px solid #f1f5f9'
+                                        }}
+                                    >
+                                        {p.title}
+                                    </a>
+                                );
+                            })}
                             <button
                                 onClick={() => {
                                     setMobileMenuOpen(false);
@@ -968,7 +1017,53 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
                     }
                 `}</style>
 
-                <main>
+                <main style={{ position: 'relative', width: '100%', minHeight: siteData.config?.customElements?.length > 0 ? '1200px' : 'auto' }}>
+                    {/* CUSTOM DRAG & DROP ELEMENTS */}
+                    {siteData.config?.customElements?.length > 0 && (
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                            <div style={{ position: 'relative', width: '100%', maxWidth: '1200px', margin: '0 auto', height: '100%', pointerEvents: 'none' }}>
+                                {siteData.config.customElements.map(element => {
+                                    // Helper to render content
+                                    const renderContent = () => {
+                                        switch (element.type) {
+                                            case 'text':
+                                            case 'heading':
+                                                return <div style={{ width: '100%', height: '100%', fontSize: element.fontSize, fontWeight: element.fontWeight || 'normal', color: element.color, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', whiteSpace: 'pre-wrap', pointerEvents: 'auto' }}>{element.text}</div>;
+                                            case 'button':
+                                                return <button onClick={() => { if(element.action === 'booking') { navigate(`/booking?domain=${effectiveDomain}`) } else if(element.action === 'url' && element.actionUrl) { window.open(element.actionUrl, '_blank') } }} style={{ width: '100%', height: '100%', background: element.bg, color: element.color, borderRadius: element.borderRadius, fontSize: element.fontSize, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', cursor: 'pointer', border: 'none', pointerEvents: 'auto' }}>{element.text}</button>;
+                                            case 'image':
+                                                return <img src={element.src || 'https://via.placeholder.com/300x200'} alt="element" style={{ width: '100%', height: '100%', objectFit: element.objectFit || 'cover', borderRadius: element.borderRadius || 0, pointerEvents: 'auto' }} />;
+                                            case 'video':
+                                                return <div style={{ width: '100%', height: '100%', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', pointerEvents: 'auto' }}>Video Placeholder</div>;
+                                            case 'box':
+                                                return <div style={{ width: '100%', height: '100%', background: element.bg, border: element.border, borderRadius: element.borderRadius, pointerEvents: 'auto' }} />;
+                                            case 'divider':
+                                                return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}><div style={{ width: '100%', height: element.height || 1, background: element.bg || '#e2e8f0' }} /></div>;
+                                            case 'form':
+                                                return <div style={{ width: '100%', height: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 10, pointerEvents: 'auto' }}><div style={{ height: 36, background: 'white', border: '1px solid #cbd5e1', borderRadius: 6 }} /><div style={{ height: 36, background: 'white', border: '1px solid #cbd5e1', borderRadius: 6 }} /><div style={{ height: 80, background: 'white', border: '1px solid #cbd5e1', borderRadius: 6 }} /><div style={{ height: 40, background: '#3b82f6', borderRadius: 6, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>Gönder</div></div>;
+                                            default:
+                                                return null;
+                                        }
+                                    };
+                                    
+                                    return (
+                                        <div key={element.id} style={{
+                                            position: 'absolute',
+                                            left: element.x,
+                                            top: element.y,
+                                            width: element.width,
+                                            height: element.height,
+                                            zIndex: element.zIndex || 1
+                                        }}>
+                                            {renderContent()}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* LEGACY SECTIONS (Rendered below if custom elements don't fill entire page) */}
                     {visibleSections.map(section => (
                         <section
                             key={section.id}
@@ -1157,6 +1252,56 @@ const PublicWebsite = ({ customDomain, overrideData }) => {
                                                     <img src={img} alt={`${section.data.title} ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 </div>
                                             ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* BLOG SECTION */}
+                                {section.type === 'blog' && (
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
+                                            <div>
+                                                <p style={{ color: theme.primaryColor, fontWeight: '600', textTransform: 'uppercase', tracking: '0.1em', fontSize: '0.9rem', marginBottom: '8px' }}>{section.data.subtitle || 'Blog'}</p>
+                                                <h2 style={{ fontSize: '2.5rem', fontWeight: '800', color: theme.text }}>{section.data.title || 'Haberler & İpuçları'}</h2>
+                                            </div>
+                                            <button style={{ color: theme.primaryColor, fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                Tümünü Gör <ArrowRight size={18} />
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
+                                            {(siteData.blogs || []).length > 0 ? siteData.blogs.slice(0, 3).map((post) => (
+                                                <article key={post.id} style={{ 
+                                                    background: theme.mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#fff', 
+                                                    borderRadius: '24px', 
+                                                    overflow: 'hidden', 
+                                                    border: `1px solid ${theme.border}`,
+                                                    transition: 'all 0.3s ease'
+                                                }}>
+                                                    {post.image_url && (
+                                                        <div style={{ width: '100%', height: '220px', overflow: 'hidden' }}>
+                                                            <img src={post.image_url} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        </div>
+                                                    )}
+                                                    <div style={{ padding: '24px' }}>
+                                                        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', fontSize: '0.85rem', color: '#64748b' }}>
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={14} /> {new Date(post.created_at).toLocaleDateString('tr-TR')}</span>
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Eye size={14} /> {post.views || 0}</span>
+                                                        </div>
+                                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '12px', color: theme.text, lineHeight: 1.4 }}>{post.title}</h3>
+                                                        <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '20px', display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                            {post.excerpt || post.content?.replace(/<[^>]*>?/gm, '').slice(0, 150) + '...'}
+                                                        </p>
+                                                        <button style={{ color: theme.primaryColor, fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                                            Devamını Oku <ArrowRight size={18} />
+                                                        </button>
+                                                    </div>
+                                                </article>
+                                            )) : (
+                                                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px', borderRadius: '24px', background: 'rgba(0,0,0,0.02)', color: '#64748b' }}>
+                                                    Henüz yayınlanmış bir blog yazısı bulunmuyor.
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}

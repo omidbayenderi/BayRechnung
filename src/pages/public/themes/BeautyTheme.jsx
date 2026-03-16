@@ -5,15 +5,19 @@ import {
     Phone, Mail, MapPin, Clock, Calendar, ChevronRight,
     ArrowRight, Star, ShoppingCart, Menu, X, Facebook, Instagram, Twitter, Linkedin,
     Heart, Sparkles, User, LogOut, Settings, Globe, CheckCircle, ShoppingBag, Utensils, Stethoscope, Scissors,
-    Wrench, Car, Zap, Briefcase, Disc, CircleDot, Wind, Droplet, ChevronDown, Navigation, Sun, Moon
+    Wrench, Car, Zap, Briefcase, Disc, CircleDot, Wind, Droplet, ChevronDown, Navigation, Sun, Moon,
+    Triangle,
+    Trash2, ArrowUp, ArrowDown, PlusCircle, BookOpen
 } from 'lucide-react';
 
 import { AgentFactory } from '../components/agents/AgentFactory';
 import { useLanguage } from '../../../context/LanguageContext';
 
 const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userActions, state, languageActions, editorActions = {}, handleSubmitMessage }) => {
-    const { profile, config, sections = [], products = [], appointmentSettings } = siteData;
-    const { onSectionSelect, activeSectionId } = editorActions;
+    const { profile, config, sections = [], products = [], appointmentSettings, pages = [], activePage: siteActivePage } = siteData;
+    const { onSectionSelect, activeSectionId, deleteSection, moveSection, onAddSection, setActivePageId: editorSetActivePageId } = editorActions;
+    const activePageId = siteData.activePageId || siteActivePage?.id || 'home';
+    const setActivePageId = editorSetActivePageId || siteData.setActivePageId;
     const { cart } = state;
     const { addToCart, setIsCartOpen } = cartActions;
     const { currentUser, setIsCustomerPanelOpen } = userActions;
@@ -99,13 +103,27 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
 
     const [hoveredSection, setHoveredSection] = useState(null);
 
-    const SectionWrapper = ({ id, children, type }) => {
+    const SectionWrapper = ({ id, children, type, index }) => {
         const isActive = activeSectionId === id;
         const isEditable = !!onSectionSelect;
         const section = sections.find(s => s.id === id);
         const isHidden = section?.visible === false;
         const isHovered = hoveredSection === id;
+        
         if (!isEditable) return children;
+
+        const handleDelete = (e) => {
+            e.stopPropagation();
+            if (window.confirm(t('delete_section_confirm') || 'Are you sure you want to delete this section?')) {
+                deleteSection(id);
+            }
+        };
+
+        const handleMove = (e, direction) => {
+            e.stopPropagation();
+            moveSection(id, direction);
+        };
+
         return (
             <div
                 onClick={(e) => { e.stopPropagation(); onSectionSelect(id); }}
@@ -121,8 +139,13 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                 }}
             >
                 {isActive && (
-                    <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', background: DS.primary, color: 'white', padding: '6px 16px', borderRadius: '0 0 10px 10px', fontSize: '0.7rem', fontWeight: '900', zIndex: 100, letterSpacing: '1px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-                        ✏️ {type?.toUpperCase()} {isHidden && '(HIDDEN)'}
+                    <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', background: DS.primary, color: 'white', padding: '6px 16px', borderRadius: '0 0 10px 10px', fontSize: '0.7rem', fontWeight: '900', zIndex: 100, letterSpacing: '1px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span>✏️ {type?.toUpperCase()} {isHidden && '(HIDDEN)'}</span>
+                        <div style={{ display: 'flex', gap: 4, marginLeft: 8, borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: 12 }}>
+                            <button onClick={(e) => handleMove(e, 'up')} disabled={index === 0} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: index === 0 ? 0.3 : 1 }} title="Move Up"><ArrowUp size={14} /></button>
+                            <button onClick={(e) => handleMove(e, 'down')} disabled={index === sections.length - 1} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: index === sections.length - 1 ? 0.3 : 1 }} title="Move Down"><ArrowDown size={14} /></button>
+                            <button onClick={handleDelete} style={{ background: 'none', border: 'none', color: '#fda4af', cursor: 'pointer', marginLeft: 4 }} title="Delete Section"><Trash2 size={14} /></button>
+                        </div>
                     </div>
                 )}
                 {!isActive && isHovered && (
@@ -131,6 +154,43 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                     </div>
                 )}
                 {children}
+            </div>
+        );
+    };
+
+    const DropZone = ({ index }) => {
+        const [isOver, setIsOver] = useState(false);
+        const isEditable = !!onAddSection;
+
+        if (!isEditable) return null;
+
+        return (
+            <div
+                onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
+                onDragLeave={() => setIsOver(false)}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    setIsOver(false);
+                    try {
+                        const template = JSON.parse(e.dataTransfer.getData('section_template'));
+                        onAddSection(template, index);
+                    } catch (err) { console.error('Drop error:', err); }
+                }}
+                style={{
+                    height: isOver ? '80px' : '12px',
+                    margin: isOver ? '10px 0' : '0',
+                    background: isOver ? DS.primary + '15' : 'transparent',
+                    border: isOver ? `2px dashed ${DS.primary}` : 'none',
+                    borderRadius: '12px',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    zIndex: 20
+                }}
+            >
+                {isOver && <div style={{ color: DS.primary, fontWeight: '800', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 8 }}><PlusCircle size={16} /> Drop to add section here</div>}
             </div>
         );
     };
@@ -243,6 +303,34 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                             </div>
                         </section>
                     );
+                case 'blogs':
+                case 'blog':
+                    return (
+                        <section id="blogs" style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+                                <div style={{ textAlign: 'center', marginBottom: 60 }}>
+                                    <h2 style={{ fontSize: '3.5rem', fontWeight: '900' }}>{sd.title || t('blog_posts') || 'Blog Yazıları'}</h2>
+                                    <p style={{ color: DS.textSecondary, marginTop: 16, fontSize: '1.2rem' }}>{sd.subtitle || t('blog_posts_desc') || 'Yeniliklerden haberdar olun'}</p>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '40px' }}>
+                                    {(siteData.blogs || []).map((blog, i) => (
+                                        <div key={i} style={{ background: DS.surface, borderRadius: DS.radius, overflow: 'hidden', border: '1px solid ' + DS.border, transition: 'all 0.3s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                                            <div style={{ height: '240px', background: DS.surfaceSecondary }}>
+                                                {blog.image_url ? <img src={blog.image_url} alt={blog.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={50} opacity={0.15} /></div>}
+                                            </div>
+                                            <div style={{ padding: '32px' }}>
+                                                <h3 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: 16, color: DS.text }}>{blog.title}</h3>
+                                                <p style={{ color: DS.textSecondary, marginBottom: 24, fontSize: '1rem', lineHeight: 1.8 }}>{blog.excerpt || blog.content?.substring(0, 150) + '...'}</p>
+                                                <Link to={`/blog/${blog.slug}?domain=${siteData.slug}`} style={{ textDecoration: 'none', color: DS.primary, fontWeight: '800', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    {t('read_more') || 'Devamını Oku'} <ArrowRight size={18} />
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
+                    );
                 case 'contact':
                     return (
                         <section id="contact" style={sectionWrapperStyle}>
@@ -288,7 +376,7 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
             }
         })();
 
-        return <SectionWrapper key={section.id} id={section.id} type={section.type}>{content}</SectionWrapper>;
+        return <SectionWrapper key={section.id} id={section.id} type={section.type} index={sections.indexOf(section)}>{content}</SectionWrapper>;
     };
 
     return (
@@ -302,15 +390,47 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
             <nav style={{ background: isDark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', backdropFilter: 'blur(15px)', borderBottom: '1px solid ' + DS.border, position: 'sticky', top: 0, zIndex: 1000 }}>
                 <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontWeight: '900', fontSize: '1.75rem', color: DS.primary, letterSpacing: '-1px' }}>
-                        {profile?.logo ? <img src={profile.logo} alt="Logo" style={{ height: 45 }} /> : profile?.companyName}
+                        {profile?.logo ? <img src={profile.logo} alt="Logo" style={{ height: 45 }} /> : (profile?.companyName || 'BayRechnung Üyesi')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
                         {!isMobile && (
                             <div style={{ display: 'flex', gap: '40px', fontWeight: '700', fontSize: '1rem' }}>
-                                <a href="#hero" onClick={(e) => scrollToSection(e, 'hero')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_home')}</a>
-                                <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
-                                <a href="#products" onClick={(e) => scrollToSection(e, 'products')} style={{ textDecoration: 'none', color: DS.text }}>{t('label_products')}</a>
-                                <a href="#contact" onClick={(e) => scrollToSection(e, 'contact')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_contact')}</a>
+                                {pages.length > 0 ? (
+                                    pages.map(page => {
+                                        const isActive = activePageId === page.id;
+                                        const isEditor = !!onSectionSelect;
+                                        const targetUrl = siteData.customDomain ? page.slug : `/s/${siteData.slug}${page.slug === '/' ? '' : page.slug}`;
+                                        
+                                        return (
+                                            <Link 
+                                                key={page.id} 
+                                                to={isEditor ? '#' : targetUrl} 
+                                                onClick={(e) => {
+                                                    if (isEditor) {
+                                                        e.preventDefault();
+                                                        setActivePageId(page.id);
+                                                    }
+                                                }}
+                                                style={{ 
+                                                    textDecoration: 'none', 
+                                                    color: isActive ? DS.primary : DS.text,
+                                                    borderBottom: isActive ? `2px solid ${DS.primary}` : 'none',
+                                                    paddingBottom: '4px',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                {page.title}
+                                            </Link>
+                                        );
+                                    })
+                                ) : (
+                                    <>
+                                        <a href="#hero" onClick={(e) => scrollToSection(e, 'hero')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_home')}</a>
+                                        <a href="#services" onClick={(e) => scrollToSection(e, 'services')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_services')}</a>
+                                        <a href="#products" onClick={(e) => scrollToSection(e, 'products')} style={{ textDecoration: 'none', color: DS.text }}>{t('label_products')}</a>
+                                        <a href="#contact" onClick={(e) => scrollToSection(e, 'contact')} style={{ textDecoration: 'none', color: DS.text }}>{t('theme_nav_contact')}</a>
+                                    </>
+                                )}
                             </div>
                         )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -329,7 +449,15 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                 </div>
             </nav>
 
-            <main>{sections.map(renderSection)}</main>
+            <main>
+                {sections.map((section, idx) => (
+                    <React.Fragment key={section.id}>
+                        <DropZone index={idx} />
+                        {renderSection(section)}
+                    </React.Fragment>
+                ))}
+                <DropZone index={sections.length} />
+            </main>
 
             <footer style={{ ...getBgStyle('footer'), color: DS.text, padding: '120px 24px 60px', borderTop: '1px solid ' + DS.border }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -372,7 +500,7 @@ const BeautyTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userA
                     </div>
 
                     <div style={{ borderTop: '1px solid ' + DS.border, paddingTop: 40, opacity: 0.5, fontSize: '0.95rem', textAlign: 'center' }}>
-                        &copy; {new Date().getFullYear()} {profile?.companyName}. {t('theme_footer_rights')}
+                        &copy; {new Date().getFullYear()} {profile?.companyName || 'BayRechnung Üyesi'}. {t('theme_footer_rights')}
                     </div>
                 </div>
             </footer>
