@@ -4,7 +4,8 @@ import { useLanguage } from './LanguageContext';
 import { usePlanGuard } from '../hooks/usePlanGuard';
 import {
     LayoutDashboard, FileText, Settings, PlusCircle, Archive, BarChart3, Receipt, Repeat, Users, MessageSquare, // Existing
-    Calendar, Clock, Monitor, ShoppingCart, Package, Globe, Layers, Command, Wrench, Shield, Map, CreditCard
+    Calendar, Clock, Monitor, ShoppingCart, Package, Globe, Layers, Command, Wrench, Shield, Map, CreditCard, Sparkles,
+    PlusSquare, Palette, PenTool, ShoppingBag, Search, MoreHorizontal
 } from 'lucide-react';
 
 const PanelContext = createContext();
@@ -125,9 +126,16 @@ export const PanelProvider = ({ children }) => {
                 break;
             case 'website':
                 menu.push(
-                    { path: '/website/dashboard', icon: LayoutDashboard, label: t('menu_site_status') },
-                    { path: '/website/editor', icon: Monitor, label: t('menu_site_editor') },
-                    { path: '/website/settings', icon: Globe, label: t('menu_domain_settings') }
+                    { path: '/website/dashboard', icon: LayoutDashboard, label: t('menu_site_status') || 'Site-Status' },
+                    { path: '/website/editor', icon: Monitor, label: t('menu_site_editor') || 'Editor' },
+                    { path: '/website/editor?tab=elements', icon: PlusSquare, label: t('menu_elements') || 'Elements' },
+                    { path: '/website/editor?tab=pages', icon: Layers, label: t('menu_pages') || 'Pages' },
+                    { path: '/website/editor?tab=styles', icon: Palette, label: t('menu_styles') || 'Styles' },
+                    { path: '/website/editor?tab=ai', icon: Sparkles, label: t('menu_ai_tools') || 'AI Tools' },
+                    { path: '/website/editor?tab=blog', icon: PenTool, label: t('menu_blogs') || 'Blog' },
+                    { path: '/website/editor?tab=store', icon: ShoppingBag, label: t('menu_store') || 'Shop' },
+                    { path: '/website/editor?tab=seo', icon: Search, label: t('menu_seo') || 'Marketing & SEO' },
+                    { path: '/website/editor?tab=more', icon: MoreHorizontal, label: t('menu_more') || 'More' }
                 );
                 break;
             case 'accounting':

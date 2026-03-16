@@ -421,22 +421,39 @@ export const InvoiceProvider = ({ children }) => {
                     return;
                 }
 
-                if (currentUser.isSkeleton) return;
+                // HIGH_AVAILABILITY_PATCH: Batch requests to avoid saturating connection pool
+                // and add a global timeout to prevent permanent hang.
+                const globalTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Global Data Timeout')), 60000));
+                
+                const fetchLogic = async () => {
+                    // Batch 1: Core accounting
+                    const b1 = await Promise.all([
+                        supabase.from('invoices').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(300),
+                        supabase.from('quotes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(100),
+                        supabase.from('expenses').select('*').eq('user_id', currentUser.id).order('date', { ascending: false }).limit(300),
+                        supabase.from('company_settings').select('*').eq('user_id', currentUser.id).maybeSingle()
+                    ]);
 
-                // PERFORMANCE_PATCH: Limit initial fetch to last 200 items or 1 year 
-                // to avoid kiling the app for large customers.
-                const [invRes, quoteRes, expRes, settingsRes, msgRes, staffRes, recurringRes, customRes, reportRes, projectsRes] = await Promise.all([
-                    supabase.from('invoices').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(300),
-                    supabase.from('quotes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(100),
-                    supabase.from('expenses').select('*').eq('user_id', currentUser.id).order('date', { ascending: false }).limit(300),
-                    supabase.from('company_settings').select('*').eq('user_id', currentUser.id).maybeSingle(),
-                    supabase.from('messages').select('*').or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`).order('created_at', { ascending: false }).limit(50),
-                    supabase.from('staff').select('*').eq('user_id', currentUser.id).order('name', { ascending: true }),
-                    supabase.from('recurring_templates').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
-                    supabase.from('invoice_customization').select('*').eq('user_id', currentUser.id).maybeSingle(),
-                    supabase.from('daily_reports').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(200),
-                    supabase.from('projects').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false })
-                ]);
+                    // Batch 2: Support systems
+                    const b2 = await Promise.all([
+                        supabase.from('staff').select('*').eq('user_id', currentUser.id).order('name', { ascending: true }),
+                        supabase.from('recurring_templates').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+                        supabase.from('invoice_customization').select('*').eq('user_id', currentUser.id).maybeSingle()
+                    ]);
+
+                    // Batch 3: Logging & Messaging
+                    const b3 = await Promise.all([
+                        supabase.from('messages').select('*').or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`).order('created_at', { ascending: false }).limit(50),
+                        supabase.from('daily_reports').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(200),
+                        supabase.from('projects').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false })
+                    ]);
+
+                    // Return in original expected order: inv, quote, exp, settings, msg, staff, recurring, custom, report, projects
+                    return [b1[0], b1[1], b1[2], b1[3], b3[0], b2[0], b2[1], b2[2], b3[1], b3[2]];
+                };
+
+                const results = await Promise.race([fetchLogic(), globalTimeout]);
+                const [invRes, quoteRes, expRes, settingsRes, msgRes, staffRes, recurringRes, customRes, reportRes, projectsRes] = results;
 
                 // Safety check: If remote returns error, DO NOT overwrite local data
                 if (!invRes.error && invRes.data) {

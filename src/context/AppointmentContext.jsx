@@ -561,6 +561,18 @@ export const AppointmentProvider = ({ children }) => {
         syncService.enqueue('staff', 'delete', null, id);
     };
 
+    const updateStaff = async (updatedMember) => {
+        setStaff(prev => prev.map(s => s.id === updatedMember.id ? { ...s, ...updatedMember, name: updatedMember.full_name || updatedMember.name } : s));
+        
+        // Map UI field back to DB field if necessary
+        const dbUpdates = { ...updatedMember };
+        if (updatedMember.name && !updatedMember.full_name) {
+            dbUpdates.full_name = updatedMember.name;
+        }
+
+        syncService.enqueue('staff', 'update', dbUpdates, updatedMember.id);
+    };
+
     const updateSettings = async (newSettings) => {
         const mergedSettings = { ...settings, ...newSettings };
         setSettings(mergedSettings);
@@ -616,6 +628,7 @@ export const AppointmentProvider = ({ children }) => {
         updateService,
         addStaff,
         deleteStaff,
+        updateStaff,
         getService,
         getStaff,
         updateSettings,

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+const useMemo = React.useMemo;
 import { supabase } from '../lib/supabase';
 import { syncService } from '../lib/SyncService';
 import { useAuth } from './AuthContext';
@@ -237,6 +238,58 @@ export const StockProvider = ({ children }) => {
 
         loadStockData();
     }, [currentUser?.id, currentUser?.isSkeleton]);
+
+    // Real-time Supabase Subscription for Products
+    useEffect(() => {
+        if (!currentUser?.id || currentUser.isSkeleton || currentUser.authMode === 'mock' || currentUser.id.startsWith('0000')) return;
+
+        console.log('[StockContext] Setting up real-time product subscription');
+        const channel = supabase.channel(`public:products:user_id=eq.${currentUser.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `user_id=eq.${currentUser.id}` }, (payload) => {
+                console.log('[StockContext] Realtime product update received!', payload);
+                
+                if (payload.eventType === 'INSERT') {
+                    const p = payload.new;
+                    const normalizeProd = {
+                        id: p.id,
+                        name: p.name,
+                        category: p.category,
+                        description: p.description || '',
+                        price: parseFloat(p.price) || 0,
+                        stock: p.stock || 0,
+                        minStock: p.min_stock || 0,
+                        sku: p.sku || '',
+                        image: p.image_url,
+                        supplier_info: p.supplier_info || {}
+                    };
+                    setProducts(prev => {
+                        if (prev.find(x => String(x.id) === String(normalizeProd.id))) return prev;
+                        return [normalizeProd, ...prev];
+                    });
+                } else if (payload.eventType === 'UPDATE') {
+                     const p = payload.new;
+                     setProducts(prev => prev.map(prod => String(prod.id) === String(p.id) ? { 
+                         ...prod, 
+                         name: p.name,
+                         category: p.category,
+                         description: p.description || '',
+                         price: parseFloat(p.price) || 0,
+                         stock: p.stock || 0,
+                         minStock: p.min_stock || 0,
+                         sku: p.sku || '',
+                         image: p.image_url,
+                         supplier_info: p.supplier_info || {}
+                     } : prod));
+                } else if (payload.eventType === 'DELETE') {
+                     setProducts(prev => prev.filter(prod => String(prod.id) !== String(payload.old.id)));
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [currentUser?.id, currentUser?.isSkeleton, currentUser?.authMode]);
 
     // LocalStorage Sync for Public/Local Persistence
     useEffect(() => {
