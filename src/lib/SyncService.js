@@ -1,8 +1,8 @@
-import { supabase, isSupabaseConfigured, checkDbHealth } from './supabase';
+import { supabase, isSupabaseConfigured, checkDbHealth, wakeUp } from './supabase';
 
 const TABLE_SCHEMAS = {
     services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'image_url', 'color', 'icon', 'created_at'],
-    staff: ['id', 'user_id', 'name', 'email', 'status', 'role', 'image_url', 'color', 'created_at'],
+    staff: ['id', 'user_id', 'name', 'full_name', 'email', 'status', 'role', 'image_url', 'color', 'created_at'],
     recurring_templates: ['id', 'user_id', 'template_name', 'customer_name', 'customer_email', 'items', 'frequency', 'amount', 'currency', 'status', 'created_at'],
     projects: ['id', 'user_id', 'name', 'client_name', 'status', 'budget', 'due_date', 'progress', 'created_at', 'updated_at'],
     messages: ['id', 'sender_id', 'receiver_id', 'content', 'type', 'category', 'is_read', 'created_at'],
@@ -261,8 +261,8 @@ class SyncService {
 
     async syncItem(item) {
         try {
-            // Add a timeout for the individual sync operation
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timeout')), 15000));
+            // Increased timeout to 45s to handle database hibernation/cold starts
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timeout')), 45000));
             const resultPromise = this._performSync(item);
 
             return await Promise.race([resultPromise, timeoutPromise]);
@@ -400,6 +400,10 @@ class SyncService {
             if (health.success) {
                 this.lastSuccess = Date.now();
                 if (this.queue.length > 0) this.processQueue();
+            } else if (health.error?.includes('Timeout')) {
+                // If we get a timeout, proactively try to wake up the DB
+                console.log("[Sync] DB appears slow/sleeping, sending wakeUp ping...");
+                wakeUp();
             }
             this.notifyListeners();
             return health.success;
