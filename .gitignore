@@ -27,3 +27,10 @@ dist-ssr
 .env
 install_tmp/
 tools/
+
+# Debug / investigation scripts
+investigate_*.mjs
+investigate_*.js
+debug_*.mjs
+debug_*.js
+test_*.mjs
