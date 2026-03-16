@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+const useMemo = React.useMemo;
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 const LanguageContext = createContext();
 
@@ -53,6 +56,7 @@ const translations = {
                 sections: 'Bereiche',
                 design: 'Design',
                 republish: 'Neu veröffentlichen',
+                publish: 'Veröffentlichen',
                 autosaved: 'Automatisch gespeichert',
                 backToHome: "Zurück zur Startseite",
                 last_updated: "Zuletzt aktualisiert",
@@ -774,6 +778,17 @@ const translations = {
                 edit_content_desc: 'Startseite und Texte ändern.',
                 domain_seo: 'Domain & SEO',
                 theme_colors: 'Design & Farben',
+                menu_site_status: 'Site Status',
+                menu_site_editor: 'Editor',
+                menu_elements: 'Elemente',
+                menu_pages: 'Seiten',
+                menu_styles: 'Stile',
+                menu_ai_tools: 'KI Tools',
+                menu_blogs: 'Blogs',
+                menu_store: 'Shop',
+                menu_seo: 'SEO',
+                menu_more: 'Mehr',
+                menu_setup: 'Setup',
 
                 // Theme Names & Descriptions (DE)
                 'theme_name_automotive-professional': 'Business Profi',
@@ -1571,6 +1586,7 @@ const translations = {
                 sections: 'Sections',
                 design: 'Design',
                 republish: 'Republish',
+                publish: 'Publish',
                 autosaved: 'Autosaved',
                 backToHome: "Back to Home",
                 last_updated: "Last updated",
@@ -2238,6 +2254,17 @@ const translations = {
                 edit_content_desc: 'Change homepage and texts.',
                 domain_seo: 'Domain & SEO',
                 theme_colors: 'Theme & Colors',
+                menu_site_status: 'Site Status',
+                menu_site_editor: 'Editor',
+                menu_elements: 'Elements',
+                menu_pages: 'Pages',
+                menu_styles: 'Styles',
+                menu_ai_tools: 'AI Tools',
+                menu_blogs: 'Blogs',
+                menu_store: 'Shop',
+                menu_seo: 'SEO',
+                menu_more: 'More',
+                menu_setup: 'Setup',
                 live_preview: 'Live Preview',
                 dark_mode: 'Dark',
                 light_mode: 'Light',
@@ -3100,6 +3127,7 @@ const translations = {
                 sections: 'Bölümler',
                 design: 'Tasarım',
                 republish: 'Yeniden Yayınla',
+                publish: 'Yayınla',
                 autosaved: 'Otomatik Kaydedildi',
                 totalUsers: 'Toplam Kullanıcı',
                 active: 'Aktif',
@@ -3884,6 +3912,17 @@ const translations = {
                 edit_content_desc: 'Ana sayfa, hakkımızda yazısı ve öne çıkanları değiştir.',
                 domain_seo: 'Alan Adı & SEO',
                 theme_colors: 'Tema & Renkler',
+                menu_site_status: 'Site Durumu',
+                menu_site_editor: 'Düzenleyici',
+                menu_elements: 'Ögeler',
+                menu_pages: 'Sayfalar',
+                menu_styles: 'Stiller',
+                menu_ai_tools: 'AI Araçları',
+                menu_blogs: 'Blog',
+                menu_store: 'Mağaza',
+                menu_seo: 'SEO',
+                menu_more: 'Daha Fazla',
+                menu_setup: 'Kurulum',
                 live_preview: 'Canlı Önizleme',
                 dark_mode: 'Karanlık',
                 light_mode: 'Aydınlık',
@@ -3977,6 +4016,13 @@ const translations = {
                 menu_domain_settings: 'Alan Adı & Ayarlar',
                 menu_users: 'Kullanıcılar',
                 menu_messages: 'Mesajlar',
+                menu_blogs: 'Bloglar',
+                menu_store: 'Mağaza',
+                menu_more: 'Daha Fazla',
+                menu_ai_tools: 'YZ Araçları',
+                menu_pages: 'Sayfalar',
+                menu_elements: 'Öğeler',
+                menu_setup: 'Kurulum',
 
                 // Invoice Paper
                 page: 'Sayfa',
@@ -6408,6 +6454,26 @@ export const LanguageProvider = ({ children }) => {
                 return stored ? JSON.parse(stored) : {};
         });
 
+        const { currentUser } = useAuth(); // Needed to bind translations to user/company
+
+        // Try load from DB on mount
+        useEffect(() => {
+                if (!currentUser?.id) return;
+                const fetchTranslations = async () => {
+                        const { data, error } = await supabase
+                                .from('translations_cache')
+                                .select('translations')
+                                .eq('user_id', currentUser.id)
+                                .maybeSingle();
+                        
+                        if (data && data.translations) {
+                                setAiTranslations(data.translations);
+                                localStorage.setItem('bay_ai_translations', JSON.stringify(data.translations));
+                        }
+                };
+                fetchTranslations();
+        }, [currentUser?.id]);
+
         // New: Manage languages for specific services/panels
         const [serviceLanguages, setServiceLanguages] = useState(() => {
                 const saved = localStorage.getItem('bay_service_languages');
@@ -6483,6 +6549,18 @@ export const LanguageProvider = ({ children }) => {
                                 }
                         };
                         localStorage.setItem('bay_ai_translations', JSON.stringify(newState));
+
+                        // Sync to DB silently
+                        if (currentUser?.id) {
+                                supabase.from('translations_cache').upsert({
+                                        user_id: currentUser.id,
+                                        translations: newState,
+                                        updated_at: new Date().toISOString()
+                                }, { onConflict: 'user_id' }).then(({ error }) => {
+                                        if (error) console.error("Error saving translations to DB:", error);
+                                });
+                        }
+
                         return newState;
                 });
         };
