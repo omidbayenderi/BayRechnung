@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useWebsite } from '../../context/WebsiteContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,10 +8,12 @@ import {
     Type, Image as ImageIcon, List, FileText, CheckCircle,
     ChevronRight, Save, LayoutTemplate, X, Briefcase, Calendar, Map, Globe,
     ChevronDown, Plus, MessageSquare, Layers, Paperclip, Star, Hash, Settings, Palette,
-    GripVertical, Smartphone, Tablet, Monitor as DesktopIcon, Sun, Moon
+    GripVertical, Smartphone, Tablet, Monitor as DesktopIcon, Sun, Moon,
+    CheckSquare, PlusSquare, Wand2, MoreHorizontal, Link, BarChart
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import PublicWebsite from '../public/PublicWebsite';
+import SectionLibrary from './SectionLibrary';
 
 // ─── GOOGLE FONTS LIST ───
 const GOOGLE_FONTS = [
@@ -28,15 +30,35 @@ const GOOGLE_FONTS = [
 
 const WebsiteEditor = () => {
     const {
+        pages, activePageId, setActivePageId, addPage, deletePage, updatePage,
         sections, updateSection, toggleSectionVisibility,
         addSection, deleteSection, moveSection, siteConfig, updateSiteConfig,
         publishSite
     } = useWebsite();
     const { t } = useLanguage();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // URL Tab Sync
+    const getTabFromUrl = () => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        const mapping = {
+            'status': 'kurulum',
+            'elements': 'ogeler',
+            'pages': 'sayfalar',
+            'styles': 'stiller',
+            'ai': 'yapayzeka',
+            'blog': 'blog',
+            'store': 'magaza',
+            'seo': 'seo',
+            'more': 'daha'
+        };
+        return mapping[tab] || tab || 'ogeler';
+    };
 
     // UI State
-    const [activeTab, setActiveTab] = useState('sections');
+    const [activePanel, setActivePanel] = useState(getTabFromUrl());
     const [bgMode, setBgMode] = useState('light');
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingSection, setEditingSection] = useState(null); // section id for modal
@@ -44,6 +66,20 @@ const WebsiteEditor = () => {
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, tablet, mobile
     const [draggedIdx, setDraggedIdx] = useState(null);
     const [showDesignPanel, setShowDesignPanel] = useState(false);
+
+    // Sync activePanel with URL
+    useEffect(() => {
+        const tab = getTabFromUrl();
+        if (tab !== activePanel) {
+            setActivePanel(tab);
+        }
+    }, [location.search]);
+
+    const handleTabChange = (tab) => {
+        const params = new URLSearchParams(location.search);
+        params.set('tab', tab);
+        navigate({ search: params.toString() });
+    };
 
     // ─── SECTION TEMPLATES ───
     const SECTION_TEMPLATES = useMemo(() => [
@@ -119,6 +155,9 @@ const WebsiteEditor = () => {
 
         return {
             profile,
+            pages,
+            activePageId,
+            setActivePageId,
             config: siteConfig,
             sections,
             products: JSON.parse(localStorage.getItem('bay_products') || '[]'),
@@ -132,224 +171,328 @@ const WebsiteEditor = () => {
                 workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             },
             onSectionSelect: openSectionEditor,
-            activeSectionId: editingSection
+            activeSectionId: editingSection,
+            onAddSection: (template, index) => {
+                const newSection = {
+                    id: template.id || (template.type + '_' + Math.random().toString(36).substr(2, 9)),
+                    type: template.type.toUpperCase(),
+                    visible: true,
+                    data: { ...template.data || template.defaultData, style: { padding: 'normal' } }
+                };
+                addSection(newSection, index);
+            },
+            moveSection,
+            deleteSection: handleDeleteSection
         };
-    }, [siteConfig, sections, openSectionEditor, editingSection]);
+    }, [siteConfig, sections, pages, activePageId, setActivePageId, openSectionEditor, editingSection, addSection, moveSection, handleDeleteSection]);
 
     // ─── PREVIEW WIDTH ───
     const previewWidth = previewMode === 'mobile' ? '375px' : previewMode === 'tablet' ? '768px' : '100%';
+
+    const SIDEBAR_ITEMS = [
+        { id: 'kurulum', icon: CheckSquare, label: 'Kurulum' },
+        { id: 'ogeler', icon: PlusSquare, label: 'Öğeler' },
+        { id: 'sayfalar', icon: FileText, label: 'Sayfalar' },
+        { id: 'stiller', icon: Palette, label: 'Stiller' },
+        { id: 'yapayzeka', icon: Wand2, label: 'YZ araçları' },
+        { id: 'blog', icon: MessageSquare, label: 'Blog' },
+        { id: 'magaza', icon: ShoppingCart, label: 'Mağaza' },
+        { id: 'seo', icon: Globe, label: 'SEO' },
+        { id: 'daha', icon: MoreHorizontal, label: 'Daha fazla' }
+    ];
 
     // ─── RENDER ───
     return (
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#0f172a', fontFamily: '"Inter", sans-serif' }}>
 
-            {/* ═══ LEFT SIDEBAR ═══ */}
-            <div style={{ width: '300px', minWidth: '300px', background: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', zIndex: 30 }}>
+            {/* Removed internal narrow sidebar to rely on global Sidebar */}
 
-                {/* Header */}
-                <div style={{ padding: '20px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                        <button onClick={() => navigate('/website/dashboard')} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '8px', cursor: 'pointer', color: '#64748b' }}>
-                            <ArrowLeft size={18} />
-                        </button>
-                        <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', letterSpacing: '-0.02em' }}>WebBuilder Pro</h2>
-                    </div>
-
-                    {/* Tab Switcher */}
-                    <div style={{ display: 'flex', gap: '2px', padding: '4px', background: '#f1f5f9', borderRadius: '12px' }}>
-                        {[
-                            { id: 'sections', icon: Layout, label: t('sections') || 'Sections' },
-                            { id: 'design', icon: Palette, label: t('design') || 'Design' },
-                            { id: 'seo', icon: Globe, label: 'SEO' }
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                style={{
-                                    flex: 1, padding: '8px 4px', borderRadius: '10px', border: 'none',
-                                    background: activeTab === tab.id ? 'white' : 'transparent',
-                                    color: activeTab === tab.id ? '#3b82f6' : '#64748b',
-                                    fontWeight: '800', fontSize: '0.7rem', cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                                    boxShadow: activeTab === tab.id ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <tab.icon size={13} /> {tab.label}
+            {/* ═══ EXPANDABLE PANEL ═══ */}
+            <AnimatePresence>
+                {activePanel && (
+                    <motion.div
+                        initial={{ width: 0, opacity: 0 }}
+                        animate={{ width: 320, opacity: 1 }}
+                        exit={{ width: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        style={{ background: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', zIndex: 30, overflow: 'hidden', minWidth: 320 }}
+                    >
+                        <div style={{ padding: '20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: '320px' }}>
+                            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#1e293b' }}>
+                                {SIDEBAR_ITEMS.find(i => i.id === activePanel)?.label}
+                            </h2>
+                            <button onClick={() => setActivePanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                                <X size={20} />
                             </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Sidebar Content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-
-                    {/* ── SECTIONS TAB ── */}
-                    {activeTab === 'sections' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <button
-                                onClick={() => setShowAddModal(true)}
-                                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px dashed #bfdbfe', background: '#eff6ff', color: '#3b82f6', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.8rem', marginBottom: '8px' }}
-                            >
-                                <PlusCircle size={16} /> {t('add_new_section') || 'Add Section'}
-                            </button>
-
-                            {sections.map((section, idx) => (
-                                <div
-                                    key={section.id}
-                                    draggable
-                                    onDragStart={() => handleDragStart(idx)}
-                                    onDragOver={handleDragOver}
-                                    onDrop={() => handleDrop(idx)}
-                                    style={{
-                                        padding: '12px 14px', borderRadius: '12px', cursor: 'grab',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        background: editingSection === section.id ? '#eff6ff' : '#f8fafc',
-                                        border: '1px solid ' + (editingSection === section.id ? '#93c5fd' : '#f1f5f9'),
-                                        opacity: section.visible === false ? 0.5 : 1,
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                                        <GripVertical size={14} color="#cbd5e1" />
-                                        <div style={{ color: editingSection === section.id ? '#3b82f6' : '#94a3b8', flexShrink: 0 }}>
-                                            {SECTION_TEMPLATES.find(t => t.type.toUpperCase() === section.type.toUpperCase())?.icon || <Layout size={16} />}
-                                        </div>
-                                        <div style={{ minWidth: 0 }}>
-                                            <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{section.data?.title || section.type}</div>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                                        <button onClick={(e) => { e.stopPropagation(); openSectionEditor(section.id); }} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '4px' }}><Edit3 size={14} /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); moveSection(section.id, 'up'); }} title="Move Up" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}><ChevronDown size={14} style={{ transform: 'rotate(180deg)' }} /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); moveSection(section.id, 'down'); }} title="Move Down" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}><ChevronDown size={14} /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); toggleSectionVisibility(section.id); }} title="Toggle Visibility" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}>
-                                            {section.visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
-                                        </button>
-                                        {section.type !== 'HERO' && (
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteSection(section.id); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: '4px' }}><Trash2 size={14} /></button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
                         </div>
-                    )}
-
-                    {/* ── DESIGN TAB ── */}
-                    {activeTab === 'design' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {/* Appearance Mode */}
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Appearance</h4>
-                                <EditorField
-                                    label={t('theme_mode') || 'Display Mode'}
-                                    type="select"
-                                    options={[
-                                        { label: 'System / Auto', value: 'auto' },
-                                        { label: 'Light Mode', value: 'light' },
-                                        { label: 'Dark Mode', value: 'dark' }
-                                    ]}
-                                    value={siteConfig.mode || 'auto'}
-                                    onChange={(val) => updateSiteConfig({ mode: val })}
-                                />
-                            </div>
-
-                            {/* Brand Color */}
-                            <EditorField label={t('primary_color') || 'Brand Color'} type="color" value={siteConfig.theme?.primaryColor} onChange={(val) => updateSiteConfig({ theme: { primaryColor: val } })} />
-
-                            {/* Font Family */}
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Typography</h4>
-                                <EditorField
-                                    label={t('font_family') || 'Font Family'}
-                                    type="select"
-                                    options={GOOGLE_FONTS.map(f => ({ label: f, value: `"${f}", sans-serif` }))}
-                                    value={siteConfig.theme?.fontFamily || '"Inter", sans-serif'}
-                                    onChange={(val) => updateSiteConfig({ theme: { fontFamily: val } })}
-                                />
-                                <EditorField label={t('border_radius') || 'Corner Radius'} type="select" options={[
-                                    { label: 'None (Square)', value: '0px' },
-                                    { label: 'Small', value: '4px' },
-                                    { label: 'Default', value: '12px' },
-                                    { label: 'Large', value: '24px' },
-                                    { label: 'Full (Pill)', value: '9999px' }
-                                ]} value={siteConfig.theme?.radius || '12px'} onChange={(val) => updateSiteConfig({ theme: { radius: val } })} />
-                            </div>
-
-                            {/* Global Palette Overrides */}
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                    <h4 style={{ margin: 0, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Global Palette Overrides</h4>
-                                    <div style={{ display: 'flex', gap: 2, background: '#e2e8f0', padding: 2, borderRadius: 6 }}>
-                                        {['light', 'dark'].map(m => (
-                                            <button key={m} onClick={() => setBgMode(m)} style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: bgMode === m ? 'white' : 'transparent', color: bgMode === m ? '#3b82f6' : '#94a3b8', fontSize: '0.6rem', fontWeight: '800', cursor: 'pointer' }}>{m.toUpperCase()}</button>
+                        
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', minWidth: '320px' }}>
+                            {activePanel === 'kurulum' && (
+                                <div>
+                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '16px' }}>Set up your site with these checklist items.</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {['Select Template', 'Customize Design', 'Add Pages', 'Add Custom Domain', 'Configure SEO', 'Set Up Store', 'Publish Site'].map((item, i) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                                <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: '2px solid #cbd5e1' }} />
+                                                <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#334155' }}>{item}</span>
+                                            </div>
                                         ))}
                                     </div>
+                                    <button onClick={() => publishSite()} style={{ width: '100%', padding: '12px', background: '#9333ea', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', marginTop: '16px', cursor: 'pointer' }}>Publish Site</button>
                                 </div>
-                                <EditorField label={`Bg Color (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.bg} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], bg: v } } } })} />
-                                <EditorField label={`Surface (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.surface} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], surface: v } } } })} />
-                                <EditorField label={`Text Color (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.text} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], text: v } } } })} />
-                                <EditorField label={`Border (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.border} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], border: v } } } })} />
-                            </div>
+                            )}
 
-                            {/* Global Backgrounds */}
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #eef2f6' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                    <h4 style={{ margin: '0', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}><ImageIcon size={12} /> Backgrounds</h4>
-                                    <div style={{ display: 'flex', gap: 2, background: '#e2e8f0', padding: 3, borderRadius: 8 }}>
-                                        {['light', 'dark'].map(m => (
-                                            <button key={m} onClick={() => setBgMode(m)} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: bgMode === m ? 'white' : 'transparent', color: bgMode === m ? '#3b82f6' : '#64748b', fontSize: '0.65rem', fontWeight: '800', cursor: 'pointer' }}>{m === 'light' ? <Sun size={12} /> : <Moon size={12} />}</button>
-                                        ))}
+                            {activePanel === 'ogeler' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ marginBottom: 20 }}>
+                                        <SectionLibrary onAddSection={handleAddSection} />
                                     </div>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {['hero', 'body', 'footer'].map(zone => (
-                                        <BackgroundSelector
-                                            key={zone}
-                                            label={zone.charAt(0).toUpperCase() + zone.slice(1)}
-                                            bgMode={bgMode}
-                                            value={siteConfig.theme?.backgrounds?.[zone]?.[bgMode] || { type: 'color', value: 'default' }}
-                                            onChange={(val) => updateSiteConfig({ theme: { backgrounds: { [zone]: { [bgMode]: val } } } })}
-                                        />
+                                    <div style={{ height: '1px', background: '#f1f5f9', margin: '8px 0' }} />
+                                    <h3 style={{ fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>
+                                        Active Sections
+                                    </h3>
+                                    {sections.map((section, idx) => (
+                                        <div
+                                            key={section.id}
+                                            draggable
+                                            onDragStart={() => handleDragStart(idx)}
+                                            onDragOver={handleDragOver}
+                                            onDrop={() => handleDrop(idx)}
+                                            style={{
+                                                padding: '12px 14px', borderRadius: '12px', cursor: 'grab',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                background: editingSection === section.id ? '#f3e8ff' : '#f8fafc',
+                                                border: '1px solid ' + (editingSection === section.id ? '#d8b4fe' : '#f1f5f9'),
+                                                opacity: section.visible === false ? 0.5 : 1,
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                                                <GripVertical size={14} color="#cbd5e1" />
+                                                <div style={{ color: editingSection === section.id ? '#9333ea' : '#94a3b8', flexShrink: 0 }}>
+                                                    {SECTION_TEMPLATES.find(t => t.type.toUpperCase() === section.type.toUpperCase())?.icon || <Layout size={16} />}
+                                                </div>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{section.data?.title || section.type}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                                                <button onClick={(e) => { e.stopPropagation(); openSectionEditor(section.id); }} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9333ea', padding: '4px' }}><Edit3 size={14} /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); moveSection(section.id, 'up'); }} title="Move Up" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}><ChevronDown size={14} style={{ transform: 'rotate(180deg)' }} /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); moveSection(section.id, 'down'); }} title="Move Down" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}><ChevronDown size={14} /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); toggleSectionVisibility(section.id); }} title="Toggle Visibility" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}>
+                                                    {section.visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteSection(section.id); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: '4px' }}><Trash2 size={14} /></button>
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
-                                <div style={{ height: '1px', background: '#eef2f6', margin: '12px 0' }} />
-                                <EditorField label="Text Color" type="color" value={siteConfig.theme?.colors?.[bgMode]?.text || (bgMode === 'dark' ? '#ffffff' : '#1e293b')} onChange={(val) => updateSiteConfig({ theme: { colors: { [bgMode]: { text: val } } } })} />
-                                <EditorField label="Secondary Color" type="color" value={siteConfig.theme?.colors?.[bgMode]?.textSecondary || (bgMode === 'dark' ? '#94a3b8' : '#64748b')} onChange={(val) => updateSiteConfig({ theme: { colors: { [bgMode]: { textSecondary: val } } } })} />
-                            </div>
-                        </div>
-                    )}
+                            )}
 
-                    {/* ── SEO TAB ── */}
-                    {activeTab === 'seo' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <EditorField label={t('seo_title') || 'Meta Title'} value={siteConfig.seo?.title} onChange={(val) => updateSiteConfig({ seo: { title: val } })} />
-                            <EditorField label={t('seo_desc') || 'Meta Description'} isTextArea value={siteConfig.seo?.description} onChange={(val) => updateSiteConfig({ seo: { description: val } })} />
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Advanced</h4>
-                                <EditorField label={t('custom_css') || 'Custom CSS'} isTextArea placeholder="body { ... }" value={siteConfig.advanced?.customCss} onChange={(val) => updateSiteConfig({ advanced: { customCss: val } })} />
-                                <EditorField label={t('head_scripts') || 'Header Scripts'} isTextArea placeholder="<!-- Analytics -->" value={siteConfig.advanced?.headScripts} onChange={(val) => updateSiteConfig({ advanced: { headScripts: val } })} />
-                            </div>
-                        </div>
-                    )}
-                </div>
+                            {activePanel === 'sayfalar' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>{t('pages') || 'Sayfalar'}</h4>
+                                        <button 
+                                            onClick={() => {
+                                                const name = window.prompt(t('enter_page_name') || 'Sayfa adı girin:');
+                                                if (name) {
+                                                    const slug = name.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
+                                                    addPage(name, `/${slug}`);
+                                                }
+                                            }}
+                                            style={{ border: 'none', background: 'none', color: '#9333ea', cursor: 'pointer' }}
+                                        >
+                                            <Plus size={16}/>
+                                        </button>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {pages.map(page => (
+                                            <div 
+                                                key={page.id} 
+                                                onClick={() => setActivePageId(page.id)}
+                                                style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'space-between', 
+                                                    padding: '12px', 
+                                                    background: activePageId === page.id ? '#f0f9ff' : '#f8fafc', 
+                                                    border: activePageId === page.id ? '1px solid #0ea5e9' : '1px solid #e2e8f0', 
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <FileText size={16} color={activePageId === page.id ? '#0ea5e9' : '#64748b'} />
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: activePageId === page.id ? '#0369a1' : '#1e293b' }}>
+                                                            {page.title}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{page.slug}</span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    {page.id !== 'home' && (
+                                                        <Trash2 
+                                                            size={14} 
+                                                            color="#94a3b8" 
+                                                            hovercolor="#ef4444"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (window.confirm(t('delete_page_confirm') || 'Bu sayfayı silmek istediğinize emin misiniz?')) {
+                                                                    deletePage(page.id);
+                                                                }
+                                                            }}
+                                                        />
+                                                    )}
+                                                    <MoreHorizontal size={14} color="#94a3b8" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
-                {/* Bottom Actions */}
-                <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
-                    <button
-                        onClick={() => window.open(`/theme/demo?domain=${siteConfig.domain || 'demo'}`, '_blank')}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}
-                    >
-                        <Eye size={16} /> {t('preview') || 'Preview'}
-                    </button>
-                    <button
-                        onClick={() => { publishSite(); alert(t('site_published') || 'Site published!'); }}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px', borderRadius: '12px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: '800', cursor: 'pointer', fontSize: '0.8rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}
-                    >
-                        <Globe size={16} /> {siteConfig.isPublished ? (t('republish') || 'Republish') : (t('publish') || 'Publish')}
-                    </button>
-                </div>
-            </div>
+                            {activePanel === 'stiller' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    {/* Appearance Mode */}
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
+                                        <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Appearance</h4>
+                                        <EditorField
+                                            label={t('theme_mode') || 'Display Mode'}
+                                            type="select"
+                                            options={[
+                                                { label: 'System / Auto', value: 'auto' },
+                                                { label: 'Light Mode', value: 'light' },
+                                                { label: 'Dark Mode', value: 'dark' }
+                                            ]}
+                                            value={siteConfig.mode || 'auto'}
+                                            onChange={(val) => updateSiteConfig({ mode: val })}
+                                        />
+                                    </div>
+        
+                                    {/* Brand Color */}
+                                    <EditorField label={t('primary_color') || 'Brand Color'} type="color" value={siteConfig.theme?.primaryColor} onChange={(val) => updateSiteConfig({ theme: { primaryColor: val } })} />
+        
+                                    {/* Font Family */}
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
+                                        <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Typography</h4>
+                                        <EditorField
+                                            label={t('font_family') || 'Font Family'}
+                                            type="select"
+                                            options={GOOGLE_FONTS.map(f => ({ label: f, value: `"${f}", sans-serif` }))}
+                                            value={siteConfig.theme?.fontFamily || '"Inter", sans-serif'}
+                                            onChange={(val) => updateSiteConfig({ theme: { fontFamily: val } })}
+                                        />
+                                        <EditorField label={t('border_radius') || 'Corner Radius'} type="select" options={[
+                                            { label: 'None (Square)', value: '0px' },
+                                            { label: 'Small', value: '4px' },
+                                            { label: 'Default', value: '12px' },
+                                            { label: 'Large', value: '24px' },
+                                            { label: 'Full (Pill)', value: '9999px' }
+                                        ]} value={siteConfig.theme?.radius || '12px'} onChange={(val) => updateSiteConfig({ theme: { radius: val } })} />
+                                    </div>
+        
+                                    {/* Global Palette Overrides */}
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                            <h4 style={{ margin: 0, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Global Palette</h4>
+                                            <div style={{ display: 'flex', gap: 2, background: '#e2e8f0', padding: 2, borderRadius: 6 }}>
+                                                {['light', 'dark'].map(m => (
+                                                    <button key={m} onClick={() => setBgMode(m)} style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: bgMode === m ? 'white' : 'transparent', color: bgMode === m ? '#3b82f6' : '#94a3b8', fontSize: '0.6rem', fontWeight: '800', cursor: 'pointer' }}>{m.toUpperCase()}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <EditorField label={`Bg Color (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.bg} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], bg: v } } } })} />
+                                        <EditorField label={`Surface (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.surface} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], surface: v } } } })} />
+                                        <EditorField label={`Text Color (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.text} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], text: v } } } })} />
+                                        <EditorField label={`Border (${bgMode})`} type="color" value={siteConfig.theme?.colors?.[bgMode]?.border} onChange={v => updateSiteConfig({ theme: { colors: { ...siteConfig.theme?.colors, [bgMode]: { ...siteConfig.theme?.colors?.[bgMode], border: v } } } })} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {activePanel === 'yapayzeka' && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                    {[
+                                        { name: 'AI Writer', icon: Type }, { name: 'AI Logo', icon: Palette },
+                                        { name: 'AI Image', icon: ImageIcon }, { name: 'AI Heatmap', icon: BarChart },
+                                        { name: 'AI SEO', icon: Globe }, { name: 'Auto Translate', icon: MessageSquare }
+                                    ].map(tool => (
+                                        <button key={tool.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 8px', gap: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer' }}>
+                                            <tool.icon size={24} color="#9333ea" />
+                                            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#334155' }}>{tool.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {activePanel === 'blog' && (
+                                <div>
+                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                                        <button style={{ flex: 1, padding: '6px', background: 'white', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>Hepsi</button>
+                                        <button style={{ flex: 1, padding: '6px', background: 'transparent', border: 'none', fontSize: '0.8rem', fontWeight: '600', color: '#64748b' }}>Taslaklar</button>
+                                    </div>
+                                    <div style={{ textAlign: 'center', padding: '32px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                                        <MessageSquare size={32} color="#cbd5e1" style={{ marginBottom: '12px' }} />
+                                        <h4 style={{ margin: '0 0 8px', fontSize: '0.9rem' }}>No posts yet</h4>
+                                        <button style={{ padding: '8px 16px', background: '#9333ea', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', fontSize: '0.8rem' }}>Create Post</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activePanel === 'magaza' && (
+                                <div style={{ textAlign: 'center', padding: '24px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                    <ShoppingCart size={40} color="#9333ea" style={{ marginBottom: '16px' }} />
+                                    <h4 style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: '700' }}>Manage Your Store</h4>
+                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '16px' }}>Add products, manage inventory and track sales from your store dashboard.</p>
+                                    <button onClick={() => navigate('/stock')} style={{ width: '100%', padding: '12px', background: '#1e293b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Stok & Satış panelini aç</button>
+                                    <button onClick={() => navigate('/appointments')} style={{ width: '100%', padding: '12px', background: 'white', color: '#1e293b', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', marginTop: 8 }}>Randevu panelini aç</button>
+                                </div>
+                            )}
+
+                            {activePanel === 'seo' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <EditorField label={t('seo_title') || 'Meta Title'} value={siteConfig.seo?.title} onChange={(val) => updateSiteConfig({ seo: { title: val } })} />
+                                    <EditorField label={t('seo_desc') || 'Meta Description'} isTextArea value={siteConfig.seo?.description} onChange={(val) => updateSiteConfig({ seo: { description: val } })} />
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
+                                        <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Advanced</h4>
+                                        <EditorField label={t('custom_css') || 'Custom CSS'} isTextArea placeholder="body { ... }" value={siteConfig.advanced?.customCss} onChange={(val) => updateSiteConfig({ advanced: { customCss: val } })} />
+                                        <EditorField label={t('head_scripts') || 'Header Scripts'} isTextArea placeholder="<!-- Analytics -->" value={siteConfig.advanced?.headScripts} onChange={(val) => updateSiteConfig({ advanced: { headScripts: val } })} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {activePanel === 'daha' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {['Blog', 'Randevular', 'Genel ayarlar', 'Entegrasyonlar', 'Form gönderimleri', 'Analizler', 'Medya kütüphanesi'].map(item => (
+                                        <button key={item} style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#334155' }}>
+                                            {item} <ChevronRight size={16} color="#cbd5e1" />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bottom Actions for panel */}
+                        <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px', minWidth: '320px', background: '#f8fafc' }}>
+                            <button
+                                onClick={() => window.open(`/s/${siteConfig.domain || 'demo'}`, '_blank')}
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem', color: '#334155' }}
+                            >
+                                <Eye size={16} /> {t('preview') || 'Preview'}
+                            </button>
+                            <button
+                                onClick={() => { publishSite(); alert(t('site_published') || 'Site published!'); }}
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', borderRadius: '8px', border: 'none', background: '#9333ea', color: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem', boxShadow: '0 4px 12px rgba(147, 51, 234, 0.3)' }}
+                            >
+                                <Globe size={16} /> {siteConfig.isPublished ? (t('republish') || 'Republish') : (t('publish') || 'Publish')}
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
 
             {/* ═══ MAIN PREVIEW AREA ═══ */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -381,7 +524,6 @@ const WebsiteEditor = () => {
                         background: 'white',
                         boxShadow: previewMode !== 'desktop' ? '0 20px 60px rgba(0,0,0,0.5)' : 'none',
                         borderRadius: previewMode !== 'desktop' ? '16px' : '0',
-                        overflow: 'hidden',
                         transition: 'width 0.3s ease'
                     }}>
                         <PublicWebsite overrideData={previewOverrideData} />

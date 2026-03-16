@@ -1,11 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import { syncService } from '../lib/SyncService';
 
-const WebsiteContext = createContext();
+const WebsiteContext = React.createContext();
 
-export const useWebsite = () => useContext(WebsiteContext);
+export const useWebsite = () => React.useContext(WebsiteContext);
 
 const DEFAULT_CONFIG = {
     isPublished: false,
@@ -54,222 +53,303 @@ const DEFAULT_SECTIONS = [
 
 export const WebsiteProvider = ({ children }) => {
     const { currentUser } = useAuth();
-    const [siteConfig, setSiteConfig] = useState(DEFAULT_CONFIG);
-    const [sections, setSections] = useState(DEFAULT_SECTIONS);
-    const [loading, setLoading] = useState(true);
+    const [siteConfig, setSiteConfig] = React.useState(DEFAULT_CONFIG);
+    const [pages, setPages] = React.useState([{ id: 'home', title: 'Home', slug: '/', sections: DEFAULT_SECTIONS }]);
+    const [activePageId, setActivePageId] = React.useState('home');
+    const [loading, setLoading] = React.useState(true);
 
     // Initial Fetch from Supabase
-    useEffect(() => {
-        const loadWebsiteData = async () => {
-            if (!currentUser?.id) {
-                setLoading(false);
-                return;
-            }
+    React.useEffect(() => {
+        if (!currentUser) {
+            setLoading(false);
+            return;
+        }
 
+        const fetchSiteData = async () => {
             try {
-                // 1. Optimistic load from localStorage
-                const localConfig = localStorage.getItem('website_config');
-                const localSections = localStorage.getItem('website_sections');
-                if (localConfig) setSiteConfig(JSON.parse(localConfig));
-                if (localSections) setSections(JSON.parse(localSections));
-
-                // 2. Fetch Fresh from Supabase
-                const { data, error } = await supabase
+                // 1. Fetch main site config
+                const { data: configData, error: configError } = await supabase
                     .from('website_configs')
                     .select('*')
                     .eq('user_id', currentUser.id)
                     .maybeSingle();
 
-                if (data && data.config) {
-                    const parsed = data.config;
-                    if (parsed.siteConfig) setSiteConfig(parsed.siteConfig);
-                    if (parsed.sections) setSections(parsed.sections);
+                if (configError) throw configError;
 
-                    // Sync localStorage immediately with fresh data
-                    localStorage.setItem('website_config', JSON.stringify(parsed.siteConfig || siteConfig));
-                    localStorage.setItem('website_sections', JSON.stringify(parsed.sections || sections));
+                if (configData) {
+                    setSiteConfig(prev => ({
+                        ...prev,
+                        ...configData,
+                        theme: configData.theme || prev.theme,
+                        seo: configData.seo || prev.seo,
+                    }));
+                } else {
+                    // Create default config if it doesn't exist
+                    const { data: newConfig, error: createError } = await supabase
+                        .from('website_configs')
+                        .insert([{ 
+                            user_id: currentUser.id, 
+                            ...DEFAULT_CONFIG,
+                            slug: currentUser.companyName?.toLowerCase().replace(/\s+/g, '-') || `site-${currentUser.id.substring(0, 8)}`
+                        }])
+                        .select()
+                        .single();
+                    
+                    if (!createError && newConfig) setSiteConfig(newConfig);
+                }
+
+                // 2. Fetch pages and their sections
+                const { data: pagesData, error: pagesError } = await supabase
+                    .from('website_pages')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('order_index', { ascending: true });
+
+                if (pagesError) throw pagesError;
+
+                if (pagesData && pagesData.length > 0) {
+                    setPages(pagesData);
+                    setActivePageId(pagesData[0].id);
+                } else {
+                    // Create default home page if none exists
+                    const { data: newPage, error: createPageError } = await supabase
+                        .from('website_pages')
+                        .insert([{
+                            user_id: currentUser.id,
+                            title: 'Home',
+                            slug: '/',
+                            sections: DEFAULT_SECTIONS,
+                            order_index: 0
+                        }])
+                        .select()
+                        .single();
+                    
+                    if (!createPageError && newPage) {
+                        setPages([newPage]);
+                        setActivePageId(newPage.id);
+                    }
                 }
             } catch (err) {
-                console.error('Error loading website config:', err);
-
-                // Fallback to local if remote fails and we haven't already loaded it
-                const localConfig = localStorage.getItem('website_config');
-                if (localConfig) setSiteConfig(JSON.parse(localConfig));
+                console.error('[WebsiteContext] Error fetching site data:', err);
             } finally {
                 setLoading(false);
             }
         };
 
-        loadWebsiteData();
-    }, [currentUser?.id]);
+        fetchSiteData();
+    }, [currentUser]);
 
-    // LocalStorage Sync for Public Preview
-    useEffect(() => {
-        if (currentUser?.id && !loading) {
-            localStorage.setItem('website_config', JSON.stringify(siteConfig));
-            localStorage.setItem('website_sections', JSON.stringify(sections));
+    // Derived sections for the current active page
+    const sections = React.useMemo(() => {
+        const activePage = pages.find(p => p.id === activePageId);
+        return activePage?.sections || [];
+    }, [pages, activePageId]);
+
+    // UPDATE Site Config
+    const updateSiteConfig = React.useCallback(async (updates) => {
+        if (!currentUser) return { success: false, error: 'Not authenticated' };
+
+        const newConfig = { ...siteConfig, ...updates };
+        setSiteConfig(newConfig); // Optimistic update
+
+        const { error } = await supabase
+            .from('website_configs')
+            .upsert({ user_id: currentUser.id, ...newConfig, updated_at: new Date().toISOString() });
+
+        if (error) {
+            console.error('[WebsiteContext] Error updating site config:', error);
+            return { success: false, error: error.message };
         }
-    }, [siteConfig, sections, currentUser, loading]);
+        return { success: true };
+    }, [currentUser, siteConfig]);
 
-    const saveToSupabase = (newConfig, newSections) => {
-        if (!currentUser?.id) return;
+    // UPDATE Single Section
+    const updateSection = React.useCallback(async (sectionId, sectionUpdates) => {
+        if (!currentUser) return { success: false, error: 'Not authenticated' };
 
-        const slugify = (text) => {
-            if (!text) return '';
-            return text.toString().toLowerCase().trim()
-                .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                .replace(/[^a-z0-9]/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '');
+        const activePage = pages.find(p => p.id === activePageId);
+        if (!activePage) return { success: false, error: 'No active page' };
+
+        const newSections = activePage.sections.map(s => 
+            s.id === sectionId ? { ...s, data: { ...s.data, ...sectionUpdates } } : s
+        );
+
+        // Optimistic update
+        setPages(prev => prev.map(p => p.id === activePageId ? { ...p, sections: newSections } : p));
+
+        const { error } = await supabase
+            .from('website_pages')
+            .update({ sections: newSections, updated_at: new Date().toISOString() })
+            .eq('id', activePageId)
+            .eq('user_id', currentUser.id);
+
+        if (error) {
+            console.error('[WebsiteContext] Error updating section:', error);
+            return { success: false, error: error.message };
+        }
+        return { success: true };
+    }, [currentUser, pages, activePageId]);
+
+    // ADD Section
+    const addSection = React.useCallback(async (newSection) => {
+        if (!currentUser) return { success: false };
+        const activePage = pages.find(p => p.id === activePageId);
+        if (!activePage) return { success: false };
+
+        const sectionWithId = {
+            ...newSection,
+            id: newSection.id || `section-${Date.now()}`,
+            visible: true
         };
 
-        const syncData = {
-            user_id: currentUser.id,
-            config: { siteConfig: newConfig, sections: newSections },
-            domain: newConfig.domain ? newConfig.domain : null,
-            slug: newConfig.slug || slugify(newConfig.domain || '') || slugify(currentUser.id.substring(0, 8)),
-            is_published: !!newConfig.isPublished,
-            updated_at: new Date().toISOString()
-        };
+        const newSections = [...(activePage.sections || []), sectionWithId];
+        
+        setPages(prev => prev.map(p => p.id === activePageId ? { ...p, sections: newSections } : p));
 
-        syncService.enqueue('website_configs', 'insert', syncData, currentUser.id);
-    };
+        const { error } = await supabase
+            .from('website_pages')
+            .update({ sections: newSections })
+            .eq('id', activePageId);
 
-    // Actions
-    const updateSiteConfig = (newConfig) => {
-        setSiteConfig(prev => {
-            const deepMerge = (target, source) => {
-                if (!source || typeof source !== 'object' || Array.isArray(source)) return source;
-                const output = { ...target };
-                Object.keys(source).forEach(key => {
-                    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-                        output[key] = deepMerge(target[key] || {}, source[key]);
-                    } else {
-                        output[key] = source[key];
-                    }
-                });
-                return output;
-            };
-            const updated = deepMerge(prev, newConfig);
-            saveToSupabase(updated, sections);
-            return updated;
+        return { success: !error, error: error?.message };
+    }, [currentUser, pages, activePageId]);
+
+    // DELETE Section
+    const deleteSection = React.useCallback(async (sectionId) => {
+        if (!currentUser) return { success: false };
+        const activePage = pages.find(p => p.id === activePageId);
+        if (!activePage) return { success: false };
+
+        const newSections = activePage.sections.filter(s => s.id !== sectionId);
+        
+        setPages(prev => prev.map(p => p.id === activePageId ? { ...p, sections: newSections } : p));
+
+        const { error } = await supabase
+            .from('website_pages')
+            .update({ sections: newSections })
+            .eq('id', activePageId);
+
+        return { success: !error, error: error?.message };
+    }, [currentUser, pages, activePageId]);
+
+    // MOVE Section
+    const moveSection = React.useCallback(async (sectionId, direction) => {
+        if (!currentUser) return { success: false };
+        const activePage = pages.find(p => p.id === activePageId);
+        if (!activePage) return { success: false };
+
+        const newSections = [...activePage.sections];
+        const index = newSections.findIndex(s => s.id === sectionId);
+        if (index === -1) return { success: false };
+
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= newSections.length) return { success: false };
+
+        const temp = newSections[index];
+        newSections[index] = newSections[newIndex];
+        newSections[newIndex] = temp;
+
+        setPages(prev => prev.map(p => p.id === activePageId ? { ...p, sections: newSections } : p));
+
+        const { error } = await supabase
+            .from('website_pages')
+            .update({ sections: newSections })
+            .eq('id', activePageId);
+
+        return { success: !error, error: error?.message };
+    }, [currentUser, pages, activePageId]);
+
+    // TOGGLE Visibility
+    const toggleSectionVisibility = React.useCallback(async (sectionId) => {
+        if (!currentUser) return { success: false };
+        const activePage = pages.find(p => p.id === activePageId);
+        if (!activePage) return { success: false };
+
+        const newSections = activePage.sections.map(s => 
+            s.id === sectionId ? { ...s, visible: !s.visible } : s
+        );
+
+        setPages(prev => prev.map(p => p.id === activePageId ? { ...p, sections: newSections } : p));
+
+        const { error } = await supabase
+            .from('website_pages')
+            .update({ sections: newSections })
+            .eq('id', activePageId);
+
+        return { success: !error, error: error?.message };
+    }, [currentUser, pages, activePageId]);
+
+    // PUBLISH Logic
+    const publishSite = React.useCallback(async () => {
+        return updateSiteConfig({ isPublished: true });
+    }, [updateSiteConfig]);
+
+    const unpublishSite = React.useCallback(async () => {
+        return updateSiteConfig({ isPublished: false });
+    }, [updateSiteConfig]);
+
+    // PAGE Management
+    const addPage = React.useCallback(async (title, slug) => {
+        if (!currentUser) return { success: false };
+
+        const { data, error } = await supabase
+            .from('website_pages')
+            .insert([{
+                user_id: currentUser.id,
+                title,
+                slug,
+                sections: [],
+                order_index: pages.length
+            }])
+            .select()
+            .single();
+
+        if (error) return { success: false, error: error.message };
+        setPages(prev => [...prev, data]);
+        return { success: true, pageId: data.id };
+    }, [currentUser, pages]);
+
+    const deletePage = React.useCallback(async (pageId) => {
+        if (!currentUser || pages.length <= 1) return { success: false };
+
+        const { error } = await supabase
+            .from('website_pages')
+            .delete()
+            .eq('id', pageId)
+            .eq('user_id', currentUser.id);
+
+        if (error) return { success: false, error: error.message };
+        
+        setPages(prev => {
+            const upd = prev.filter(p => p.id !== pageId);
+            if (activePageId === pageId) setActivePageId(upd[0].id);
+            return upd;
         });
-    };
+        return { success: true };
+    }, [currentUser, pages, activePageId]);
 
-    const updateSection = (id, updates) => {
-        setSections(prev => {
-            const deepMerge = (target, source) => {
-                if (!source || typeof source !== 'object' || Array.isArray(source)) return source;
-                const output = { ...target };
-                Object.keys(source).forEach(key => {
-                    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-                        output[key] = deepMerge(target[key] || {}, source[key]);
-                    } else {
-                        output[key] = source[key];
-                    }
-                });
-                return output;
-            };
-
-            const updated = prev.map(sec => {
-                if (sec.id === id) {
-                    const topLevel = ['visible', 'type', 'id', 'order'];
-                    const topUpdates = {};
-                    const dataUpdates = {};
-
-                    Object.keys(updates).forEach(k => {
-                        if (topLevel.includes(k)) topUpdates[k] = updates[k];
-                        else dataUpdates[k] = updates[k];
-                    });
-
-                    return {
-                        ...sec,
-                        ...topUpdates,
-                        data: deepMerge(sec.data || {}, dataUpdates)
-                    };
-                }
-                return sec;
-            });
-            saveToSupabase(siteConfig, updated);
-            return updated;
-        });
-    };
-
-    const toggleSectionVisibility = (id) => {
-        setSections(prev => {
-            const updated = prev.map(sec => sec.id === id ? { ...sec, visible: !sec.visible } : sec);
-            saveToSupabase(siteConfig, updated);
-            return updated;
-        });
-    };
-
-    const publishSite = () => {
-        setSiteConfig(prev => {
-            const updated = { ...prev, isPublished: true, lastPublished: new Date().toISOString() };
-            saveToSupabase(updated, sections);
-            return updated;
-        });
-    };
-
-    const unpublishSite = () => {
-        setSiteConfig(prev => {
-            const updated = { ...prev, isPublished: false };
-            saveToSupabase(updated, sections);
-            return updated;
-        });
-    };
-
-    const addSection = (section) => {
-        setSections(prev => {
-            const updated = [...prev, section];
-            saveToSupabase(siteConfig, updated);
-            return updated;
-        });
-    };
-
-    const deleteSection = (id) => {
-        setSections(prev => {
-            const updated = prev.filter(s => s.id !== id);
-            saveToSupabase(siteConfig, updated);
-            return updated;
-        });
-    };
-
-    const moveSection = (id, direction) => {
-        setSections(prev => {
-            const index = prev.findIndex(s => s.id === id);
-            if (index === -1) return prev;
-
-            const newIndex = direction === 'up' ? index - 1 : index + 1;
-            if (newIndex < 0 || newIndex >= prev.length) return prev;
-
-            const updated = [...prev];
-            [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
-            saveToSupabase(siteConfig, updated);
-            return updated;
-        });
-    };
-
-    const reorderSections = (newSections) => {
-        setSections(newSections);
-        saveToSupabase(siteConfig, newSections);
+    const value = {
+        siteConfig,
+        pages,
+        activePageId,
+        setActivePageId,
+        sections,
+        loading,
+        updateSiteConfig,
+        updateConfig: updateSiteConfig, // Backward compatibility alias
+        updateSection,
+        addSection,
+        deleteSection,
+        moveSection,
+        toggleSectionVisibility,
+        publishSite,
+        unpublishSite,
+        addPage,
+        deletePage
     };
 
     return (
-        <WebsiteContext.Provider value={{
-            siteConfig,
-            sections,
-            updateSiteConfig,
-            updateSection,
-            toggleSectionVisibility,
-            addSection,
-            deleteSection,
-            moveSection,
-            reorderSections,
-            publishSite,
-            unpublishSite,
-            loading
-        }}>
+        <WebsiteContext.Provider value={value}>
             {children}
         </WebsiteContext.Provider>
     );
