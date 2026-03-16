@@ -35,6 +35,25 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
     : null;
 
 /**
+ * Verifies actual internet connectivity by pinging Supabase.
+ * Useful for Safari where navigator.onLine can be inaccurate.
+ */
+export const isPhysicalConnectionAlive = async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
+    try {
+        const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+            method: 'HEAD',
+            mode: 'no-cors',
+            cache: 'no-store',
+            signal: AbortSignal.timeout(3000)
+        });
+        return true;
+    } catch (err) {
+        return false;
+    }
+};
+
+/**
  * Simple ping to wake up a sleeping Supabase project.
  */
 export const wakeUp = async () => {

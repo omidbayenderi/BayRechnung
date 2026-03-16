@@ -37,6 +37,30 @@ import { useBayVision } from '../../context/BayVisionContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import PremiumUpgradeModal from '../../components/admin/PremiumUpgradeModal';
 
+// Simple Error Boundary for Charts to prevent entire dashboard crash
+class ChartErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError(error) { return { hasError: true }; }
+    componentDidCatch(error, errorInfo) { console.error("Chart Error:", error, errorInfo); }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: '12px', color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center', padding: '20px' }}>
+                    <div>
+                        <AlertTriangle size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                        <p>Grafik yüklenirken bir hata oluştu.</p>
+                        <button onClick={() => this.setState({ hasError: false })} style={{ marginTop: '10px', fontSize: '0.75rem', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Tekrar Dene</button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 
 const SystemOverview = () => {
     const { t } = useLanguage();
@@ -591,29 +615,31 @@ const SystemOverview = () => {
                         </div>
                     </div>
                     <div style={{ height: '300px', width: '100%', minHeight: '300px' }}>
-                        <ResponsiveContainer width="99%" height={300}>
-                            <AreaChart data={chartData}>
-                                <defs>
-                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={(val) => `€${val}`} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                    formatter={(value) => [`€${value.toLocaleString()}`, '']}
-                                />
-                                <Area type="monotone" dataKey="revenue" name={t('income')} stroke="#3b82f6" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
-                                <Area type="monotone" dataKey="expenses" name={t('expense')} stroke="#ef4444" fillOpacity={1} fill="url(#colorExp)" strokeWidth={3} />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        <ChartErrorBoundary>
+                            <ResponsiveContainer width="99%" height={300}>
+                                <AreaChart data={chartData}>
+                                    <defs>
+                                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={(val) => `€${val}`} />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                        formatter={(value) => [`€${value.toLocaleString()}`, '']}
+                                    />
+                                    <Area type="monotone" dataKey="revenue" name={t('income')} stroke="#3b82f6" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
+                                    <Area type="monotone" dataKey="expenses" name={t('expense')} stroke="#ef4444" fillOpacity={1} fill="url(#colorExp)" strokeWidth={3} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </ChartErrorBoundary>
                     </div>
                 </div>
 
@@ -622,36 +648,38 @@ const SystemOverview = () => {
                     <h3 style={{ margin: '0 0 24px 0', fontSize: '1rem', fontWeight: '700', color: '#1e293b' }}>{t('expense_distribution') || 'Gider Dağılımı'}</h3>
                     <div style={{ height: '300px', width: '100%', display: 'flex', alignItems: 'center', minHeight: '300px' }}>
                         {pieData.length > 0 ? (
-                            <ResponsiveContainer width="99%" height={300}>
-                                <PieChart>
-                                    <Pie
-                                        data={pieData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={100}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        formatter={(value) => [`€${value.toLocaleString()}`, 'Tutar']}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                    />
-                                    <Legend
-                                        layout="vertical"
-                                        align="right"
-                                        verticalAlign="middle"
-                                        iconType="circle"
-                                        formatter={(value, entry) => (
-                                            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{value}</span>
-                                        )}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
+                            <ChartErrorBoundary>
+                                <ResponsiveContainer width="99%" height={300}>
+                                    <PieChart>
+                                        <Pie
+                                            data={pieData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={100}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {pieData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            formatter={(value) => [`€${value.toLocaleString()}`, 'Tutar']}
+                                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                        />
+                                        <Legend
+                                            layout="vertical"
+                                            align="right"
+                                            verticalAlign="middle"
+                                            iconType="circle"
+                                            formatter={(value, entry) => (
+                                                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{value}</span>
+                                            )}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </ChartErrorBoundary>
                         ) : (
                             <div style={{ width: '100%', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
                                 {t('noData') || 'Henüz gider verisi bulunmuyor.'}

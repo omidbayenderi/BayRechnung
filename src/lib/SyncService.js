@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured, checkDbHealth, wakeUp } from './supabase';
+import { supabase, isSupabaseConfigured, checkDbHealth, wakeUp, isPhysicalConnectionAlive } from './supabase';
 
 const TABLE_SCHEMAS = {
     services: ['id', 'user_id', 'name', 'description', 'duration', 'price', 'image_url', 'color', 'icon', 'created_at'],
@@ -174,7 +174,12 @@ class SyncService {
     }
 
     async processQueue(force = false) {
-        const isOnline = force || navigator.onLine || (Date.now() - this.lastSuccess < 120000);
+        let isOnline = force || navigator.onLine || (Date.now() - this.lastSuccess < 120000);
+        
+        // Safari Fallback: If potentially offline according to navigator, do a physical check
+        if (!isOnline && typeof isPhysicalConnectionAlive === 'function') {
+            isOnline = await isPhysicalConnectionAlive();
+        }
 
         if (this.isProcessing) return;
         if (!isOnline) return;
