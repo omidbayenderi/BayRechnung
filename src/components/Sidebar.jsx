@@ -9,6 +9,7 @@ import { usePanel } from '../context/PanelContext';
 import { useInvoice } from '../context/InvoiceContext';
 import { useAppointments } from '../context/AppointmentContext';
 import ConnectionDiagnostics from './Debug/ConnectionDiagnostics';
+// import ThemeToggle from './ThemeToggle';
 
 const Sidebar = ({ isOpen, closeSidebar }) => {
     const location = useLocation();
@@ -69,10 +70,11 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
             </style>
 
             {/* Header with Panel Switcher Trigger */}
-            <div className="sidebar-header" style={{ flexDirection: 'column', alignItems: 'flex-start', paddingBottom: '0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div className="sidebar-header flex flex-col items-start pb-0">
+
+                <div className="flex items-center w-full justify-between mb-1">
                     <div
-                        className="sidebar-logo"
+                        className="sidebar-logo group"
                         onClick={() => setShowPanelSwitcher(!showPanelSwitcher)}
                         style={{
                             cursor: 'pointer', flex: 1, padding: '8px',
@@ -80,21 +82,20 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                             borderRadius: '12px', transition: 'all 0.2s'
                         }}
                     >
-                        <div className="logo-icon" style={{ background: currentModule.color }}>
+                        <div className="logo-icon shadow-lg transition-transform group-hover:scale-105" style={{ background: currentModule.color }}>
                             {companyProfile?.company_name?.charAt(0) || currentModule.name?.charAt(0) || 'B'}
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <h2 style={{ fontSize: '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
+                        <div className="flex flex-col ml-3">
+                            <h2 className="text-white text-base font-bold leading-tight truncate max-w-[140px]">
                                 {companyProfile?.company_name || 'BayRechnung'}
                             </h2>
-                            <span style={{ fontSize: '0.7rem', color: showPanelSwitcher ? 'var(--primary)' : 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
+                            <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${showPanelSwitcher ? 'text-indigo-400' : 'text-white/40'}`}>
                                 {currentModule.name} {showPanelSwitcher ? '▴' : '▾'}
                             </span>
                         </div>
                     </div>
-                    <button className="close-sidebar no-desktop" onClick={closeSidebar}>
-                        <X size={20} />
-                    </button>
+                    {/* Close button removed as per user request */}
+
                 </div>
             </div>
 
@@ -130,14 +131,15 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                                                 alignItems: 'center',
                                                 gap: '12px',
                                                 padding: '10px',
-                                                background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                                border: 'none',
-                                                borderRadius: '8px',
+                                                background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                                border: '1px solid',
+                                                borderColor: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                                borderRadius: '12px',
                                                 cursor: 'pointer',
                                                 textAlign: 'left',
                                                 transition: 'all 0.2s',
                                                 width: '100%',
-                                                color: isActive ? 'white' : 'rgba(255,255,255,0.7)'
+                                                color: isActive ? 'white' : 'rgba(255,255,255,0.5)'
                                             }}
                                         >
                                             <div style={{ color: isActive ? 'white' : mod.color, position: 'relative' }}>
@@ -246,52 +248,41 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
                 })}
             </nav>
 
-            <ConnectionDiagnostics variant="sidebar" />
-
-            <div className="sidebar-footer">
+            <div className="sidebar-footer px-4 py-6 flex flex-col gap-3">
+                {/* User profile with glassmorphism */}
                 <div
-                    className="user-mini-profile"
+                    className="user-mini-profile flex items-center gap-3 p-3 rounded-2xl bg-white/5 hover:bg-white/10 backdrop-blur-md transition-all group shadow-lg"
                     onClick={() => { closeSidebar(); navigate('/settings/profile'); }}
                     style={{ cursor: 'pointer' }}
                     title={t('goToProfileSettings') || 'Go to Profile Settings'}
                 >
-                    <div className="avatar">
+                    <div className="avatar w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/80 to-purple-600/80 flex items-center justify-center font-bold overflow-hidden shadow-inner backdrop-blur-sm">
                         {currentUser?.avatar ? (
-                            <img src={currentUser.avatar} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
                             currentUser?.name?.charAt(0) || 'U'
                         )}
                     </div>
-                    <div className="info">
-                        <span className="name">{currentUser?.name || 'User'}</span>
-                        <span className="role">{currentUser?.email || currentUser?.role || 'Administrator'}</span>
+                    <div className="info flex-1">
+                        <span className="name text-sm font-bold text-white block truncate">{currentUser?.name || 'User'}</span>
+                        <span className="role text-[10px] font-bold text-white/40 block uppercase tracking-wider">{currentUser?.role || 'Yönetici'}</span>
                     </div>
                 </div>
+
+                {/* Logout button with glassmorphism */}
                 <button
-                    className="logout-btn"
+                    className="logout-btn w-full p-3 flex items-center gap-3 rounded-2xl bg-white/5 hover:bg-rose-500/10 backdrop-blur-md transition-all group active:scale-95 shadow-lg"
                     onClick={handleLogout}
-                    style={{
-                        width: '100%',
-                        marginTop: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        padding: '10px 16px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        borderRadius: '8px',
-                        color: '#ef4444',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        transition: 'all 0.2s ease'
-                    }}
+                    style={{ border: 'none' }}
                 >
-                    <LogOut size={16} />
-                    {t('logout')}
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 group-hover:bg-rose-500/20 transition-colors backdrop-blur-sm">
+                        <LogOut size={16} className="text-white/40 group-hover:text-rose-400" />
+                    </div>
+                    <span className="text-[14px] font-black uppercase tracking-[0.1em] text-white/40 group-hover:text-rose-300">{t('logout')}</span>
                 </button>
             </div>
+
+
         </aside>
     );
 };

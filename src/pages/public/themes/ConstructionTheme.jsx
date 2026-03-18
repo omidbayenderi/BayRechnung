@@ -11,6 +11,8 @@ import {
 
 import { AgentFactory } from '../components/agents/AgentFactory';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useNotification } from '../../../context/NotificationContext';
+import { ModularSection } from '../components/ModularSections';
 
 const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userActions, state, languageActions, editorActions = {}, handleSubmitMessage }) => {
     const { profile, config, sections = [], products = [], appointmentSettings, pages = [], activePage: siteActivePage } = siteData;
@@ -21,6 +23,7 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
     const { addToCart, setIsCartOpen } = cartActions;
     const { currentUser, setIsCustomerPanelOpen } = userActions;
     const { t: hookT } = useLanguage();
+    const { showNotification } = useNotification();
     const t = languageActions?.t || hookT;
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -200,8 +203,19 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
         setSendingMsg(true);
         const f = e.target;
         const res = await handleSubmitMessage({ name: f.name.value, email: f.email.value, message: f.message.value });
-        if (res.success) { alert(hookT('message_sent_success') || 'Sent!'); f.reset(); }
-        else { alert(res.error); }
+        if (res.success) { 
+            showNotification({
+                type: 'success',
+                message: hookT('message_sent_success') || 'Sent!'
+            });
+            f.reset(); 
+        } else { 
+            showNotification({
+                type: 'error',
+                title: t('error') || 'Hata',
+                message: res.error
+            });
+        }
         setSendingMsg(false);
     };
 
@@ -256,7 +270,7 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                                     </div>
                                     <p style={{ maxWidth: 500, color: DS.textSecondary, fontSize: '1.1rem' }}>{t('construction_services_desc')}</p>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1px', background: DS.border, border: '1px solid ' + DS.border }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '1px', background: DS.border, border: '1px solid ' + DS.border }}>
                                     {(siteData.appointmentSettings?.services || []).map((s, i) => {
                                         const Icon = getServiceIcon(s.name, s.icon);
                                         return (
@@ -286,7 +300,7 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                                         <div style={{ width: 80, height: 6, background: DS.primary, marginTop: 16 }}></div>
                                     </div>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '40px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '40px' }}>
                                     {(siteData.blogs || []).map((blog, i) => (
                                         <div key={i} style={{ background: DS.surface, border: '1px solid ' + DS.border, transition: 'all 0.3s' }}>
                                             <div style={{ height: '220px', background: DS.surfaceSecondary, position: 'relative', overflow: 'hidden' }}>
@@ -316,7 +330,7 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                                         <div style={{ width: 80, height: 6, background: DS.primary, marginTop: 16 }}></div>
                                     </div>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '32px' }}>
                                     {products.map((p, i) => (
                                         <div key={i} style={{ background: DS.surface, border: '1px solid ' + DS.border, transition: 'all 0.3s' }}>
                                             <div style={{ height: '250px', background: DS.surfaceSecondary, position: 'relative' }}>
@@ -368,6 +382,20 @@ const ConstructionTheme = ({ siteData, themeColors, variant = 'v1', cartActions,
                                         <button disabled={sendingMsg} style={{ background: DS.primary, color: isDark ? '#000' : '#fff', padding: 16, border: 'none', fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase' }}>{sendingMsg ? '...' : t('send_message')}</button>
                                     </form>
                                 </div>
+                            </div>
+                        </section>
+                    );
+                case 'gallery':
+                case 'features':
+                case 'pricing':
+                case 'faq':
+                case 'testimonials':
+                case 'stats':
+                case 'about':
+                    return (
+                        <section id={section.id} style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+                                <ModularSection section={section} DS={DS} isMobile={isMobile} t={t} />
                             </div>
                         </section>
                     );

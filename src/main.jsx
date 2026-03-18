@@ -12,6 +12,7 @@ import { BayVisionProvider } from './context/BayVisionContext.jsx';
 import { StockProvider } from './context/StockContext.jsx';
 import { PanelProvider } from './context/PanelContext.jsx';
 import { NotificationProvider } from './context/NotificationContext.jsx';
+import { ThemeProvider } from './context/ThemeContext.jsx';
 import './index.css';
 import App from './App.jsx';
 
@@ -27,25 +28,27 @@ if (!rootElement) {
       <ErrorBoundary>
         <BrowserRouter>
           <AuthProvider>
-            <LanguageProvider>
-              <FeatureFlagProvider>
-                <InvoiceProvider>
-                  <AppointmentProvider>
-                    <NotificationProvider>
-                      <StockProvider>
-                        <PanelProvider>
-                          <WebsiteProvider>
-                            <BayVisionProvider>
-                              <App />
-                            </BayVisionProvider>
-                          </WebsiteProvider>
-                        </PanelProvider>
-                      </StockProvider>
-                    </NotificationProvider>
-                  </AppointmentProvider>
-                </InvoiceProvider>
-              </FeatureFlagProvider>
-            </LanguageProvider>
+            <ThemeProvider>
+              <LanguageProvider>
+                <FeatureFlagProvider>
+                  <InvoiceProvider>
+                    <AppointmentProvider>
+                      <NotificationProvider>
+                        <StockProvider>
+                          <PanelProvider>
+                            <WebsiteProvider>
+                              <BayVisionProvider>
+                                <App />
+                              </BayVisionProvider>
+                            </WebsiteProvider>
+                          </PanelProvider>
+                        </StockProvider>
+                      </NotificationProvider>
+                    </AppointmentProvider>
+                  </InvoiceProvider>
+                </FeatureFlagProvider>
+              </LanguageProvider>
+            </ThemeProvider>
           </AuthProvider>
         </BrowserRouter>
       </ErrorBoundary>

@@ -11,6 +11,8 @@ import {
 
 import { AgentFactory } from '../components/agents/AgentFactory';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useNotification } from '../../../context/NotificationContext';
+import { ModularSection } from '../components/ModularSections';
 
 const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, userActions, state, languageActions, editorActions = {}, handleSubmitMessage }) => {
     const { profile, config, sections = [], products = [], appointmentSettings, pages = [], activePage: siteActivePage } = siteData;
@@ -21,6 +23,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
     const { addToCart, setIsCartOpen } = cartActions;
     const { currentUser, setIsCustomerPanelOpen } = userActions;
     const { t: hookT } = useLanguage();
+    const { showNotification } = useNotification();
     const t = languageActions?.t || hookT;
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -208,8 +211,19 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
         setSendingMsg(true);
         const f = e.target;
         const res = await handleSubmitMessage({ name: f.name.value, email: f.email.value, message: f.message.value });
-        if (res.success) { alert(t('message_sent_success') || 'Sent!'); f.reset(); }
-        else { alert(res.error); }
+        if (res.success) { 
+            showNotification({
+                type: 'success',
+                message: t('message_sent_success') || 'Sent!'
+            });
+            f.reset(); 
+        } else { 
+            showNotification({
+                type: 'error',
+                title: t('error') || 'Hata',
+                message: res.error
+            });
+        }
         setSendingMsg(false);
     };
 
@@ -256,7 +270,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                                     <span style={{ color: DS.primary, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px' }}>{t('theme_service_specialties_title')}</span>
                                     <h2 style={{ fontSize: '3rem', fontWeight: '900', marginTop: '12px' }}>{sd.title || t('theme_nav_services')}</h2>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '32px' }}>
                                     {(siteData.appointmentSettings?.services || []).map((s, i) => {
                                         const Icon = getServiceIcon(s.name, s.icon);
                                         return (
@@ -285,7 +299,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                                     <span style={{ color: DS.primary, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px' }}>{t('our_products')}</span>
                                     <h2 style={{ fontSize: '3rem', fontWeight: '900', marginTop: '12px' }}>{sd.title || t('label_products')}</h2>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '32px' }}>
                                     {products.map((p, i) => (
                                         <div key={i} style={{ background: DS.surface, borderRadius: DS.radius, border: '1px solid ' + DS.border, overflow: 'hidden', boxShadow: DS.shadow, transition: 'transform 0.2s' }}>
                                             <div style={{ height: '200px', background: DS.surfaceSecondary, overflow: 'hidden' }}>
@@ -316,7 +330,7 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                                     <h2 style={{ fontSize: '3rem', fontWeight: '900' }}>{sd.title || t('blog_posts') || 'Blog Yazıları'}</h2>
                                     <p style={{ color: DS.textSecondary, marginTop: 16 }}>{sd.subtitle || t('blog_posts_desc') || 'Yeniliklerden haberdar olun'}</p>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '32px' }}>
                                     {(siteData.blogs || []).map((blog, i) => (
                                         <div key={i} style={{ background: DS.surface, borderRadius: DS.radius, overflow: 'hidden', border: '1px solid ' + DS.border, transition: 'transform 0.3s' }}>
                                             <div style={{ height: '200px', background: DS.surfaceSecondary }}>
@@ -365,6 +379,20 @@ const ServiceTheme = ({ siteData, themeColors, variant = 'v1', cartActions, user
                                         <button disabled={sendingMsg} style={{ background: DS.primary, color: 'white', padding: 16, borderRadius: 12, border: 'none', fontWeight: '800', cursor: 'pointer' }}>{sendingMsg ? '...' : t('send_message')}</button>
                                     </form>
                                 </div>
+                            </div>
+                        </section>
+                    );
+                case 'gallery':
+                case 'features':
+                case 'pricing':
+                case 'faq':
+                case 'testimonials':
+                case 'stats':
+                case 'about':
+                    return (
+                        <section id={section.id} style={sectionWrapperStyle}>
+                            <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+                                <ModularSection section={section} DS={DS} isMobile={isMobile} t={t} />
                             </div>
                         </section>
                     );

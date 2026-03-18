@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { Eye, Trash2, Edit, ArrowRightCircle, FileInput, Share2 } from 'lucide-react';
 import { getIndustryFields } from '../../config/industryFields';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -10,6 +11,7 @@ import '../../index.css';
 const Quotes = () => {
     const { quotes, deleteQuote, updateQuote, saveInvoice, companyProfile, generatePortalLink, STATUSES } = useInvoice(); // Use quotes array
     const { t, appLanguage } = useLanguage();
+    const { showNotification } = useNotification();
     const navigate = useNavigate();
     const [deleteConfirm, setDeleteConfirm] = useState(null);
 
@@ -37,9 +39,15 @@ const Quotes = () => {
         const url = await generatePortalLink('quote', quote.id);
         if (url) {
             navigator.clipboard.writeText(url);
-            alert('Müşteri portalı bağlantısı panoya kopyalandı:\n' + url);
+            showNotification({
+                type: 'success',
+                message: 'Müşteri portalı bağlantısı panoya kopyalandı.'
+            });
         } else {
-            alert('Bağlantı oluşturulurken bir hata oluştu.');
+            showNotification({
+                type: 'error',
+                message: 'Bağlantı oluşturulurken bir hata oluştu.'
+            });
         }
     };
 

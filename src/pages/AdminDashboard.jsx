@@ -30,6 +30,7 @@ import { usePlanGuard } from '../hooks/usePlanGuard';
 
 // Import Panels
 import SystemOverview from './admin/SystemOverview';
+import SystemHealth from './admin/SystemHealth';
 import SiteManagement from './admin/SiteManagement';
 import Settings from './settings/Settings';
 import UserManagement from './settings/UserManagement';
@@ -89,6 +90,7 @@ const AdminDashboard = () => {
                             </button>
                         </div>
                     );
+                case 'health': return <SystemHealth />;
                 case 'messages': return <AdminMessagingView />;
                 case 'settings': return <Settings />;
                 default: return <SystemOverview />;

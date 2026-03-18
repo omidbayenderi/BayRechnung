@@ -286,13 +286,13 @@ const SystemOverview = () => {
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
             style={{
-                background: 'white',
+                background: 'var(--cockpit-card-bg)',
                 borderRadius: '16px',
                 padding: '24px',
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-                border: '1px solid #f1f5f9',
+                border: '1px solid var(--cockpit-card-border)',
                 transition: 'all 0.3s ease'
             }}
         >
@@ -328,8 +328,8 @@ const SystemOverview = () => {
                     </motion.span>
                 )}
             </div>
-            <div style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px' }}>{title}</div>
-            <div style={{ fontSize: '1.875rem', fontWeight: '800', color: '#1e293b', letterSpacing: '-0.5px' }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px' }}>{title}</div>
+            <div style={{ fontSize: '1.875rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
                 {numericValue !== undefined ? (
                     <Counter value={numericValue} prefix={isCurrency ? '€' : ''} />
                 ) : value}
@@ -346,9 +346,9 @@ const SystemOverview = () => {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '16px',
-                background: 'white',
+                background: 'var(--cockpit-card-bg)',
                 borderRadius: '12px',
-                border: '1px solid #f1f5f9',
+                border: '1px solid var(--cockpit-card-border)',
                 marginBottom: '12px',
                 cursor: 'pointer',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -429,7 +429,7 @@ const SystemOverview = () => {
                     )}
                 </div>
                 <div>
-                    <div style={{ fontWeight: '600', fontSize: '0.95rem', color: isLocked ? '#94a3b8' : '#1e293b' }}>{name}</div>
+                    <div style={{ fontWeight: '600', fontSize: '0.95rem', color: isLocked ? '#94a3b8' : 'var(--text-main)' }}>{name}</div>
                     <div style={{ fontSize: '0.8rem', color: isLocked ? '#cbd5e1' : (status === 'Active' ? '#10b981' : '#f59e0b'), display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {!isLocked && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: status === 'Active' ? '#10b981' : '#f59e0b' }}></div>}
                         {isLocked ? (t('premium_only') || 'Premium Plan Only') : status}
@@ -455,21 +455,21 @@ const SystemOverview = () => {
 
             <header style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div>
-                    <h1 style={{ fontSize: '2rem', fontWeight: '800', color: '#1e293b', marginBottom: '8px' }}>
+                    <h1 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
                         {t('system_overview') || 'System Overview'}
                     </h1>
-                    <p style={{ color: '#64748b', fontSize: '1rem' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>
                         {t('real_time_monitoring') || 'Real-time monitoring of all business modules.'}
                     </p>
                 </div>
                 {/* BayVision Status Indicator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'white', padding: '8px 16px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--cockpit-card-bg)', padding: '8px 16px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', border: '1px solid var(--cockpit-card-border)' }}>
                     <div style={{
                         width: '10px', height: '10px', borderRadius: '50%',
                         background: isAnalyzing ? '#f59e0b' : '#10b981',
                         boxShadow: isAnalyzing ? '0 0 10px #f59e0b' : 'none'
                     }}></div>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>BayVision: {isAnalyzing ? t('analyzing') : t('active')}</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>BayVision: {isAnalyzing ? t('analyzing') : t('active')}</span>
                 </div>
             </header>
 
@@ -483,9 +483,9 @@ const SystemOverview = () => {
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {intelligence.alerts.length > 0 ? intelligence.alerts.map(alert => (
-                            <div key={alert.id} style={{ background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', borderLeft: '4px solid #ef4444' }}>
-                                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1e293b' }}>{alert.title}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{alert.message}</div>
+                            <div key={alert.id} style={{ background: 'var(--cockpit-card-bg)', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', borderLeft: '4px solid #ef4444', borderTop: '1px solid var(--cockpit-card-border)', borderRight: '1px solid var(--cockpit-card-border)', borderBottom: '1px solid var(--cockpit-card-border)' }}>
+                                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>{alert.title}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{alert.message}</div>
                                 <button
                                     onClick={() => {
                                         if (alert.id === 'unpaid-invoices') {
@@ -516,9 +516,9 @@ const SystemOverview = () => {
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {intelligence.opportunities.length > 0 ? intelligence.opportunities.map(opp => (
-                            <div key={opp.id} style={{ background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', borderLeft: '4px solid #3b82f6' }}>
-                                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1e293b' }}>{opp.title}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{opp.message}</div>
+                            <div key={opp.id} style={{ background: 'var(--cockpit-card-bg)', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', borderLeft: '4px solid #3b82f6', borderTop: '1px solid var(--cockpit-card-border)', borderRight: '1px solid var(--cockpit-card-border)', borderBottom: '1px solid var(--cockpit-card-border)' }}>
+                                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>{opp.title}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{opp.message}</div>
                                 <button
                                     onClick={() => {
                                         if (opp.id === 'logo-gen') {
@@ -593,9 +593,9 @@ const SystemOverview = () => {
             {/* Charts Section */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px', marginBottom: '32px' }}>
                 {/* Financial Performance Chart */}
-                <div style={{ background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
+                <div style={{ background: 'var(--cockpit-card-bg)', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid var(--cockpit-card-border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: '#1e293b' }}>{t('financial_performance')}</h3>
+                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{t('financial_performance')}</h3>
                         <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
                             {['week', 'month', 'year'].map(range => (
                                 <button
@@ -644,8 +644,8 @@ const SystemOverview = () => {
                 </div>
 
                 {/* Expense Distribution Pie Chart */}
-                <div style={{ background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
-                    <h3 style={{ margin: '0 0 24px 0', fontSize: '1rem', fontWeight: '700', color: '#1e293b' }}>{t('expense_distribution') || 'Gider Dağılımı'}</h3>
+                <div style={{ background: 'var(--cockpit-card-bg)', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid var(--cockpit-card-border)' }}>
+                    <h3 style={{ margin: '0 0 24px 0', fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>{t('expense_distribution') || 'Gider Dağılımı'}</h3>
                     <div style={{ height: '300px', width: '100%', display: 'flex', alignItems: 'center', minHeight: '300px' }}>
                         {pieData.length > 0 ? (
                             <ChartErrorBoundary>
@@ -695,9 +695,9 @@ const SystemOverview = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
                     {/* Online Sales Card */}
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
+                    <div style={{ background: 'var(--cockpit-card-bg)', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid var(--cockpit-card-border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)' }}>
                                 <Globe size={24} className="text-primary" />
                                 {t('online_sales_dashboard') || 'Online Sales Dashboard'}
                             </h3>
@@ -717,7 +717,7 @@ const SystemOverview = () => {
 
                         {/* Critical Stock Alert Section */}
                         <div>
-                            <h4 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h4 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
                                 <AlertTriangle size={18} className="text-danger" />
                                 {t('critical_stock_levels') || 'Critical Stock Levels'}
                             </h4>
@@ -793,7 +793,7 @@ const SystemOverview = () => {
 
                 {/* Side Panel: Module Quick Status */}
                 <div>
-                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '700', color: '#475569' }}>{t('module_connections') || 'Module Connections'}</h3>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>{t('module_connections') || 'Module Connections'}</h3>
 
                     <ModuleStatus
                         name={t('module_accounting_name') || 'Rechnung'}

@@ -2,26 +2,50 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useWebsite } from '../../context/WebsiteContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, Plus, Trash2, Edit3, ExternalLink, Globe, Layout } from 'lucide-react';
+import { Layers, Plus, Trash2, Edit3, ExternalLink, Globe, Layout, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useNotification } from '../../context/NotificationContext';
 
 const WebsitePages = () => {
     const { t } = useLanguage();
     const { pages, addPage, deletePage, setActivePageId } = useWebsite();
+    const { showNotification } = useNotification();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newPageTitle, setNewPageTitle] = useState('');
     const [newPageSlug, setNewPageSlug] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
 
     const handleAddPage = async (e) => {
         e.preventDefault();
         if (!newPageTitle || !newPageSlug) return;
         
-        const res = await addPage(newPageTitle, newPageSlug.startsWith('/') ? newPageSlug : `/${newPageSlug}`);
-        if (res.success) {
-            setIsAddModalOpen(false);
-            setNewPageTitle('');
-            setNewPageSlug('');
+        setIsSubmitting(true);
+        try {
+            const res = await addPage(newPageTitle, newPageSlug);
+            if (res.success) {
+                showNotification({
+                    message: t('page_added_success') || 'Sayfa başarıyla eklendi.',
+                    type: 'success'
+                });
+                setIsAddModalOpen(false);
+                setNewPageTitle('');
+                setNewPageSlug('');
+            } else {
+                showNotification({
+                    title: 'Hata',
+                    message: res.error || t('error_adding_page') || 'Sayfa eklenirken bir hata oluştu.',
+                    type: 'error'
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification({
+                message: 'Beklenmedik bir hata oluştu.',
+                type: 'error'
+            });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -38,14 +62,14 @@ const WebsitePages = () => {
                         <Layout className="text-primary" />
                         {t('menu_pages')}
                     </h1>
-                    <p className="text-gray-500 text-sm font-medium">Sitenizin yapısını ve sayfalarını buradan yönetin.</p>
+                    <p className="text-gray-500 text-sm font-medium">{t('manage_site_structure_desc') || 'Sitenizin yapısını ve sayfalarını buradan yönetin.'}</p>
                 </div>
                 <button 
                     onClick={() => setIsAddModalOpen(true)}
                     className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-primary-dark transition-all font-bold shadow-lg shadow-primary/20 transform hover:-translate-y-0.5"
                 >
                     <Plus size={20} />
-                    Yeni Sayfa
+                    {t('add_new_page') || 'Yeni Sayfa'}
                 </button>
             </div>
 
@@ -68,17 +92,17 @@ const WebsitePages = () => {
                                     <button 
                                         onClick={() => handleEditPage(page.id)}
                                         className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                                        title="Sayfayı Düzenle"
+                                        title={t('edit_page') || "Sayfayı Düzenle"}
                                     >
                                         <Edit3 size={18} />
                                     </button>
                                     {pages.length > 1 && (
                                         <button 
                                             onClick={() => {
-                                                if(window.confirm('Bu sayfayı silmek istediğinize emin misiniz?')) deletePage(page.id);
+                                                if(window.confirm(t('confirm_delete_page') || 'Bu sayfayı silmek istediğinize emin misiniz?')) deletePage(page.id);
                                             }}
                                             className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors rounded-lg"
-                                            title="Sil"
+                                            title={t('delete') || "Sil"}
                                         >
                                             <Trash2 size={18} />
                                         </button>
@@ -96,7 +120,7 @@ const WebsitePages = () => {
                                 onClick={() => handleEditPage(page.id)}
                                 className="w-full py-2.5 bg-gray-50 group-hover:bg-primary group-hover:text-white text-gray-600 rounded-xl text-sm font-bold transition-all"
                             >
-                                Editörde Aç
+                                {t('open_in_editor') || 'Editörde Aç'}
                             </button>
                         </motion.div>
                     ))}
@@ -112,12 +136,12 @@ const WebsitePages = () => {
                         className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
                     >
                         <div className="p-8">
-                            <h2 className="text-2xl font-black text-gray-900 mb-2">Yeni Sayfa Oluştur</h2>
-                            <p className="text-gray-500 text-sm mb-8 font-medium">Sitenize yeni bir bölüm ekleyin.</p>
+                            <h2 className="text-2xl font-black text-gray-900 mb-2">{t('add_new_page') || 'Yeni Sayfa Oluştur'}</h2>
+                            <p className="text-gray-500 text-sm mb-8 font-medium">{t('create_page_desc') || 'Sitenize yeni bir bölüm ekleyin.'}</p>
                             
                             <form onSubmit={handleAddPage} className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Sayfa Başlığı</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">{t('page_title') || 'Sayfa Başlığı'}</label>
                                     <input 
                                         type="text" 
                                         value={newPageTitle}
@@ -127,12 +151,12 @@ const WebsitePages = () => {
                                         }}
                                         autoFocus
                                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none font-medium"
-                                        placeholder="Örn: Hakkımızda"
+                                        placeholder={t('page_example') || "Örn: Hakkımızda"}
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">URL Uzantısı (Slug)</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">{t('url_slug') || 'URL Uzantısı (Slug)'}</label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">/</span>
                                         <input 
@@ -151,13 +175,21 @@ const WebsitePages = () => {
                                         onClick={() => setIsAddModalOpen(false)}
                                         className="flex-1 py-3.5 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors"
                                     >
-                                        İptal
+                                        {t('cancel') || 'İptal'}
                                     </button>
                                     <button 
                                         type="submit"
-                                        className="flex-1 py-3.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all"
+                                        disabled={isSubmitting}
+                                        className={`flex-1 py-3.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     >
-                                        Oluştur
+                                        {isSubmitting ? (
+                                            <>
+                                                <RefreshCw size={18} className="animate-spin" />
+                                                {t('creating') || 'Oluşturuluyor...'}
+                                            </>
+                                        ) : (
+                                            t('create') || 'Oluştur'
+                                        )}
                                     </button>
                                 </div>
                             </form>

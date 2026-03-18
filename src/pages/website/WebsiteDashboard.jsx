@@ -1,399 +1,229 @@
 import React, { useState } from 'react';
 import { useWebsite } from '../../context/WebsiteContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { useStock } from '../../context/StockContext';
-import { useInvoice } from '../../context/InvoiceContext';
+import { useAuth } from '../../context/AuthContext';
+import { motion } from 'framer-motion';
 import {
-    Layout, Globe, Edit3, Monitor, CheckCircle, BarChart2, Eye, Share2,
-    ShoppingCart, Calendar, ArrowRight, ExternalLink, Sparkles
+    Globe, Shield, Zap, Search, ChevronRight, 
+    ExternalLink, BarChart2, CheckCircle, AlertCircle,
+    Layout, Settings, History, Plus, Activity,
+    TrendingUp, Users, Info, RefreshCw, Target,
+    Edit2, Monitor, Rocket, MousePointer2, Link,
+    Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getDnsInstructions } from '../../lib/domain_mapping';
-import { Shield } from 'lucide-react';
 
 const WebsiteDashboard = () => {
-    const { siteConfig, sections, updateSection, updateSiteConfig, publishSite, unpublishSite } = useWebsite();
     const { t } = useLanguage();
-    const { products } = useStock();
-    const { companyProfile } = useInvoice();
+    const { currentUser } = useAuth();
+    const { siteConfig, publishSite, unpublishSite, updateConfig } = useWebsite();
     const navigate = useNavigate();
+    
+    const [domain, setDomain] = useState(siteConfig?.domain || '');
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Stats Logic
-    const activeProducts = products.filter(p => p.stock > 0).length;
-
-    // Dynamic Site URL Logic
-    const isLocalhost =
-        window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.endsWith('.local') ||
-        window.location.port !== ''; // If there is a port, it's likely local dev
-
-    // Better slugification for subDomain
-    const subDomain = companyProfile?.companyName
-        ?.toLowerCase()
-        .trim()
-        .replace(/[ğ]/g, 'g')
-        .replace(/[ü]/g, 'u')
-        .replace(/[ş]/g, 's')
-        .replace(/[ı]/g, 'i')
-        .replace(/[ö]/g, 'o')
-        .replace(/[ç]/g, 'c')
-        .replace(/ /g, '-')
-        .replace(/[^a-z0-9-]/g, '') || 'demo';
-
-    // Help determine if it's an internal or external link
-    const relativeUrl = `/s/${siteConfig.domain || subDomain}`;
-    const fullUrl = isLocalhost
-        ? `${window.location.origin}${relativeUrl}`
-        : (siteConfig.domain ? `https://${siteConfig.domain}` : `https://${subDomain}.bayzenit.com`);
-
-    // Helper: Open Site
-    const handleViewSite = (e) => {
-        console.log('User clicked view site. Relative:', relativeUrl, 'Full:', fullUrl);
-
-        if (isLocalhost) {
-            navigate(relativeUrl);
-        } else {
-            const win = window.open(fullUrl, '_blank');
-            if (win) win.focus();
-        }
+    const handleSaveDomain = async () => {
+        setIsSaving(true);
+        await updateConfig({ domain });
+        setIsSaving(false);
     };
 
-    // Load font dynamically when it changes
-    React.useEffect(() => {
-        const fontFamily = siteConfig.theme?.fontFamily || '"Inter", sans-serif';
-        const fontName = fontFamily.split(',')[0].replace(/"/g, '');
-        const systemFonts = ['sans-serif', 'serif', 'monospace', 'cursive'];
-        if (systemFonts.includes(fontName.toLowerCase())) return;
-
-        const linkId = 'dashboard-google-font';
-        let link = document.getElementById(linkId);
-        if (!link) {
-            link = document.createElement('link');
-            link.id = linkId;
-            link.rel = 'stylesheet';
-            document.head.appendChild(link);
-        }
-        link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@300;400;500;600;700;800;900&display=swap`;
-    }, [siteConfig.theme?.fontFamily]);
-
     return (
-        <div className="page-container" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-
-            {/* Onboarding Wizard CTA (If not configured) */}
-            {!siteConfig.slug && (
-                <div style={{
-                    padding: '60px', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-                    borderRadius: '24px', marginBottom: '40px', color: 'white', textAlign: 'center',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.1)'
-                }}>
-                    <div style={{ display: 'inline-flex', padding: '12px', background: 'rgba(59, 130, 246, 0.2)', borderRadius: '16px', marginBottom: '24px' }}>
-                        <Sparkles size={32} color="#3b82f6" />
-                    </div>
-                    <h2 style={{ fontSize: '2.5rem', fontWeight: '900', marginBottom: '16px', letterSpacing: '-0.02em' }}>Launch Your Professional Website</h2>
-                    <p style={{ fontSize: '1.1rem', opacity: 0.8, maxWidth: '600px', margin: '0 auto 32px auto' }}>
-                        Create a premium website integrated with your services and products in less than 2 minutes.
-                    </p>
-                    <button
-                        onClick={() => navigate('/website/wizard')}
-                        style={{
-                            padding: '18px 40px', borderRadius: '16px', border: 'none', background: '#3b82f6', color: 'white',
-                            fontWeight: '800', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '12px',
-                            boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)'
-                        }}
-                    >
-                        Start Setup Wizard <ArrowRight size={20} />
-                    </button>
-                </div>
-            )}
-
-            {/* Header Area */}
-            <header style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-                <div>
-                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                        <Globe size={32} color="var(--primary)" />
-                        {t('websiteManager') || 'Website Manager'}
-                    </h1>
-                    <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>
-                        {t('websiteDesc') || 'Introduce your business and sell products online.'}
-                    </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button
-                        className="secondary-btn"
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            background: 'white', border: '1px solid var(--border)',
-                            cursor: 'pointer'
-                        }}
-                        onClick={handleViewSite}
-                    >
-                        <ExternalLink size={18} />
-                        {t('view_site') || 'Siteyi Görüntüle'}
-                        {!siteConfig.isPublished && <span style={{ fontSize: '10px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>{t('preview') || 'Önizleme'}</span>}
-                    </button>
-
-                    <button
-                        className={siteConfig.isPublished ? 'secondary-btn' : 'primary-btn'}
-                        onClick={siteConfig.isPublished ? unpublishSite : publishSite}
-                        style={{
-                            background: siteConfig.isPublished ? '#fee2e2' : 'var(--primary)',
-                            color: siteConfig.isPublished ? '#ef4444' : 'white',
-                            borderColor: siteConfig.isPublished ? '#fecaca' : 'transparent',
-                            display: 'flex', alignItems: 'center', gap: '8px'
-                        }}
-                    >
-                        {siteConfig.isPublished ? <Eye size={18} /> : <Share2 size={18} />}
-                        {siteConfig.isPublished ? (t('unpublish') || 'Yayından Kaldır') : (t('publishLive') || 'Canlıya Al')}
-                    </button>
-                </div>
-            </header>
-
-            {/* Premium Stats Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '40px' }}>
-                {/* Status Card */}
-                <div style={{
-                    padding: '24px',
-                    background: 'white',
-                    borderRadius: '20px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '20px',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        bottom: 0,
-                        width: '6px',
-                        background: siteConfig.isPublished ? 'linear-gradient(to bottom, #10b981, #34d399)' : 'linear-gradient(to bottom, #f59e0b, #fbbf24)'
-                    }} />
-                    <div style={{
-                        padding: '16px',
-                        borderRadius: '16px',
-                        background: siteConfig.isPublished ? '#ecfdf5' : '#fffbeb',
-                        color: siteConfig.isPublished ? '#10b981' : '#f59e0b'
-                    }}>
-                        {siteConfig.isPublished ? <CheckCircle size={32} /> : <Edit3 size={32} />}
-                    </div>
+        <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#1e293b', padding: '40px' }}>
+            <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                {/* Header */}
+                <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700' }}>{siteConfig.isPublished ? (t('siteLive') || 'Yayında') : (t('siteDraft') || 'Taslak')}</h3>
-                        <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                            {siteConfig.isPublished ? `${t('lastUpdate') || 'Son Güncelleme'}: ${t('just_now') || 'Az önce'}` : (t('notVisibleYet') || 'Henüz yayında değil')}
-                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                <Globe size={20} />
+                            </div>
+                            <h1 style={{ fontSize: '2rem', fontWeight: '800', margin: 0, letterSpacing: '-0.5px' }}>Website Manager</h1>
+                        </div>
+                        <p style={{ color: '#64748b', fontSize: '1rem', margin: 0 }}>Verwalten Sie Ihre Online-Präsenz und verkaufen Sie Produkte.</p>
                     </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button 
+                            onClick={() => window.open(`https://${siteConfig?.slug}.bayzenit.com`, '_blank')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}
+                        >
+                            <ExternalLink size={18} /> Website ansehen <span style={{ fontSize: '0.7rem', opacity: 0.6, background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>Vorschau</span>
+                        </button>
+                        <button 
+                            onClick={siteConfig?.isPublished ? unpublishSite : publishSite}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', borderRadius: '12px', border: 'none', background: '#2563eb', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
+                        >
+                            <Rocket size={18} /> {siteConfig?.isPublished ? 'Unpublish' : 'Veröffentlichen'}
+                        </button>
+                    </div>
+                </header>
+
+                {/* Top Statistics Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '40px' }}>
+                    <StatusCard 
+                        icon={Edit2}
+                        title={siteConfig?.isPublished ? "Live" : "Entwurf"}
+                        subtitle={siteConfig?.isPublished ? "Site is live" : "Noch nicht sichtbar"}
+                        color="#f59e0b"
+                        isActive={!siteConfig?.isPublished}
+                    />
+                    <StatusCard 
+                        icon={RefreshCw}
+                        title="Sync Status"
+                        subtitle={<div style={{ fontSize: '0.85rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                <span><Users size={12} style={{ marginRight: '4px' }} /> Produkte</span>
+                                <span style={{ fontWeight: '700' }}>3 Aktiv</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span><History size={12} style={{ marginRight: '4px' }} /> Dienstleistungen</span>
+                                <span style={{ fontWeight: '700', color: '#10b981' }}>Live Sync</span>
+                            </div>
+                        </div>}
+                        badge="Auto-Aktiv"
+                        color="#3b82f6"
+                    />
+                    <StatusCard 
+                        icon={BarChart2}
+                        title="SEO & Analytics"
+                        subtitle="Kurze SEO Beschreibung"
+                        actionText="Jetzt einrichten"
+                        color="#f97316"
+                        showChart
+                    />
                 </div>
 
-                {/* Automation Health (Services & Products) */}
-                <div style={{
-                    padding: '24px',
-                    background: 'white',
-                    borderRadius: '20px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-                    border: '1px solid var(--border)'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
-                        <span style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '1rem' }}>{t('sync_status') || 'Senkronizasyon'}</span>
-                        <div style={{ padding: '4px 8px', background: '#eff6ff', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', color: '#3b82f6' }}>{t('auto_active') || 'OTOMATİK'}</div>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', alignItems: 'center' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}><ShoppingCart size={16} /> {t('label_products') || 'Ürünler'}</span>
-                            <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{activeProducts} {t('active') || 'Aktif'}</span>
+                {/* Domain Section */}
+                <div style={{ background: 'white', borderRadius: '24px', padding: '32px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '40px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '48px' }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                            <Globe size={24} style={{ color: '#3b82f6' }} />
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0 }}>Connect custom domain</h2>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', alignItems: 'center' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}><Calendar size={16} /> {t('label_services') || 'Hizmetler'}</span>
-                            <span style={{ fontWeight: 'bold', color: '#10b981' }}>{t('live_sync') || 'Canlı'}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* SEO & Analytics Card */}
-                <div style={{
-                    padding: '24px',
-                    background: siteConfig.analyticsId ? 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)' : 'linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)',
-                    borderRadius: '20px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-                    border: `1px solid ${siteConfig.analyticsId ? '#bbf7d0' : '#fde68a'}`
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                        <span style={{ fontWeight: '700', color: siteConfig.analyticsId ? '#15803d' : '#b45309' }}>
-                            {siteConfig.analyticsId ? 'Google Analytics' : 'SEO & Analytics'}
-                        </span>
-                        <BarChart2 size={24} color={siteConfig.analyticsId ? '#16a34a' : '#d97706'} />
-                    </div>
-
-                    {siteConfig.analyticsId ? (
-                        <div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#166534', marginBottom: '4px' }}>{t('status_active') || 'Aktif Bağlantı'}</div>
-                            <div style={{ fontSize: '0.85rem', color: '#15803d', opacity: 0.8, fontFamily: 'monospace' }}>{siteConfig.analyticsId}</div>
-                        </div>
-                    ) : (
-                        <div>
-                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#92400e', marginBottom: '12px' }}>{t('seo_desc_short') || 'Ziyaretçilerinizi takip etmeye başlayın.'}</p>
-                            <button
-                                onClick={() => navigate('/website/settings')}
-                                style={{
-                                    background: 'white',
-                                    padding: '8px 16px',
-                                    borderRadius: '10px',
-                                    border: '1px solid #fde68a',
-                                    fontSize: '0.85rem',
-                                    color: '#b45309',
-                                    cursor: 'pointer',
-                                    fontWeight: '600',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                                }}
-                            >
-                                {t('setup_now') || 'Hemen Kur'}
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Domain Management Area */}
-            <div className="card" style={{ marginBottom: '40px', padding: '32px', border: '1px solid var(--primary-light)', background: 'linear-gradient(to right, #fff, #f0f7ff)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '24px' }}>
-                    <div style={{ flex: 1, minWidth: '300px' }}>
-                        <h2 style={{ fontSize: '1.25rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Globe size={20} color="var(--primary)" />
-                            {t('connect_custom_domain') || 'Özel Alan Adı Bağla'}
-                        </h2>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                            {t('domain_desc') || 'Kendi alan adınızı (örneğin: www.firmaniz.com) bu siteye bağlayarak profesyonel bir görünüm kazanın.'}
-                        </p>
-
-                        <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-                            <input
+                        <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '24px' }}>Domain desc</p>
+                        
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <input 
                                 type="text"
                                 placeholder="www.firmaniz.com"
-                                value={siteConfig.domain || ''}
-                                onChange={(e) => updateSiteConfig({ domain: e.target.value })}
-                                style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.95rem' }}
+                                value={domain}
+                                onChange={(e) => setDomain(e.target.value)}
+                                style={{ flex: 1, padding: '12px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '1rem', outline: 'none' }}
                             />
-                            <button
-                                className="primary-btn"
-                                style={{ whiteSpace: 'nowrap' }}
-                                onClick={() => {
-                                    alert(t('domain_saved_msg') || 'Alan adı kaydedildi! DNS ayarlarını aşağıdan kontrol edin.');
-                                }}
+                            <button 
+                                onClick={handleSaveDomain}
+                                disabled={isSaving}
+                                style={{ padding: '12px 28px', borderRadius: '12px', background: '#2563eb', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer' }}
                             >
-                                {t('save_button') || 'Kaydet'}
+                                {isSaving ? '...' : 'Speichern'}
                             </button>
                         </div>
                     </div>
 
-                    <div style={{ flex: 1, minWidth: '300px', background: 'rgba(255,255,255,0.5)', padding: '20px', borderRadius: '16px', border: '1px solid white' }}>
-                        <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Shield size={16} /> DNS Ayarları
-                        </h3>
-                        <div style={{ fontSize: '0.85rem' }}>
-                            {getDnsInstructions('example.com').map((dns, idx) => (
-                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: idx < 1 ? '1px solid var(--border)' : 'none' }}>
-                                    <span style={{ fontWeight: '600', color: 'var(--primary)', width: '60px' }}>{dns.type}</span>
-                                    <span style={{ color: 'var(--text-muted)' }}>{dns.name}</span>
-                                    <span style={{ fontFamily: 'monospace', color: 'var(--text-main)' }}>{dns.value}</span>
-                                </div>
-                            ))}
+                    <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '24px', border: '1px solid #f1f5f9' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                            <Shield size={16} />
+                            <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>DNS Ayarları</span>
                         </div>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '16px', fontStyle: 'italic' }}>
+                        <table style={{ width: '100%', fontSize: '0.85rem' }}>
+                            <tbody>
+                                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                    <td style={{ padding: '8px 0', color: '#2563eb', fontWeight: '700' }}>A</td>
+                                    <td style={{ padding: '8px 0', textAlign: 'center' }}>@</td>
+                                    <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '600' }}>76.76.21.21</td>
+                                </tr>
+                                <tr>
+                                    <td style={{ padding: '8px 0', color: '#2563eb', fontWeight: '700' }}>CNAME</td>
+                                    <td style={{ padding: '8px 0', textAlign: 'center' }}>www</td>
+                                    <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '600' }}>cname.bayzenit.com</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p style={{ margin: '16px 0 0', fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>
                             * Değişikliklerin aktif olması 24-48 saat sürebilir.
                         </p>
                     </div>
                 </div>
-            </div>
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '20px' }}>{t('management_edit') || 'Management & Edit'}</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-                <ActionCard
-                    t={t}
-                    title={t('edit_content') || 'Edit Content'}
-                    desc={t('edit_content_desc') || 'Update your site sections and text.'}
-                    icon={Edit3}
-                    color="#3b82f6"
-                    onClick={() => navigate('/website/editor')}
-                />
-                <ActionCard
-                    t={t}
-                    title={t('domain_seo') || 'Domain & SEO'}
-                    desc={t('domain_seo_desc') || 'Connect your domain and optimize for Google.'}
-                    icon={Globe}
-                    color="#8b5cf6"
-                    onClick={() => navigate('/website/settings')}
-                />
-                <ActionCard
-                    t={t}
-                    title={t('theme_colors') || 'Theme & Colors'}
-                    desc={t('theme_colors_desc') || 'Pick your theme and primary colors.'}
-                    icon={Monitor}
-                    color="#10b981"
-                    onClick={() => navigate('/website/settings')}
-                />
-            </div>
 
-            {/* Preview Section */}
-            <div style={{ marginTop: '40px', padding: '32px', background: '#f8fafc', borderRadius: '24px', textAlign: 'center', border: '2px dashed var(--border)' }}>
-                <h3 style={{ marginTop: 0 }}>{t('live_preview') || 'Live Preview'}</h3>
-                <p style={{ color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto 24px auto' }}>
-                    {t('currently_viewing_as') || 'Currently viewing as'} <strong>{siteConfig.theme?.mode === 'dark' ? (t('dark_mode') || 'Dark') : (t('light_mode') || 'Light')}</strong> {t('mode_with_accent') || 'mode with accent'}
-                    <strong> {siteConfig.theme?.primaryColor || '#3b82f6'}</strong> {t('and_font' || 'and font')} <strong>{siteConfig.theme?.fontFamily?.split(',')[0].replace(/"/g, '') || 'Inter'}</strong>.
-                </p>
+                {/* Management Grid */}
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '24px' }}>Verwaltung & Bearbeitung</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '64px' }}>
+                    <ActionCard 
+                        icon={MousePointer2}
+                        title="Inhalt bearbeiten"
+                        desc="Startseite und Texte ändern."
+                        onClick={() => navigate('/website/editor')}
+                        color="#3b82f6"
+                    />
+                    <ActionCard 
+                        icon={Globe}
+                        title="Domain & SEO"
+                        desc="Google-Suche und Domain-Einstellungen."
+                        onClick={() => navigate('/website/settings')}
+                        color="#8b5cf6"
+                    />
+                    <ActionCard 
+                        icon={Monitor}
+                        title="Design & Farben"
+                        desc="Wählen Sie ein Design, das zu Ihrer Marke passt."
+                        onClick={() => navigate('/website/themes')}
+                        color="#10b981"
+                    />
+                </div>
 
-                <div style={{
-                    maxWidth: '800px',
-                    margin: '0 auto',
-                    height: '400px',
-                    background: 'white',
-                    borderRadius: '12px',
-                    boxShadow: '0 20px 50px -12px rgba(0,0,0,0.25)',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative'
-                }}>
-                    {/* Fake Browser Header */}
-                    <div style={{ height: '32px', background: '#e2e8f0', display: 'flex', alignItems: 'center', padding: '0 12px', gap: '6px' }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }}></div>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }}></div>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e' }}></div>
-                        <div style={{ flex: 1, textAlign: 'center', fontSize: '10px', color: '#64748b', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                            <span>{fullUrl.replace('https://', '')}</span>
+                {/* Dashboard Live Preview Section */}
+                <div style={{ textAlign: 'center', marginBottom: '100px' }}>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '8px' }}>Live-Vorschau</h2>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '32px' }}>
+                        Aktuelle Ansicht: <span style={{ fontWeight: '700', color: '#1e293b' }}>{siteConfig?.theme?.mode === 'dark' ? 'Dunkel' : 'Hell'}</span> Modus mit Akzent: <span style={{ fontWeight: '700', color: siteConfig?.theme?.primaryColor }}>{siteConfig?.theme?.primaryColor}</span> And font <span style={{ fontWeight: '700', color: '#1e293b' }}>{siteConfig?.theme?.fontBody?.replace(/"/g, '').split(',')[0]}</span>.
+                    </p>
+
+                    <div style={{ 
+                        width: '100%', 
+                        maxWidth: '900px', 
+                        margin: '0 auto', 
+                        aspectRatio: '16/10',
+                        background: 'white',
+                        borderRadius: '24px 24px 0 0',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.1)',
+                        border: '8px solid #f1f5f9',
+                        borderBottom: 'none',
+                        overflow: 'hidden',
+                        position: 'relative'
+                    }}>
+                        {/* Browser Bar */}
+                        <div style={{ height: '40px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', padding: '0 16px', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56' }} />
+                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e' }} />
+                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f' }} />
+                            </div>
+                            <div style={{ flex: 1, margin: '0 20px', background: '#e2e8f0', height: '20px', borderRadius: '6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+                                {siteConfig?.slug}.bayzenit.com
+                            </div>
+                            <div style={{ width: '40px' }} />
                         </div>
-                        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold' }}>EN ▾</div>
-                    </div>
 
-                    {/* Simple Content Preview */}
-                    <div style={{ flex: 1, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: siteConfig.theme?.fontFamily }}>
-                        <h1 style={{ fontSize: '2rem', marginBottom: '12px', color: 'var(--text-main)', fontFamily: 'inherit' }}>{companyProfile?.companyName || 'Your Business'}</h1>
-                        <p style={{ fontFamily: 'inherit' }}>{companyProfile?.industry ? `${t(companyProfile.industry)} ${t('expert' || 'Expert')}` : (t('professional_services' || 'Professional Services'))}</p>
-                        <button style={{ marginTop: '20px', padding: '10px 24px', background: siteConfig.theme?.primaryColor || '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontFamily: 'inherit' }}>
-                            {t('book_now') || 'Book Now'}
-                        </button>
-                    </div>
-
-                    {/* Overlay for Action */}
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-                        <button
-                            className="primary-btn"
-                            style={{ boxShadow: '0 10px 25px rgba(59, 130, 246, 0.5)' }}
-                            onClick={() => navigate('/website/editor')}
-                        >
-                            <Edit3 size={18} /> {t('edit_content') || 'İçeriği Düzenle'}
-                        </button>
-                        <button
-                            className="secondary-btn"
-                            style={{
-                                background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
-                            }}
-                            onClick={handleViewSite}
-                        >
-                            <ExternalLink size={18} /> {t('open_site') || 'Siteyi Aç'}
-                        </button>
+                        {/* Preview Content Mockup */}
+                        <div style={{ height: 'calc(100% - 40px)', padding: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: siteConfig?.theme?.backgroundColor || 'white' }}>
+                            <h3 style={{ fontSize: '3rem', fontWeight: '900', color: siteConfig?.theme?.textColor || '#1e293b', marginBottom: '24px' }}>Bayenderi</h3>
+                            <div style={{ display: 'flex', gap: '16px' }}>
+                                <button style={{ padding: '12px 24px', borderRadius: '12px', background: siteConfig?.theme?.primaryColor || '#3b82f6', color: 'white', border: 'none', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Activity size={18} /> Inhalt bearbeiten
+                                </button>
+                                <button style={{ padding: '12px 24px', borderRadius: '12px', background: 'white', color: '#475569', border: '1px solid #e2e8f0', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <ExternalLink size={18} /> Open site
+                                </button>
+                            </div>
+                            <div style={{ marginTop: '40px' }}>
+                                <button style={{ padding: '10px 32px', borderRadius: '8px', background: siteConfig?.theme?.primaryColor || '#3b82f6', color: 'white', border: 'none', fontWeight: '700' }}>Jetzt buchen</button>
+                            </div>
+                            
+                            <div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '100px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', fontSize: '0.8rem', fontWeight: '700', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                                Auf Wolke aktuell
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -401,23 +231,45 @@ const WebsiteDashboard = () => {
     );
 };
 
-const ActionCard = ({ title, desc, icon: Icon, color, onClick, t }) => (
-    <div
-        className="card action-card"
-        onClick={onClick}
-        style={{ padding: '24px', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s', border: '1px solid transparent' }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(0,0,0,0.1)'; e.currentTarget.style.borderColor = color; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'transparent'; }}
-    >
-        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: color, marginBottom: '16px' }}>
-            <Icon size={24} />
+const StatusCard = ({ icon: Icon, title, subtitle, badge, actionText, color, isActive, showChart }) => (
+    <div style={{ background: 'white', padding: '28px', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden' }}>
+        {isActive && <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: color }} />}
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: `${color}10`, color: color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={24} />
+            </div>
+            {badge && <span style={{ fontSize: '0.7rem', color: color, background: `${color}10`, padding: '4px 10px', borderRadius: '100px', fontWeight: '800' }}>{badge}</span>}
+            {showChart && <BarChart2 size={24} style={{ color }} />}
         </div>
-        <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem' }}>{title}</h3>
-        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{desc}</p>
-        <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: color, fontWeight: '600' }}>
-            {t('action_go') || 'Go'} <ArrowRight size={14} />
-        </div>
+        
+        <h3 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', fontWeight: '800' }}>{title}</h3>
+        {typeof subtitle === 'string' ? <p style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#64748b', fontWeight: '500' }}>{subtitle}</p> : <div style={{ marginBottom: '16px' }}>{subtitle}</div>}
+        
+        {actionText && (
+            <button style={{ padding: '6px 16px', borderRadius: '8px', border: `1px solid ${color}40`, background: 'white', color: color, fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}>
+                {actionText}
+            </button>
+        )}
     </div>
 );
 
+const ActionCard = ({ icon: Icon, title, desc, onClick, color }) => (
+    <motion.div 
+        whileHover={{ y: -5, boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}
+        onClick={onClick}
+        style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'all 0.2s' }}
+    >
+        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: `${color}10`, color: color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+            <Icon size={20} />
+        </div>
+        <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: '800' }}>{title}</h3>
+        <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: '#64748b', lineHeight: '1.5' }}>{desc}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#3b82f6', fontSize: '0.85rem', fontWeight: '800' }}>
+            Los <ChevronRight size={14} />
+        </div>
+    </motion.div>
+);
+
 export default WebsiteDashboard;
+

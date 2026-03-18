@@ -3,17 +3,33 @@
   --cockpit-sidebar: #FFFFFF;
   --cockpit-primary: #4F46E5;
   --cockpit-primary-light: #EEF2FF;
+  --cockpit-primary-dark: #3730A3;
   --cockpit-text-main: #0F172A;
   --cockpit-text-muted: #64748B;
   --cockpit-border: #E2E8F0;
+  --cockpit-border-subtle: #F1F5F9;
   --cockpit-card-bg: #FFFFFF;
   --cockpit-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --cockpit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
+/* [data-theme='dark'] {
+  --cockpit-bg: #020617;
+  --cockpit-sidebar: #0f172a;
+  --cockpit-card-bg: #1e293b;
+  --cockpit-text-main: #f8fafc;
+  --cockpit-text-muted: #94a3b8;
+  --cockpit-border: #334155;
+  --cockpit-border-subtle: #1e293b;
+  --cockpit-primary-light: rgba(79, 70, 229, 0.1);
+  --cockpit-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --cockpit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+} */
+
 .cockpit-container {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background-color: var(--cockpit-bg);
+  color: var(--cockpit-text-main);
   min-height: 100vh;
 }
 
@@ -44,19 +60,24 @@
 }
 
 .cockpit-btn-primary:hover {
-  background-color: #4338CA;
+  background-color: var(--cockpit-primary-dark);
   transform: scale(1.02);
 }
 
 /* Glassmorphism utility */
 .cockpit-glass, .glass-morphism {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='light'] .cockpit-glass, [data-theme='light'] .glass-morphism {
+  background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-/* Custom scrollbar for a premium look */
+/* Custom scrollbar */
 .cockpit-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -65,11 +86,11 @@
   background: transparent;
 }
 .cockpit-scroll::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
+  background: var(--cockpit-border);
   border-radius: 10px;
 }
 .cockpit-scroll::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
+  background: var(--cockpit-text-muted);
 }
 
 .premium-shadow {
@@ -85,12 +106,13 @@
   box-shadow: 0 20px 40px -20px rgba(79, 70, 225, 0.15);
 }
 
-.sidebar-item-active {
-  background: linear-gradient(90deg, #eef2ff 0%, #f5f3ff 100%);
-  box-shadow: inset 4px 0 0 -2px #4f46e5;
-}
+/* Utilities mapping to variables */
+.text-main { color: var(--cockpit-text-main); }
+.text-muted { color: var(--cockpit-text-muted); }
+.bg-card { background-color: var(--cockpit-card-bg); }
+.bg-body { background-color: var(--cockpit-bg); }
 
-/* Utilities */
+/* Tailwind-like utilities */
 .flex { display: flex; }
 .flex-col { flex-direction: column; }
 .items-center { align-items: center; }
@@ -102,55 +124,138 @@
 .flex-1 { flex: 1 1 0%; }
 .grid { display: grid; }
 .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.gap-1 { gap: 0.25rem; }
+.gap-2 { gap: 0.5rem; }
 .gap-3 { gap: 0.75rem; }
 .gap-4 { gap: 1rem; }
 .gap-6 { gap: 1.5rem; }
 .gap-8 { gap: 2rem; }
+.gap-10 { gap: 2.5rem; }
+.p-1\.5 { padding: 0.375rem; }
 .p-2 { padding: 0.5rem; }
+.p-2\.5 { padding: 0.625rem; }
 .p-3 { padding: 0.75rem; }
+.p-3\.5 { padding: 0.875rem; }
 .p-4 { padding: 1rem; }
-.p-5 { padding: 1.25rem; }
 .p-6 { padding: 1.5rem; }
+.p-7 { padding: 1.75rem; }
 .p-8 { padding: 2rem; }
+.p-10 { padding: 2.5rem; }
+.p-12 { padding: 3rem; }
+.px-1 { padding-left: 0.25rem; padding-right: 0.25rem; }
+.px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
 .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
 .px-4 { padding-left: 1rem; padding-right: 1rem; }
+.px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+.px-8 { padding-left: 2rem; padding-right: 2rem; }
+.py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
 .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
 .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+.py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
 .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+.pb-12 { padding-bottom: 3rem; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-1\.5 { margin-top: 0.375rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mt-8 { margin-top: 2rem; }
+.mt-10 { margin-top: 2.5rem; }
+.mt-12 { margin-top: 3rem; }
 .mb-1 { margin-bottom: 0.25rem; }
+.mb-1\.5 { margin-bottom: 0.375rem; }
+.mb-2 { margin-bottom: 0.5rem; }
 .mb-4 { margin-bottom: 1rem; }
 .mb-6 { margin-bottom: 1.5rem; }
 .mb-8 { margin-bottom: 2rem; }
+.mb-10 { margin-bottom: 2.5rem; }
+.ml-1 { margin-left: 0.25rem; }
+.ml-4 { margin-left: 1rem; }
+.mr-4 { margin-right: 1rem; }
 .space-y-2 > * + * { margin-top: 0.5rem; }
 .space-y-3 > * + * { margin-top: 0.75rem; }
 .space-y-4 > * + * { margin-top: 1rem; }
+.space-y-5 > * + * { margin-top: 1.25rem; }
 .space-y-6 > * + * { margin-top: 1.5rem; }
 .space-y-8 > * + * { margin-top: 2rem; }
+.space-y-10 > * + * { margin-top: 2.5rem; }
+.w-1 { width: 0.25rem; }
+.w-3 { width: 0.75rem; }
+.w-6 { width: 1.5rem; }
+.w-8 { width: 2rem; }
+.w-10 { width: 2.5rem; }
+.w-px { width: 1px; }
 .w-full { width: 100%; }
+.h-1\.5 { height: 0.375rem; }
+.h-4 { height: 1rem; }
+.h-6 { height: 1.5rem; }
+.h-8 { height: 2rem; }
+.h-10 { height: 2.5rem; }
+.h-20 { height: 5rem; }
+.h-screen { height: 100vh; }
 .h-full { height: 100%; }
-.sticky { position: sticky; }
-.top-0 { top: 0; }
+.rounded { border-radius: 0.25rem; }
+.rounded-lg { border-radius: 0.5rem; }
 .rounded-xl { border-radius: 0.75rem; }
 .rounded-2xl { border-radius: 1rem; }
+.rounded-3xl { border-radius: 1.5rem; }
+.rounded-\[2rem\] { border-radius: 2rem; }
+.rounded-\[2\.5rem\] { border-radius: 2.5rem; }
 .rounded-full { border-radius: 9999px; }
 .text-xs { font-size: 0.75rem; }
+.text-\[9px\] { font-size: 9px; }
+.text-\[10px\] { font-size: 10px; }
 .text-sm { font-size: 0.875rem; }
 .text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
 .text-3xl { font-size: 1.875rem; }
 .font-medium { font-weight: 500; }
 .font-bold { font-weight: 700; }
 .font-black { font-weight: 900; }
-.text-slate-900 { color: #0f172a; }
-.text-slate-500 { color: #64748b; }
-.text-slate-400 { color: #94a3b8; }
-.italic { font-style: italic; }
+.text-slate-900 { color: var(--cockpit-text-main); }
+.text-slate-600 { color: var(--cockpit-text-muted); }
+.text-slate-500 { color: var(--cockpit-text-muted); }
+.text-slate-400 { color: var(--cockpit-text-muted); }
+.text-white { color: white; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uppercase { text-transform: uppercase; }
+.tracking-tighter { letter-spacing: -0.05em; }
+.tracking-tight { letter-spacing: -0.025em; }
+.tracking-widest { letter-spacing: 0.1em; }
+.border { border: 1px solid var(--cockpit-border); }
+.border-b { border-bottom: 1px solid var(--cockpit-border); }
+.border-t { border-top: 1px solid var(--cockpit-border); }
+.border-r { border-right: 1px solid var(--cockpit-border); }
+.border-none { border: none; }
+.bg-white { background-color: var(--cockpit-card-bg); }
+.bg-slate-50 { background-color: var(--cockpit-bg); }
+.bg-slate-100 { background-color: var(--cockpit-bg); }
+.bg-indigo-600 { background-color: var(--cockpit-primary); }
+.bg-rose-500 { background-color: #F43F5E; }
+.bg-amber-500 { background-color: #F59E0B; }
+.bg-emerald-500 { background-color: #10B981; }
+.shadow-lg { box-shadow: var(--cockpit-shadow); }
+.shadow-xl { box-shadow: var(--cockpit-shadow-lg); }
+.overflow-hidden { overflow: hidden; }
+.overflow-y-auto { overflow-y: auto; }
+.overflow-x-hidden { overflow-x: hidden; }
+.absolute { position: absolute; }
+.relative { position: relative; }
+.top-1\/2 { top: 50%; }
+.right-0 { right: 0; }
+.-translate-y-1\/2 { transform: translateY(-50%); }
+
+.cockpit-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cockpit-border) transparent;
+}
 
 @media (min-width: 768px) {
+  .md\:flex { display: flex; }
   .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (min-width: 1024px) {
-  .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .lg\:col-span-2 { grid-column: span 2 / span 2; }
 }

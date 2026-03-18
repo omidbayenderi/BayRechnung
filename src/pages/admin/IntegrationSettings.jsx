@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { CreditCard, Key, Smartphone, Globe, Check, AlertCircle, Copy, Eye, EyeOff, Lock } from 'lucide-react';
 import { usePlanGuard } from '../../hooks/usePlanGuard';
 import { useNavigate } from 'react-router-dom';
 
 const IntegrationSettings = () => {
     const { t } = useLanguage();
+    const { showNotification } = useNotification();
     const navigate = useNavigate();
     const { isPremium } = usePlanGuard();
     const [showKey, setShowKey] = useState({});
@@ -37,7 +38,10 @@ const IntegrationSettings = () => {
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
-        alert(t('copied') || 'Kopyalandı!');
+        showNotification({
+            type: 'success',
+            message: t('copied') || 'Kopyalandı!'
+        });
     };
 
     const integrations = [

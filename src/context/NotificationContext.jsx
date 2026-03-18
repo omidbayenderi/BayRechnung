@@ -39,54 +39,62 @@ export const NotificationProvider = ({ children }) => {
         <NotificationContext.Provider value={{ showNotification }}>
             {children}
 
-            {/* Global Notification Portal */}
+            {/* Global Notification Portal - Centered Top */}
             <div style={{
                 position: 'fixed',
-                top: '24px',
-                right: '24px',
+                top: '32px',
+                left: '50%',
+                transform: 'translateX(-50%)',
                 zIndex: 99999,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px',
-                pointerEvents: 'none'
+                pointerEvents: 'none',
+                width: 'auto',
+                minWidth: '320px',
+                maxWidth: '90vw'
             }}>
                 <AnimatePresence>
                     {notifications.map((n) => (
                         <motion.div
                             key={n.id}
-                            initial={{ opacity: 0, x: 50, scale: 0.9 }}
-                            animate={{ opacity: 1, x: 0, scale: 1 }}
-                            exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                             style={{
                                 pointerEvents: 'auto',
-                                width: '320px',
-                                background: n.type === 'error' ? '#fff1f2' : n.type === 'warning' ? '#fffbeb' : '#f0fdf4',
-                                border: `1px solid ${n.type === 'error' ? '#fecdd3' : n.type === 'warning' ? '#fde68a' : '#bbf7d0'}`,
-                                borderRadius: '16px',
-                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                                padding: '16px',
+                                background: 'rgba(255, 255, 255, 0.9)',
+                                backdropFilter: 'blur(12px)',
+                                border: `1px solid ${n.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : n.type === 'warning' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
+                                borderRadius: '24px',
+                                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                                padding: '16px 20px',
                                 display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: '12px'
+                                alignItems: 'center',
+                                gap: '16px'
                             }}
                         >
                             <div style={{
-                                padding: '8px',
-                                borderRadius: '10px',
-                                background: 'white',
-                                color: n.type === 'error' ? '#e11d48' : n.type === 'warning' ? '#d97706' : '#16a34a'
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: n.type === 'error' ? '#fef2f2' : n.type === 'warning' ? '#fffbeb' : '#ecfdf5',
+                                color: n.type === 'error' ? '#ef4444' : n.type === 'warning' ? '#f59e0b' : '#10b981'
                             }}>
-                                {n.type === 'success' && <CheckCircle size={20} />}
-                                {n.type === 'error' && <AlertCircle size={20} />}
-                                {n.type === 'warning' && <AlertTriangle size={20} />}
-                                {n.type === 'info' && <Info size={20} />}
+                                {n.type === 'success' && <CheckCircle size={22} />}
+                                {n.type === 'error' && <AlertCircle size={22} />}
+                                {n.type === 'warning' && <AlertTriangle size={22} />}
+                                {n.type === 'info' && <Info size={22} />}
                             </div>
 
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1e293b', marginBottom: '2px' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b', marginBottom: '1px' }}>
                                     {n.title}
                                 </div>
-                                <div style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.4 }}>
+                                <div style={{ fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {n.message}
                                 </div>
                             </div>
@@ -95,10 +103,14 @@ export const NotificationProvider = ({ children }) => {
                                 onClick={() => removeNotification(n.id)}
                                 style={{
                                     border: 'none',
-                                    background: 'transparent',
+                                    background: 'rgba(0,0,0,0.05)',
                                     color: '#94a3b8',
                                     cursor: 'pointer',
-                                    padding: '4px'
+                                    padding: '6px',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
                                 }}
                             >
                                 <X size={16} />

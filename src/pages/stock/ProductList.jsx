@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { Plus, Edit, Trash2, Search, Filter, X, Save, AlertTriangle, Package, Download, Link, Image as ImageIcon, Check, Tag } from 'lucide-react';
 
 const ProductList = () => {
     const { products, addProduct, updateProduct, deleteProduct, categories, addCategory, deleteCategory } = useStock();
     const { t } = useLanguage();
+    const { showNotification } = useNotification();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -468,7 +470,10 @@ const ProductList = () => {
                                                 const file = e.target.files[0];
                                                 if (file) {
                                                     if (file.size > 50 * 1024 * 1024) { // 50MB Limit Alert
-                                                        alert(t('videoSizeError', 'Video boyutu çok yüksek! Lütfen 50MB altı yükleyin.'));
+                                                        showNotification({
+                                                            type: 'error',
+                                                            message: t('videoSizeError', 'Video boyutu çok yüksek! Lütfen 50MB altı yükleyin.')
+                                                        });
                                                         return;
                                                     }
                                                     const reader = new FileReader();

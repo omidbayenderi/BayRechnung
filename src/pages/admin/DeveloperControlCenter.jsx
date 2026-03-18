@@ -8,6 +8,7 @@ import MtdRotationsView from '../../components/admin/MtdRotationsView';
 import { useBayGuard } from '../../context/BayGuardContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 
@@ -16,6 +17,7 @@ import { supabase } from '../../lib/supabase';
 const DeveloperControlCenter = () => {
     const { logs: localLogs, interventions, mtdState, rotateMtdTargets, addLog, clearLogs } = useBayGuard();
     const { currentUser, logSecurityAction } = useAuth();
+    const { showNotification } = useNotification();
     const [activeTab, setActiveTab] = useState('overview'); // overview, security, users, logs, testing, agent-matrix
     const [statFlash, setStatFlash] = useState(false);
     const [showMtdAnalytics, setShowMtdAnalytics] = useState(false);
@@ -176,13 +178,21 @@ const DeveloperControlCenter = () => {
             if (addLog) addLog(new Error(`PLAN_CHANGE_SUCCESS: ${editingUser.email} set to ${newPlan}`), { severity: 'info' });
             if (logSecurityAction) await logSecurityAction('PLAN_UPGRADED', 'subscription', targetId, { newPlan, email: editingUser.email }, 'info');
 
-            alert(`Plan successfully updated to ${newPlan.toUpperCase()}`);
+            showNotification({
+                type: 'success',
+                title: 'Plan Güncellendi',
+                message: `${editingUser.email} için plan başarıyla ${newPlan.toUpperCase()} yapıldı.`
+            });
 
             // Wait 1s before background refetch to ensure DB has indexed the upsert
             setTimeout(() => fetchUsers(), 1000);
         } catch (err) {
             console.error('[DCC] Plan update failed:', err);
-            alert(`Failed to update plan: ${err.message}`);
+            showNotification({
+                type: 'error',
+                title: 'Hata',
+                message: `Plan güncellenirken bir hata oluştu: ${err.message}`
+            });
         } finally {
             setIsUpdating(false);
         }

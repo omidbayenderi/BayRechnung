@@ -262,6 +262,61 @@ const RightSidebar = () => {
                         </div>
                     </div>
                 )}
+
+                {/* VIDEO SPECIFIC */}
+                {selectedElement.type === 'video' && (
+                    <div>
+                        <h4 style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px' }}>Video</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div>
+                                <label style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '4px', display: 'block' }}>Video URL (YouTube/MP4)</label>
+                                <input type="text" value={selectedElement.src || ''} onChange={e => handleChange('src', e.target.value)} style={inputStyle} placeholder="https://..." />
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <input type="checkbox" checked={selectedElement.autoplay} onChange={e => handleChange('autoplay', e.target.checked)} />
+                                <label style={{ fontSize: '0.85rem' }}>Otomatik Oynat</label>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <input type="checkbox" checked={selectedElement.muted} onChange={e => handleChange('muted', e.target.checked)} />
+                                <label style={{ fontSize: '0.85rem' }}>Sessiz Başlat</label>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* MAP SPECIFIC */}
+                {selectedElement.type === 'map' && (
+                    <div>
+                        <h4 style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px' }}>Harita</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div>
+                                <label style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '4px', display: 'block' }}>Adres / Konum</label>
+                                <input type="text" value={selectedElement.address || ''} onChange={e => handleChange('address', e.target.value)} style={inputStyle} placeholder="İstanbul, Türkiye" />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '4px', display: 'block' }}>Yakınlaştırma (1-20)</label>
+                                <input type="number" value={selectedElement.zoom || 14} onChange={e => handleChange('zoom', Number(e.target.value))} style={inputStyle} />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* AI AGENT SPECIFIC */}
+                {selectedElement.type === 'agent' && (
+                    <div>
+                        <h4 style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', marginBottom: '12px' }}>AI Agent</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div>
+                                <label style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '4px', display: 'block' }}>Agent ID</label>
+                                <input type="text" value={selectedElement.agentId || ''} onChange={e => handleChange('agentId', e.target.value)} style={inputStyle} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '4px', display: 'block' }}>Karşılama Mesajı</label>
+                                <textarea rows={3} value={selectedElement.welcomeMessage || ''} onChange={e => handleChange('welcomeMessage', e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
+                            </div>
+                        </div>
+                    </div>
+                )}
                 
                 {selectedElement.type === 'button' && (
                     <div>

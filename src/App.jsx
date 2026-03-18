@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
+import NotFound from './pages/NotFound';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ResetPassword from './pages/auth/ResetPassword';
@@ -48,7 +49,7 @@ import WebsiteEditor from './pages/website/WebsiteEditor';
 import WebsitePages from './pages/website/WebsitePages';
 import WebsiteBlogs from './pages/website/WebsiteBlogs';
 import WebsiteStore from './pages/website/WebsiteStore';
-import WebsiteAITools from './pages/website/WebsiteAITools';
+
 import WebsiteSettings from './pages/website/WebsiteSettings';
 import SiteWizard from './features/webbuilder/wizard/SiteWizard';
 import PublicWebsite from './pages/public/PublicWebsite';
@@ -77,6 +78,7 @@ import Onboarding from './pages/admin/Onboarding';
 import AdminCockpit from './pages/admin/cockpit/AdminCockpit';
 
 import { NotificationProvider } from './context/NotificationContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 function App() {
   const { isAuthenticated, currentUser } = useAuth();
@@ -127,143 +129,146 @@ function App() {
   }, []);
 
   return (
-    <BayGuardProvider>
-      <NotificationProvider>
-        <Routes>
-          <Route path="/booking" element={<PublicBookingPage />} />
-          <Route path="/success" element={<Success />} />
-          <Route path="/portal/:token" element={<CustomerPortal />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/privacy" element={<Privacy />} />
+    <ThemeProvider>
+      <BayGuardProvider>
+        <NotificationProvider>
+          <Routes>
+            <Route path="/booking" element={<PublicBookingPage />} />
+            <Route path="/success" element={<Success />} />
+            <Route path="/portal/:token" element={<CustomerPortal />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
 
-          {/* 1. Public External Website (Custom Domain or Subdomain based) */}
-          {isPublicSite ? (
-            // When accessed via subdomain (firmaadi.bayzenit.com), ALL paths go to PublicWebsite
-            <Route path="/*" element={
+            {/* 1. Public External Website (Custom Domain or Subdomain based) */}
+            {isPublicSite ? (
+              // When accessed via subdomain (firmaadi.bayzenit.com), ALL paths go to PublicWebsite
+              <Route path="/*" element={
+                <WebsiteProvider>
+                  <PublicWebsite customDomain={effectivePublicDomain} />
+                </WebsiteProvider>
+              } />
+            ) : (
+              // Normal platform: show landing at "/"
+              <Route path="/" element={<LandingPage />} />
+            )}
+
+            {/* Path-based fallback: bayzenit.com/s/firmaadi (always available) */}
+            <Route path="/s/:domain/*" element={
               <WebsiteProvider>
-                <PublicWebsite customDomain={effectivePublicDomain} />
+                <PublicWebsite />
               </WebsiteProvider>
             } />
-          ) : (
-            // Normal platform: show landing at "/"
-            <Route path="/" element={<LandingPage />} />
-          )}
 
-          {/* Path-based fallback: bayzenit.com/s/firmaadi (always available) */}
-          <Route path="/s/:domain/*" element={
-            <WebsiteProvider>
-              <PublicWebsite />
-            </WebsiteProvider>
-          } />
-
-          {/* 2. Public Platform Routes */}
-          <Route path="/login" element={isAuthenticated ? <Navigate to="/admin" /> : <Login />} />
-          <Route path="/register" element={isAuthenticated ? <Navigate to="/admin" /> : <Register />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+            {/* 2. Public Platform Routes */}
+            <Route path="/login" element={isAuthenticated ? <Navigate to="/admin" /> : <Login />} />
+            <Route path="/register" element={isAuthenticated ? <Navigate to="/admin" /> : <Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
 
-          {/* Legacy Path Fix */}
-          <Route path="/Rechnung/*" element={<Navigate to="/admin" replace />} />
+            {/* Legacy Path Fix */}
+            <Route path="/Rechnung/*" element={<Navigate to="/admin" replace />} />
 
-          {/* 3. Internal Application Routes (WITH BayPilot & Co.) */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<InternalAgentWrapper />}>
-              <Route element={<Layout />}>
-                {/* Admin Role Only */}
-                <Route element={<RoleGuard allowedRoles={['admin']} />}>
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/admin/cockpit" element={<AdminCockpit />} />
-                  <Route path="/admin/health" element={<SystemHealth />} />
-                  <Route path="/admin/analytics" element={<AdminAnalytics />} />
-                  <Route path="/admin/kanban" element={<ProjectKanban />} />
-                  <Route path="/users" element={<UserManagement />} />
-                  <Route path="/admin/sites" element={<SiteControlCenterPage />} />
-                  <Route path="/developer/control-center" element={
-                    currentUser?.email?.toLowerCase() === 'admin@bayrechnung.com' ? <DeveloperControlCenter /> : <Navigate to="/admin" />
+            {/* 3. Internal Application Routes (WITH BayPilot & Co.) */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<InternalAgentWrapper />}>
+                <Route element={<Layout />}>
+                  {/* Admin Role Only */}
+                  <Route element={<RoleGuard allowedRoles={['admin']} />}>
+                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route path="/admin/cockpit" element={<AdminCockpit />} />
+                    <Route path="/admin/health" element={<SystemHealth />} />
+                    <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                    <Route path="/admin/kanban" element={<ProjectKanban />} />
+                    <Route path="/users" element={<UserManagement />} />
+                    <Route path="/admin/sites" element={<SiteControlCenterPage />} />
+                    <Route path="/developer/control-center" element={
+                      currentUser?.email?.toLowerCase() === 'admin@bayrechnung.com' ? <DeveloperControlCenter /> : <Navigate to="/admin" />
+                    } />
+                  </Route>
+
+                  <Route element={<RoleGuard allowedRoles={['admin', 'finance']} />}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/new" element={<NewInvoice />} />
+                    <Route path="/quotes" element={<Quotes />} />
+                    <Route path="/quotes/new" element={<NewQuote />} />
+                    <Route path="/archive" element={<Archive />} />
+                    <Route path="/reports" element={<Reports />} />
+                  </Route>
+
+                  <Route path="/expenses" element={<Expenses />} />
+                  <Route path="/recurring" element={<Recurring />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings/profile" element={<ProfileSettings />} />
+                  <Route path="/settings/security" element={<SecuritySettings />} />
+
+                  <Route path="/invoice/:id" element={<InvoiceView type="invoice" />} />
+                  <Route path="/quote/:id" element={<InvoiceView type="quote" />} />
+                  <Route path="/invoice/:id/edit" element={<InvoiceEdit type="invoice" />} />
+                  <Route path="/quote/:id/edit" element={<InvoiceEdit type="quote" />} />
+
+                  <Route path="/messages" element={<MessagesCenter />} />
+                  <Route path="/onboarding" element={<Onboarding />} />
+
+                  {/* Appointment System */}
+                  <Route path="/appointments/*" element={
+                    <RoleGuard allowedRoles={['admin', 'finance', 'site_lead']}>
+                      <Routes>
+                        <Route path="dashboard" element={<AppointmentDashboard />} />
+                        <Route path="calendar" element={<AppointmentCalendar />} />
+                        <Route path="bookings" element={<BookingsList />} />
+                        <Route path="services" element={<ServiceSettings />} />
+                        <Route path="settings" element={<AppointmentSettings />} />
+                        <Route path="*" element={<Navigate to="dashboard" />} />
+                      </Routes>
+                    </RoleGuard>
                   } />
-                </Route>
 
-                <Route element={<RoleGuard allowedRoles={['admin', 'finance']} />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/new" element={<NewInvoice />} />
-                  <Route path="/quotes" element={<Quotes />} />
-                  <Route path="/quotes/new" element={<NewQuote />} />
-                  <Route path="/archive" element={<Archive />} />
-                  <Route path="/reports" element={<Reports />} />
-                </Route>
+                  {/* Stock & Sales Panel */}
+                  <Route path="/stock/*" element={
+                    <RoleGuard allowedRoles={['admin', 'site_lead', 'finance']}>
+                      <Routes>
+                        <Route path="" element={<Navigate to="dashboard" />} />
+                        <Route path="dashboard" element={<StockDashboard />} />
+                        <Route path="products" element={<ProductList />} />
+                        <Route path="pos" element={<POS />} />
+                        <Route path="settings" element={<StockSettings />} />
+                        <Route path="*" element={<Navigate to="dashboard" />} />
+                      </Routes>
+                    </RoleGuard>
+                  } />
 
-                <Route path="/expenses" element={<Expenses />} />
-                <Route path="/recurring" element={<Recurring />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/settings/profile" element={<ProfileSettings />} />
-                <Route path="/settings/security" element={<SecuritySettings />} />
+                  {/* Website Builder */}
+                  <Route path="/website/*" element={
+                    <RoleGuard allowedRoles={['admin']}>
+                      <Routes>
+                        <Route path="dashboard" element={<WebsiteDashboard />} />
+                        <Route path="wizard" element={<SiteWizard />} />
+                        <Route path="editor" element={<WebsiteEditor />} />
+                        <Route path="pages" element={<WebsitePages />} />
+                        <Route path="blogs" element={<WebsiteBlogs />} />
+                        <Route path="store" element={<WebsiteStore />} />
 
-                <Route path="/invoice/:id" element={<InvoiceView type="invoice" />} />
-                <Route path="/quote/:id" element={<InvoiceView type="quote" />} />
-                <Route path="/invoice/:id/edit" element={<InvoiceEdit type="invoice" />} />
-                <Route path="/quote/:id/edit" element={<InvoiceEdit type="quote" />} />
+                        <Route path="settings" element={<WebsiteSettings />} />
+                        <Route path="*" element={<Navigate to="/website/dashboard" replace />} />
+                      </Routes>
+                    </RoleGuard>
+                  } />
 
-                <Route path="/messages" element={<MessagesCenter />} />
-                <Route path="/onboarding" element={<Onboarding />} />
-
-                {/* Appointment System */}
-                <Route path="/appointments/*" element={
-                  <RoleGuard allowedRoles={['admin', 'finance', 'site_lead']}>
-                    <Routes>
-                      <Route path="dashboard" element={<AppointmentDashboard />} />
-                      <Route path="calendar" element={<AppointmentCalendar />} />
-                      <Route path="bookings" element={<BookingsList />} />
-                      <Route path="services" element={<ServiceSettings />} />
-                      <Route path="settings" element={<AppointmentSettings />} />
-                      <Route path="*" element={<Navigate to="dashboard" />} />
-                    </Routes>
-                  </RoleGuard>
-                } />
-
-                {/* Stock & Sales Panel */}
-                <Route path="/stock/*" element={
-                  <RoleGuard allowedRoles={['admin', 'site_lead', 'finance']}>
-                    <Routes>
-                      <Route path="" element={<Navigate to="dashboard" />} />
-                      <Route path="dashboard" element={<StockDashboard />} />
-                      <Route path="products" element={<ProductList />} />
-                      <Route path="pos" element={<POS />} />
-                      <Route path="settings" element={<StockSettings />} />
-                      <Route path="*" element={<Navigate to="dashboard" />} />
-                    </Routes>
-                  </RoleGuard>
-                } />
-
-                {/* Website Builder */}
-                <Route path="/website/*" element={
-                  <RoleGuard allowedRoles={['admin']}>
-                    <Routes>
-                      <Route path="dashboard" element={<WebsiteDashboard />} />
-                      <Route path="wizard" element={<SiteWizard />} />
-                      <Route path="editor" element={<WebsiteEditor />} />
-                      <Route path="pages" element={<WebsitePages />} />
-                      <Route path="blogs" element={<WebsiteBlogs />} />
-                      <Route path="store" element={<WebsiteStore />} />
-                      <Route path="ai-tools" element={<WebsiteAITools />} />
-                      <Route path="settings" element={<WebsiteSettings />} />
-                      <Route path="*" element={<Navigate to="/website/dashboard" replace />} />
-                    </Routes>
-                  </RoleGuard>
-                } />
-
-                {/* Worker Specific */}
-                <Route path="/worker" element={<RoleGuard allowedRoles={['worker', 'admin', 'site_lead']} redirectToLogin={true}><WorkerLayout /></RoleGuard>}>
-                  <Route index element={<Navigate to="/worker/home" replace />} />
-                  <Route path="home" element={<WorkerHome />} />
-                  <Route path="report" element={<DailyReport />} />
-                  <Route path="notifications" element={<MessagesCenter />} />
+                  {/* Worker Specific */}
+                  <Route path="/worker" element={<RoleGuard allowedRoles={['worker', 'admin', 'site_lead']} redirectToLogin={true}><WorkerLayout /></RoleGuard>}>
+                    <Route index element={<Navigate to="/worker/home" replace />} />
+                    <Route path="home" element={<WorkerHome />} />
+                    <Route path="report" element={<DailyReport />} />
+                    <Route path="notifications" element={<MessagesCenter />} />
+                  </Route>
                 </Route>
               </Route>
             </Route>
-          </Route>
-        </Routes>
-      </NotificationProvider>
-    </BayGuardProvider>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </NotificationProvider>
+      </BayGuardProvider>
+    </ThemeProvider>
   );
 }
 

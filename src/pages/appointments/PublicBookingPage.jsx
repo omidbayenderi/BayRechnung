@@ -9,6 +9,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useWebsite } from '../../context/WebsiteContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../../context/NotificationContext';
 
 const PublicBookingPage = () => {
     const { services: contextServices, staff: contextStaff, createPublicBooking, settings: contextSettings } = useAppointments();
@@ -16,6 +17,7 @@ const PublicBookingPage = () => {
     const [publicData, setPublicData] = useState({ services: [], staff: [], userId: null, settings: null });
     const [loading, setLoading] = useState(false);
     const { getT, serviceLanguages, appLanguage } = useLanguage();
+    const { showNotification } = useNotification();
     // Prioritize 'website' language preference for public facing booking page
     const t = getT(serviceLanguages?.website || appLanguage);
     const [searchParams] = useSearchParams();
@@ -317,7 +319,11 @@ const PublicBookingPage = () => {
                 }
             } catch (e) {
                 console.error('Stripe error:', e);
-                alert('Ödeme başlatılırken bir hata oluştu. Lütfen tekrar deneyin.');
+                showNotification({
+                    type: 'error',
+                    title: t('error') || 'Hata',
+                    message: 'Ödeme başlatılırken bir hata oluştu. Lütfen tekrar deneyin.'
+                });
                 setIsProcessingPayment(false);
                 return;
             }
@@ -733,7 +739,10 @@ const PublicBookingPage = () => {
                                         onClick={() => {
                                             const svc = services.find(s => s.id === bookingData.serviceId);
                                             if (svc && svc.name.toLowerCase().includes('online')) {
-                                                alert('Online hizmetler için online ödeme zorunludur.');
+                                                showNotification({
+                                                    type: 'warning',
+                                                    message: 'Online hizmetler için online ödeme zorunludur.'
+                                                });
                                                 return;
                                             }
                                             setPaymentMethod('onsite');

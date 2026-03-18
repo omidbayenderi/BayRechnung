@@ -7,6 +7,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useNotification } from '../../context/NotificationContext';
 import { AnimatePresence } from 'framer-motion';
 import PremiumUpgradeModal from '../../components/admin/PremiumUpgradeModal';
+// import ThemeToggle from '../../components/ThemeToggle';
 
 const Settings = () => {
     const navigate = useNavigate();
@@ -561,6 +562,35 @@ const Settings = () => {
                         <div className="form-group">
                             <label>{t('phone')}</label>
                             <input className="form-input" name="phone" value={formData.phone} onChange={handleChange} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="settings-card card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
+                        <LayoutDashboard size={22} color="var(--primary)" />
+                        <h3 style={{ margin: 0 }}>{t('appearance') || 'Görünüm'}</h3>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                        {t('themeDescription') || 'Uygulama temasını tercihinize göre ayarlayın. Otomatik mod saat ve sistem ayarlarınıza göre akıllı seçim yapar.'}
+                    </p>
+                    <div style={{ 
+                        background: 'var(--bg-body)', 
+                        padding: '16px', 
+                        borderRadius: '16px', 
+                        border: '1px solid var(--border)',
+                        marginBottom: '1rem'
+                    }}>
+                        {/* ThemeToggle removed for forced light mode */}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>{t('currentTime') || 'Şu anki saat'}:</span>
+                            <span style={{ fontWeight: '600' }}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>{t('smartSwitch') || 'Akıllı Geçiş'}:</span>
+                            <span style={{ color: 'var(--success)', fontWeight: '600' }}>{t('active') || 'Etkin'}</span>
                         </div>
                     </div>
                 </div>

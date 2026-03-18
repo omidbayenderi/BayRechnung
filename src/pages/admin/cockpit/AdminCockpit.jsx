@@ -52,8 +52,8 @@ const AdminCockpit = () => {
             <motion.aside 
                 initial={false}
                 animate={{ width: isSidebarOpen ? 280 : 80 }}
-                className="bg-white border-r border-slate-200 flex flex-col z-50 relative h-full"
-                style={{ borderColor: 'var(--cockpit-border)' }}
+                className="border-r flex flex-col z-50 relative h-full"
+                style={{ backgroundColor: 'var(--cockpit-sidebar)', borderColor: 'var(--cockpit-border)' }}
             >
                 {/* Logo Section */}
                 <div className="p-6 flex items-center gap-3">
@@ -64,7 +64,8 @@ const AdminCockpit = () => {
                         <motion.div 
                             initial={{ opacity: 0 }} 
                             animate={{ opacity: 1 }}
-                            className="font-black text-xl tracking-tight text-slate-900"
+                            className="font-black text-xl tracking-tight"
+                            style={{ color: 'var(--cockpit-text-main)' }}
                         >
                             BAY<span style={{ color: 'var(--cockpit-primary)' }}>RECHNUNG</span>
                         </motion.div>
@@ -99,13 +100,13 @@ const AdminCockpit = () => {
 
                 {/* User Section */}
                 <div className="p-4 border-t" style={{ borderColor: 'var(--cockpit-border)' }}>
-                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border" style={{ borderColor: 'var(--cockpit-border)' }}>
+                    <div className="flex items-center gap-3 p-3 rounded-2xl border" style={{ backgroundColor: 'var(--cockpit-bg)', borderColor: 'var(--cockpit-border)' }}>
                         <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ backgroundColor: 'var(--cockpit-primary)' }}>
                             {userInitials}
                         </div>
                         {isSidebarOpen && (
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold truncate text-slate-900">{currentUser?.name || 'Admin'}</p>
+                                <p className="text-sm font-bold truncate" style={{ color: 'var(--cockpit-text-main)' }}>{currentUser?.name || 'Admin'}</p>
                                 <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--cockpit-primary)' }}>
                                     <Shield size={10} /> {currentUser?.role || 'admin'}
                                 </p>
@@ -118,15 +119,16 @@ const AdminCockpit = () => {
             {/* Main Wrapper */}
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Top Header */}
-                <header className="h-20 bg-white border-b px-8 flex items-center justify-between shrink-0" style={{ borderColor: 'var(--cockpit-border)' }}>
+                <header className="h-20 border-b px-8 flex items-center justify-between shrink-0" style={{ backgroundColor: 'var(--cockpit-sidebar)', borderColor: 'var(--cockpit-border)' }}>
                     <div className="flex items-center gap-4">
                         <button 
                             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
+                            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+                            style={{ color: 'var(--cockpit-text-muted)' }}
                         >
                             <Menu size={20} />
                         </button>
-                        <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border text-slate-400" style={{ borderColor: 'var(--cockpit-border)' }}>
+                        <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl border" style={{ backgroundColor: 'var(--cockpit-bg)', borderColor: 'var(--cockpit-border)', color: 'var(--cockpit-text-muted)' }}>
                             <Search size={16} />
                             <span className="text-sm">Hızlı arama...</span>
                             <span className="text-[10px] font-bold bg-white px-1.5 py-0.5 rounded border ml-4" style={{ borderColor: 'var(--cockpit-border)' }}>⌘K</span>
@@ -138,17 +140,17 @@ const AdminCockpit = () => {
                             <Sparkles size={16} style={{ color: 'var(--cockpit-primary)' }} />
                             <span className="text-xs font-bold" style={{ color: 'var(--cockpit-primary)' }}>BayGuard AI Aktif</span>
                         </div>
-                        <div className="w-px h-6 bg-slate-200"></div>
+                        <div className="w-px h-6" style={{ backgroundColor: 'var(--cockpit-border)' }}></div>
                         <div className="flex items-center gap-4">
-                            <button className="relative text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setActiveTab('messages')}>
+                            <button className="relative transition-colors" style={{ color: 'var(--cockpit-text-muted)' }} onClick={() => setActiveTab('messages')}>
                                 <Bell size={20} />
                                 {unreadCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-rose-500 text-white text-[9px] font-black rounded-full border-2 border-white flex items-center justify-center px-0.5">
+                                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-rose-500 text-white text-[9px] font-black rounded-full border-2 flex items-center justify-center px-0.5" style={{ borderColor: 'var(--cockpit-sidebar)' }}>
                                         {unreadCount > 9 ? '9+' : unreadCount}
                                     </span>
                                 )}
                             </button>
-                            <button className="text-slate-400 hover:text-slate-600 transition-colors">
+                            <button className="transition-colors" style={{ color: 'var(--cockpit-text-muted)' }}>
                                 <Settings size={20} />
                             </button>
                         </div>

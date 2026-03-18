@@ -1,6 +1,7 @@
 import React from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { useNotification } from './NotificationContext';
 
 const WebsiteContext = React.createContext();
 
@@ -53,10 +54,12 @@ const DEFAULT_SECTIONS = [
 
 export const WebsiteProvider = ({ children }) => {
     const { currentUser } = useAuth();
+    const { showNotification } = useNotification();
     const [siteConfig, setSiteConfig] = React.useState(DEFAULT_CONFIG);
     const [pages, setPages] = React.useState([{ id: 'home', title: 'Home', slug: '/', sections: DEFAULT_SECTIONS }]);
     const [activePageId, setActivePageId] = React.useState('home');
     const [loading, setLoading] = React.useState(true);
+    const [isDbError, setIsDbError] = React.useState(false);
 
     // Initial Fetch from Supabase
     React.useEffect(() => {
@@ -129,8 +132,16 @@ export const WebsiteProvider = ({ children }) => {
                         setActivePageId(newPage.id);
                     }
                 }
-            } catch (err) {
+             } catch (err) {
                 console.error('[WebsiteContext] Error fetching site data:', err);
+                if (err.code === 'PGRST205' || err.message?.includes('website_pages')) {
+                    setIsDbError(true);
+                    showNotification({
+                        title: 'Sistem Güncellemesi Gerekli',
+                        message: 'Web sitesi sayfaları için gerekli tablo (website_pages) bulunamadı. Lütfen migrasyonları kontrol edin.',
+                        type: 'error'
+                    });
+                }
             } finally {
                 setLoading(false);
             }
@@ -290,24 +301,47 @@ export const WebsiteProvider = ({ children }) => {
 
     // PAGE Management
     const addPage = React.useCallback(async (title, slug) => {
-        if (!currentUser) return { success: false };
+        if (!currentUser) return { success: false, error: 'Oturum açılmamış' };
 
-        const { data, error } = await supabase
-            .from('website_pages')
-            .insert([{
-                user_id: currentUser.id,
-                title,
-                slug,
-                sections: [],
-                order_index: pages.length
-            }])
-            .select()
-            .single();
+        try {
+            const { data, error } = await supabase
+                .from('website_pages')
+                .insert([{
+                    user_id: currentUser.id,
+                    title,
+                    slug: slug.startsWith('/') ? slug : `/${slug}`,
+                    sections: DEFAULT_SECTIONS,
+                    order_index: pages.length
+                }])
+                .select()
+                .single();
 
-        if (error) return { success: false, error: error.message };
-        setPages(prev => [...prev, data]);
-        return { success: true, pageId: data.id };
-    }, [currentUser, pages]);
+            if (error) {
+                console.error('[WebsiteContext] Insert error:', error);
+                
+                if (error.code === 'PGRST205' || error.message?.includes('website_pages')) {
+                    showNotification({
+                        title: 'Veritabanı Hatası',
+                        message: 'Sayfa tablosu (website_pages) veritabanında mevcut değil. Lütffen SQL migrasyonunu (037) çalıştırın.',
+                        type: 'error'
+                    });
+                } else {
+                    showNotification({
+                        title: 'Hata',
+                        message: error.message,
+                        type: 'error'
+                    });
+                }
+                return { success: false, error: error.message };
+            }
+            
+            setPages(prev => [...prev, data]);
+            return { success: true, pageId: data.id };
+        } catch (err) {
+            console.error('[WebsiteContext] Unexpected error:', err);
+            return { success: false, error: err.message };
+        }
+    }, [currentUser, pages.length]);
 
     const deletePage = React.useCallback(async (pageId) => {
         if (!currentUser || pages.length <= 1) return { success: false };
@@ -328,6 +362,21 @@ export const WebsiteProvider = ({ children }) => {
         return { success: true };
     }, [currentUser, pages, activePageId]);
 
+    const reorderSections = React.useCallback(async (newSections) => {
+        if (!currentUser) return { success: false };
+        const activePage = pages.find(p => p.id === activePageId);
+        if (!activePage) return { success: false };
+
+        setPages(prev => prev.map(p => p.id === activePageId ? { ...p, sections: newSections } : p));
+
+        const { error } = await supabase
+            .from('website_pages')
+            .update({ sections: newSections })
+            .eq('id', activePageId);
+
+        return { success: !error, error: error?.message };
+    }, [currentUser, pages, activePageId]);
+
     const value = {
         siteConfig,
         pages,
@@ -341,6 +390,7 @@ export const WebsiteProvider = ({ children }) => {
         addSection,
         deleteSection,
         moveSection,
+        reorderSections,
         toggleSectionVisibility,
         publishSite,
         unpublishSite,

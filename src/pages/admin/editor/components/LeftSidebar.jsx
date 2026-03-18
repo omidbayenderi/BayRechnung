@@ -1,15 +1,13 @@
 import React from 'react';
-import { Type, Image, Square, Layout, List, Video, MessageSquare } from 'lucide-react';
+import { Type, Image, Square, Layout, List, Video, MessageSquare, MapPin } from 'lucide-react';
 
 const ELEMENTS = [
     { id: 'text', label: 'Metin', icon: Type, defaultProps: { type: 'text', text: 'Yeni Metin', fontSize: 16, color: '#1e293b' } },
     { id: 'heading', label: 'Başlık', icon: Type, defaultProps: { type: 'heading', text: 'Yeni Başlık', fontSize: 32, fontWeight: 'bold', color: '#0f172a' } },
-    { id: 'image', label: 'Görsel', icon: Image, defaultProps: { type: 'image', src: 'https://via.placeholder.com/300x200', objectFit: 'cover' } },
+    { id: 'image', label: 'Görsel', icon: Image, defaultProps: { type: 'image', src: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=800&auto=format&fit=crop', objectFit: 'cover' } },
+    { id: 'gallery', label: 'Galeri', icon: Layout, defaultProps: { type: 'gallery', images: [] } },
     { id: 'button', label: 'Buton', icon: Square, defaultProps: { type: 'button', text: 'Tıkla', bg: '#3b82f6', color: '#ffffff', borderRadius: 8 } },
-    { id: 'video', label: 'Video', icon: Video, defaultProps: { type: 'video', src: '' } },
-    { id: 'box', label: 'Kutu', icon: Layout, defaultProps: { type: 'box', bg: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 } },
-    { id: 'divider', label: 'Ayırıcı', icon: List, defaultProps: { type: 'divider', height: 1, bg: '#e2e8f0' } },
-    { id: 'contact', label: 'İletişim Formu', icon: MessageSquare, defaultProps: { type: 'form' } }
+    { id: 'faq', label: 'Soru-Cevap', icon: List, defaultProps: { type: 'faq', question: 'Örnek Soru?', answer: 'Cevap metni buraya gelecek...', isOpen: false } }
 ];
 
 const LeftSidebar = () => {

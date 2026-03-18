@@ -51,7 +51,7 @@ const SyncStatus = () => {
         <div className="no-print" style={{
             position: 'fixed',
             bottom: '20px',
-            right: '250px', // Shift left to stay away from the main sidebar if needed, or adjust
+            right: '25px', // Standard bottom-right placement away from sidebar
             zIndex: 1000,
             display: 'flex',
             alignItems: 'center',

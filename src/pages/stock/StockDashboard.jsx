@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStock } from '../../context/StockContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotification } from '../../context/NotificationContext';
 import { Package, TrendingUp, AlertTriangle, DollarSign, Search, ShoppingBag, Truck, Download, Share2, MessageCircle, Mail, ExternalLink, CheckCircle, XCircle, RotateCcw, Clock, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,6 +12,7 @@ const actionBtnStyle = (bg, color) => ({
 const StockDashboard = () => {
     const { products, sales, updateSaleStatus } = useStock();
     const { t } = useLanguage();
+    const { showNotification } = useNotification();
     const [searchTerm, setSearchTerm] = useState('');
     const [trackingModal, setTrackingModal] = useState({ isOpen: false, saleId: null });
     const [trackingInput, setTrackingInput] = useState({ company: 'DHL', code: '' });
@@ -111,7 +113,12 @@ const StockDashboard = () => {
 
     const handleShareDigital = (sale, item) => {
         const product = item?.product;
-        if (!product || !product.downloadUrl) return alert('İndirme linki yok.');
+        if (!product || !product.downloadUrl) {
+            return showNotification({
+                type: 'error',
+                message: 'İndirme linki yok.'
+            });
+        }
 
         const message = `Merhaba ${sale.customerName || 'Değerli Müşterimiz'}, ${product.name} siparişiniz için teşekkürler! 📥 İşte indirme linkiniz: ${product.downloadUrl}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');

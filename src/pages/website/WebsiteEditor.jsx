@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useWebsite } from '../../context/WebsiteContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
     Layout, Eye, EyeOff, Trash2, PlusCircle, Monitor,
     Edit3, RefreshCw, ShoppingCart, ArrowLeft, ArrowRight,
@@ -9,15 +9,17 @@ import {
     ChevronRight, Save, LayoutTemplate, X, Briefcase, Calendar, Map, Globe,
     ChevronDown, Plus, MessageSquare, Layers, Paperclip, Star, Hash, Settings, Palette,
     GripVertical, Smartphone, Tablet, Monitor as DesktopIcon, Sun, Moon,
-    CheckSquare, PlusSquare, Wand2, MoreHorizontal, Link, BarChart
+    CheckSquare, PlusSquare, Wand2, MoreHorizontal, Link, BarChart, Newspaper, Sliders,
+    GripHorizontal, Minus, Users, PieChart, Activity, Workflow, Bell
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PublicWebsite from '../public/PublicWebsite';
 import SectionLibrary from './SectionLibrary';
+import { useNotification } from '../../context/NotificationContext';
 
 // ─── GOOGLE FONTS LIST ───
 const GOOGLE_FONTS = [
-    'Inter', 'Outfit', 'Poppins', 'Montserrat', 'Roboto', 'Open Sans', 'Lato',
+    'Roboto', 'Inter', 'Outfit', 'Poppins', 'Montserrat', 'Open Sans', 'Lato',
     'Raleway', 'Nunito', 'Playfair Display', 'Merriweather', 'Source Sans Pro',
     'Rubik', 'Work Sans', 'DM Sans', 'Manrope', 'Sora', 'Space Grotesk',
     'Plus Jakarta Sans', 'Figtree', 'Lexend', 'Urbanist', 'Quicksand',
@@ -32,9 +34,10 @@ const WebsiteEditor = () => {
     const {
         pages, activePageId, setActivePageId, addPage, deletePage, updatePage,
         sections, updateSection, toggleSectionVisibility,
-        addSection, deleteSection, moveSection, siteConfig, updateSiteConfig,
+        addSection, deleteSection, moveSection, reorderSections, siteConfig, updateSiteConfig,
         publishSite
     } = useWebsite();
+    const { showNotification } = useNotification();
     const { t } = useLanguage();
     const navigate = useNavigate();
     const location = useLocation();
@@ -44,12 +47,8 @@ const WebsiteEditor = () => {
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
         const mapping = {
-            'status': 'kurulum',
-            'elements': 'ogeler',
             'pages': 'sayfalar',
             'styles': 'stiller',
-            'ai': 'yapayzeka',
-            'blog': 'blog',
             'store': 'magaza',
             'seo': 'seo',
             'more': 'daha'
@@ -66,6 +65,10 @@ const WebsiteEditor = () => {
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, tablet, mobile
     const [draggedIdx, setDraggedIdx] = useState(null);
     const [showDesignPanel, setShowDesignPanel] = useState(false);
+    const [isAddPageModalOpen, setIsAddPageModalOpen] = useState(false);
+    const [newPageTitle, setNewPageTitle] = useState('');
+    const [newPageSlug, setNewPageSlug] = useState('');
+    const [isDragging, setIsDragging] = useState(false);
 
     // Sync activePanel with URL
     useEffect(() => {
@@ -83,18 +86,23 @@ const WebsiteEditor = () => {
 
     // ─── SECTION TEMPLATES ───
     const SECTION_TEMPLATES = useMemo(() => [
-        { type: 'text', icon: <FileText size={18} />, label: t('theme_section_text') || 'Text Section', defaultData: { title: 'New Section', content: 'Add your text here...' } },
+        { type: 'hero', icon: <Layout size={18} />, label: t('theme_section_hero') || 'Hero / Banner', defaultData: { title: 'Headline', subtitle: 'Sub-headline...' } },
+        { type: 'text', icon: <Type size={18} />, label: t('theme_section_text') || 'Text Section', defaultData: { title: 'New Section', content: 'Add your text here...' } },
         { type: 'about', icon: <Briefcase size={18} />, label: t('theme_section_about') || 'About Us', defaultData: { title: 'About Us', text: 'Tell your story...' } },
         { type: 'services', icon: <Calendar size={18} />, label: t('theme_section_services') || 'Services', defaultData: { title: 'Our Services', autoPull: true } },
         { type: 'products', icon: <ShoppingCart size={18} />, label: t('theme_section_products') || 'Products', defaultData: { title: 'Our Products', autoPull: true } },
         { type: 'contact', icon: <Map size={18} />, label: t('theme_section_contact') || 'Contact Us', defaultData: { title: 'Contact Us', showMap: true } },
         { type: 'gallery', icon: <ImageIcon size={18} />, label: t('theme_section_gallery') || 'Gallery', defaultData: { title: 'Gallery', images: [] } },
-        { type: 'blog', icon: <MessageSquare size={18} />, label: t('theme_section_blog') || 'Blog', defaultData: { title: 'Latest News', posts: [] } },
         { type: 'features', icon: <Layers size={18} />, label: t('theme_section_features') || 'Features', defaultData: { title: 'Our Features', items: [{ title: 'Feature 1', description: 'Desc...' }] } },
         { type: 'pricing', icon: <Palette size={18} />, label: t('theme_section_pricing') || 'Pricing', defaultData: { title: 'Pricing Plans', items: [{ name: 'Basic', price: '29', features: ['Feature 1'] }] } },
         { type: 'faq', icon: <List size={18} />, label: t('theme_section_faq') || 'FAQ', defaultData: { title: 'Frequently Asked Questions', items: [{ q: 'How it works?', a: 'Answer here...' }] } },
         { type: 'testimonials', icon: <Star size={18} />, label: t('theme_section_testimonials') || 'Testimonials', defaultData: { title: 'Customer Love', items: [{ author: 'John Doe', quote: 'Amazing service!' }] } },
-        { type: 'stats', icon: <Hash size={18} />, label: t('theme_section_stats') || 'Stats', defaultData: { items: [{ label: 'Happy Customers', value: '1000+' }] } }
+        { type: 'stats', icon: <Hash size={18} />, label: t('theme_section_stats') || 'Stats', defaultData: { items: [{ label: 'Happy Customers', value: '1000+' }] } },
+        { type: 'construction_users', icon: <Users size={18} />, label: t('theme_section_users') || 'Kullanıcı Yönetimi', defaultData: { title: 'Kullanıcı Yönetimi' } },
+        { type: 'construction_reports', icon: <BarChart size={18} />, label: t('theme_section_reports') || 'Raporlar', defaultData: { title: 'Raporlar' } },
+        { type: 'construction_finance', icon: <PieChart size={18} />, label: t('theme_section_finance') || 'Finans Dashboard', defaultData: { title: 'Finans Dashboard' } },
+        { type: 'construction_workflow', icon: <Activity size={18} />, label: t('theme_section_workflow') || 'Şantiye ve İş Akışı', defaultData: { title: 'Şantiye ve İş Akışı' } },
+        { type: 'construction_messages', icon: <Bell size={18} />, label: t('theme_section_messages') || 'Mesajlar / Bildirimler', defaultData: { title: 'Mesajlar / Bildirimler' } }
     ], [t]);
 
     // ─── HANDLERS ───
@@ -122,6 +130,42 @@ const WebsiteEditor = () => {
         setShowAddModal(false);
     }, [addSection, siteConfig.businessCategory]);
 
+    const handleAddPage = async (e) => {
+        if (e) e.preventDefault();
+        if (!newPageTitle) return;
+        const slug = newPageSlug || '/' + newPageTitle.toLowerCase().replace(/\s+/g, '-');
+        
+        try {
+            const res = await addPage(newPageTitle, slug.startsWith('/') ? slug : `/${slug}`);
+            if (res.success) {
+                showNotification({
+                    message: t('page_added_success') || 'Sayfa başarıyla eklendi.',
+                    type: 'success'
+                });
+                setIsAddPageModalOpen(false);
+                setNewPageTitle('');
+                setNewPageSlug('');
+            } else {
+                showNotification({
+                    title: 'Hata',
+                    message: res.error || 'Sayfa eklenirken bir hata oluştu',
+                    type: 'error'
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification({
+                title: 'Hata',
+                message: err.message,
+                type: 'error'
+            });
+        }
+    };
+
+    const handleOpenAddPageModal = () => {
+        setIsAddPageModalOpen(true);
+    };
+
     const handleDeleteSection = useCallback((id) => {
         if (window.confirm(t('delete_section_confirm') || 'Bu bölümü silmek istediğinize emin misiniz?')) {
             deleteSection(id);
@@ -139,15 +183,25 @@ const WebsiteEditor = () => {
     // ─── DRAG AND DROP ───
     const handleDragStart = useCallback((idx) => setDraggedIdx(idx), []);
     const handleDragOver = useCallback((e) => e.preventDefault(), []);
-    const handleDrop = useCallback((dropIdx) => {
-        if (draggedIdx === null || draggedIdx === dropIdx) return;
-        const dir = dropIdx > draggedIdx ? 'down' : 'up';
-        const steps = Math.abs(dropIdx - draggedIdx);
-        for (let i = 0; i < steps; i++) {
-            moveSection(sections[draggedIdx].id, dir);
+    const handleDrop = useCallback((e, dropIdx) => {
+        e.preventDefault();
+        const templateData = e.dataTransfer.getData('section_template');
+        
+        if (templateData) {
+            try {
+                const template = JSON.parse(templateData);
+                addSection(template, dropIdx);
+            } catch (err) { console.error("Drop error:", err); }
+        } else if (draggedIdx !== null) {
+            if (draggedIdx === dropIdx) return;
+            const dir = dropIdx > draggedIdx ? 'down' : 'up';
+            const steps = Math.abs(dropIdx - draggedIdx);
+            for (let i = 0; i < steps; i++) {
+                moveSection(sections[draggedIdx].id, dir);
+            }
         }
         setDraggedIdx(null);
-    }, [draggedIdx, moveSection, sections]);
+    }, [draggedIdx, moveSection, sections, addSection]);
 
     const previewOverrideData = useMemo(() => {
         const profile = JSON.parse(localStorage.getItem('bay_profile') || '{}');
@@ -190,15 +244,12 @@ const WebsiteEditor = () => {
     const previewWidth = previewMode === 'mobile' ? '375px' : previewMode === 'tablet' ? '768px' : '100%';
 
     const SIDEBAR_ITEMS = [
-        { id: 'kurulum', icon: CheckSquare, label: 'Kurulum' },
-        { id: 'ogeler', icon: PlusSquare, label: 'Öğeler' },
-        { id: 'sayfalar', icon: FileText, label: 'Sayfalar' },
-        { id: 'stiller', icon: Palette, label: 'Stiller' },
-        { id: 'yapayzeka', icon: Wand2, label: 'YZ araçları' },
-        { id: 'blog', icon: MessageSquare, label: 'Blog' },
-        { id: 'magaza', icon: ShoppingCart, label: 'Mağaza' },
-        { id: 'seo', icon: Globe, label: 'SEO' },
-        { id: 'daha', icon: MoreHorizontal, label: 'Daha fazla' }
+        { id: 'ogeler', icon: Plus, label: t('menu_elements') },
+        { id: 'sayfalar', icon: FileText, label: t('menu_pages') },
+        { id: 'stiller', icon: Palette, label: t('menu_styles') },
+        { id: 'magaza', icon: ShoppingCart, label: t('menu_store') },
+        { id: 'seo', icon: Globe, label: t('menu_seo') },
+        { id: 'daha', icon: MoreHorizontal, label: t('menu_more') }
     ];
 
     // ─── RENDER ───
@@ -227,20 +278,6 @@ const WebsiteEditor = () => {
                         </div>
                         
                         <div style={{ flex: 1, overflowY: 'auto', padding: '16px', minWidth: '320px' }}>
-                            {activePanel === 'kurulum' && (
-                                <div>
-                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '16px' }}>Set up your site with these checklist items.</p>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {['Select Template', 'Customize Design', 'Add Pages', 'Add Custom Domain', 'Configure SEO', 'Set Up Store', 'Publish Site'].map((item, i) => (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                                                <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: '2px solid #cbd5e1' }} />
-                                                <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#334155' }}>{item}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button onClick={() => publishSite()} style={{ width: '100%', padding: '12px', background: '#9333ea', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', marginTop: '16px', cursor: 'pointer' }}>Publish Site</button>
-                                </div>
-                            )}
 
                             {activePanel === 'ogeler' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -249,44 +286,50 @@ const WebsiteEditor = () => {
                                     </div>
                                     <div style={{ height: '1px', background: '#f1f5f9', margin: '8px 0' }} />
                                     <h3 style={{ fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>
-                                        Active Sections
+                                        {t('active_sections') || 'Aktif Bölümler'}
                                     </h3>
-                                    {sections.map((section, idx) => (
-                                        <div
-                                            key={section.id}
-                                            draggable
-                                            onDragStart={() => handleDragStart(idx)}
-                                            onDragOver={handleDragOver}
-                                            onDrop={() => handleDrop(idx)}
-                                            style={{
-                                                padding: '12px 14px', borderRadius: '12px', cursor: 'grab',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                background: editingSection === section.id ? '#f3e8ff' : '#f8fafc',
-                                                border: '1px solid ' + (editingSection === section.id ? '#d8b4fe' : '#f1f5f9'),
-                                                opacity: section.visible === false ? 0.5 : 1,
-                                                transition: 'all 0.15s'
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                                                <GripVertical size={14} color="#cbd5e1" />
-                                                <div style={{ color: editingSection === section.id ? '#9333ea' : '#94a3b8', flexShrink: 0 }}>
-                                                    {SECTION_TEMPLATES.find(t => t.type.toUpperCase() === section.type.toUpperCase())?.icon || <Layout size={16} />}
-                                                </div>
-                                                <div style={{ minWidth: 0 }}>
-                                                    <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{section.data?.title || section.type}</div>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                                                <button onClick={(e) => { e.stopPropagation(); openSectionEditor(section.id); }} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9333ea', padding: '4px' }}><Edit3 size={14} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); moveSection(section.id, 'up'); }} title="Move Up" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}><ChevronDown size={14} style={{ transform: 'rotate(180deg)' }} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); moveSection(section.id, 'down'); }} title="Move Down" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}><ChevronDown size={14} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); toggleSectionVisibility(section.id); }} title="Toggle Visibility" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}>
-                                                    {section.visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
-                                                </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteSection(section.id); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: '4px' }}><Trash2 size={14} /></button>
-                                            </div>
+                        <Reorder.Group 
+                            axis="y" 
+                            values={sections} 
+                            onReorder={reorderSections}
+                            style={{ display: 'flex', flexDirection: 'column', gap: '8px', listStyle: 'none', padding: 0 }}
+                        >
+                            {sections.map((section, idx) => (
+                                <Reorder.Item
+                                    key={section.id}
+                                    value={section}
+                                    onDragStart={() => setIsDragging(true)}
+                                    onDragEnd={() => setIsDragging(false)}
+                                    style={{
+                                        padding: '12px 14px', borderRadius: '12px', cursor: 'grab',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        background: editingSection === section.id ? '#f3e8ff' : '#f8fafc',
+                                        border: '1px solid ' + (editingSection === section.id ? '#d8b4fe' : '#f1f5f9'),
+                                        opacity: section.visible === false ? 0.5 : 1,
+                                        transition: 'all 0.15s',
+                                        userSelect: 'none'
+                                    }}
+                                    whileDrag={{ scale: 1.05, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100 }}
+                                    onClick={() => openSectionEditor(section.id)}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                                        <GripVertical size={14} color="#cbd5e1" style={{ cursor: 'grab' }} />
+                                        <div style={{ color: editingSection === section.id ? '#9333ea' : '#94a3b8', flexShrink: 0 }}>
+                                            {SECTION_TEMPLATES.find(t => t.type.toUpperCase() === section.type.toUpperCase())?.icon || <Layout size={16} />}
                                         </div>
-                                    ))}
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{section.data?.title || section.type}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                                        <button onClick={(e) => { e.stopPropagation(); toggleSectionVisibility(section.id); }} title="Toggle Visibility" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}>
+                                            {section.visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
+                                        </button>
+                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteSection(section.id); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: '4px' }}><Trash2 size={14} /></button>
+                                    </div>
+                                </Reorder.Item>
+                            ))}
+                        </Reorder.Group>
                                 </div>
                             )}
 
@@ -295,13 +338,7 @@ const WebsiteEditor = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>{t('pages') || 'Sayfalar'}</h4>
                                         <button 
-                                            onClick={() => {
-                                                const name = window.prompt(t('enter_page_name') || 'Sayfa adı girin:');
-                                                if (name) {
-                                                    const slug = name.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
-                                                    addPage(name, `/${slug}`);
-                                                }
-                                            }}
+                                            onClick={handleOpenAddPageModal}
                                             style={{ border: 'none', background: 'none', color: '#9333ea', cursor: 'pointer' }}
                                         >
                                             <Plus size={16}/>
@@ -412,62 +449,46 @@ const WebsiteEditor = () => {
                                 </div>
                             )}
 
-                            {activePanel === 'yapayzeka' && (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                    {[
-                                        { name: 'AI Writer', icon: Type }, { name: 'AI Logo', icon: Palette },
-                                        { name: 'AI Image', icon: ImageIcon }, { name: 'AI Heatmap', icon: BarChart },
-                                        { name: 'AI SEO', icon: Globe }, { name: 'Auto Translate', icon: MessageSquare }
-                                    ].map(tool => (
-                                        <button key={tool.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 8px', gap: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer' }}>
-                                            <tool.icon size={24} color="#9333ea" />
-                                            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#334155' }}>{tool.name}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
 
-                            {activePanel === 'blog' && (
-                                <div>
-                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
-                                        <button style={{ flex: 1, padding: '6px', background: 'white', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>Hepsi</button>
-                                        <button style={{ flex: 1, padding: '6px', background: 'transparent', border: 'none', fontSize: '0.8rem', fontWeight: '600', color: '#64748b' }}>Taslaklar</button>
-                                    </div>
-                                    <div style={{ textAlign: 'center', padding: '32px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-                                        <MessageSquare size={32} color="#cbd5e1" style={{ marginBottom: '12px' }} />
-                                        <h4 style={{ margin: '0 0 8px', fontSize: '0.9rem' }}>No posts yet</h4>
-                                        <button style={{ padding: '8px 16px', background: '#9333ea', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', fontSize: '0.8rem' }}>Create Post</button>
-                                    </div>
-                                </div>
-                            )}
+
 
                             {activePanel === 'magaza' && (
                                 <div style={{ textAlign: 'center', padding: '24px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                    <ShoppingCart size={40} color="#9333ea" style={{ marginBottom: '16px' }} />
-                                    <h4 style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: '700' }}>Manage Your Store</h4>
-                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '16px' }}>Add products, manage inventory and track sales from your store dashboard.</p>
-                                    <button onClick={() => navigate('/stock')} style={{ width: '100%', padding: '12px', background: '#1e293b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Stok & Satış panelini aç</button>
-                                    <button onClick={() => navigate('/appointments')} style={{ width: '100%', padding: '12px', background: 'white', color: '#1e293b', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', marginTop: 8 }}>Randevu panelini aç</button>
-                                </div>
-                            )}
+                                     <ShoppingCart size={40} color="#9333ea" style={{ marginBottom: '16px' }} />
+                                     <h4 style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: '700' }}>{t('manage_store') || 'Mağazanızı Yönetin'}</h4>
+                                     <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '16px' }}>{t('manage_store_desc') || 'Ürün ekleyin, stok yönetin ve satışları takip edin.'}</p>
+                                     <button onClick={() => navigate('/stock')} style={{ width: '100%', padding: '12px', background: '#1e293b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>{t('open_stock_panel') || 'Stok & Satış panelini aç'}</button>
+                                     <button onClick={() => navigate('/appointments')} style={{ width: '100%', padding: '12px', background: 'white', color: '#1e293b', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', marginTop: 8 }}>{t('open_appointments_panel') || 'Randevu panelini aç'}</button>
+                                 </div>
+                             )}
 
-                            {activePanel === 'seo' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    <EditorField label={t('seo_title') || 'Meta Title'} value={siteConfig.seo?.title} onChange={(val) => updateSiteConfig({ seo: { title: val } })} />
-                                    <EditorField label={t('seo_desc') || 'Meta Description'} isTextArea value={siteConfig.seo?.description} onChange={(val) => updateSiteConfig({ seo: { description: val } })} />
-                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
-                                        <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Advanced</h4>
-                                        <EditorField label={t('custom_css') || 'Custom CSS'} isTextArea placeholder="body { ... }" value={siteConfig.advanced?.customCss} onChange={(val) => updateSiteConfig({ advanced: { customCss: val } })} />
-                                        <EditorField label={t('head_scripts') || 'Header Scripts'} isTextArea placeholder="<!-- Analytics -->" value={siteConfig.advanced?.headScripts} onChange={(val) => updateSiteConfig({ advanced: { headScripts: val } })} />
-                                    </div>
-                                </div>
-                            )}
+                             {activePanel === 'seo' && (
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                     <p style={{ fontSize: '0.85rem', color: '#64748b' }}>{t('seo_desc') || 'Arama motorlarında görünürlüğünüzü artırın.'}</p>
+                                     <EditorField label={t('seo_title') || 'Site Başlığı (SEO)'} value={siteConfig.seo?.title} onChange={v => updateSiteConfig({ seo: { ...siteConfig.seo, title: v } })} />
+                                     <EditorField label={t('seo_description') || 'Site Açıklaması'} isTextArea value={siteConfig.seo?.description} onChange={v => updateSiteConfig({ seo: { ...siteConfig.seo, description: v } })} />
+                                     <EditorField label={t('seo_keywords') || 'Anahtar Kelimeler'} value={siteConfig.seo?.keywords} onChange={v => updateSiteConfig({ seo: { ...siteConfig.seo, keywords: v } })} />
+                                     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px' }}>
+                                         <h4 style={{ margin: '0 0 12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>{t('advanced_settings') || 'Advanced'}</h4>
+                                         <EditorField label={t('custom_css') || 'Custom CSS'} isTextArea placeholder="body { ... }" value={siteConfig.advanced?.customCss} onChange={(val) => updateSiteConfig({ advanced: { customCss: val } })} />
+                                         <EditorField label={t('head_scripts') || 'Header Scripts'} isTextArea placeholder="<!-- Analytics -->" value={siteConfig.advanced?.headScripts} onChange={(val) => updateSiteConfig({ advanced: { headScripts: val } })} />
+                                     </div>
+                                 </div>
+                             )}
 
                             {activePanel === 'daha' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    {['Blog', 'Randevular', 'Genel ayarlar', 'Entegrasyonlar', 'Form gönderimleri', 'Analizler', 'Medya kütüphanesi'].map(item => (
-                                        <button key={item} style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#334155' }}>
-                                            {item} <ChevronRight size={16} color="#cbd5e1" />
+                                    {[
+                                        { label: t('appointments') || 'Randevular', id: 'appointments' },
+                                        { label: t('appointments') || 'Randevular', id: 'appointments' },
+                                        { label: t('general_settings') || 'Genel ayarlar', id: 'general' },
+                                        { label: t('integrations') || 'Entegrasyonlar', id: 'integrations' },
+                                        { label: t('form_submissions') || 'Form gönderimleri', id: 'forms' },
+                                        { label: t('analytics') || 'Analizler', id: 'analytics' },
+                                        { label: t('media_library') || 'Medya kütüphanesi', id: 'media' }
+                                    ].map(item => (
+                                        <button key={item.id} style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: '#334155' }}>
+                                            {item.label} <ChevronRight size={16} color="#cbd5e1" />
                                         </button>
                                     ))}
                                 </div>
@@ -483,7 +504,16 @@ const WebsiteEditor = () => {
                                 <Eye size={16} /> {t('preview') || 'Preview'}
                             </button>
                             <button
-                                onClick={() => { publishSite(); alert(t('site_published') || 'Site published!'); }}
+                                onClick={async () => { 
+                                    const res = await publishSite(); 
+                                    if (res?.success !== false) {
+                                        showNotification({
+                                            title: t('success') || 'Başarılı',
+                                            message: t('site_published') || 'Siteniz başarıyla yayınlandı!',
+                                            type: 'success'
+                                        });
+                                    }
+                                }}
                                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', borderRadius: '8px', border: 'none', background: '#9333ea', color: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem', boxShadow: '0 4px 12px rgba(147, 51, 234, 0.3)' }}
                             >
                                 <Globe size={16} /> {siteConfig.isPublished ? (t('republish') || 'Republish') : (t('publish') || 'Publish')}
@@ -517,17 +547,48 @@ const WebsiteEditor = () => {
                 </div>
 
                 {/* Live Preview Container */}
-                <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', padding: previewMode !== 'desktop' ? '24px' : '0', background: '#0f172a' }}>
-                    <div style={{
-                        width: previewWidth,
-                        maxWidth: '100%',
-                        background: 'white',
-                        boxShadow: previewMode !== 'desktop' ? '0 20px 60px rgba(0,0,0,0.5)' : 'none',
-                        borderRadius: previewMode !== 'desktop' ? '16px' : '0',
-                        transition: 'width 0.3s ease'
-                    }}>
-                        <PublicWebsite overrideData={previewOverrideData} />
-                    </div>
+                <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', padding: '40px 24px', background: '#0f172a', perspective: '1000px' }}>
+                    <motion.div 
+                        initial={false}
+                        animate={{ width: previewWidth }}
+                        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                        style={{
+                            maxWidth: '100%',
+                            background: 'white',
+                            boxShadow: '0 30px 100px rgba(0,0,0,0.6)',
+                            borderRadius: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            border: '1px solid #334155',
+                            height: 'fit-content',
+                            maxHeight: '100%'
+                        }}
+                    >
+                        {/* Browser Top Bar */}
+                        <div style={{ 
+                            height: '40px', background: '#1e293b', borderBottom: '1px solid #334155', 
+                            display: 'flex', alignItems: 'center', gap: '8px', padding: '0 20px', flexShrink: 0
+                        }}>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56' }} />
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e' }} />
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f' }} />
+                            </div>
+                            <div style={{ 
+                                margin: '0 auto', fontSize: '0.75rem', color: '#94a3b8', background: '#0f172a', 
+                                padding: '4px 20px', borderRadius: '6px', width: '300px', textAlign: 'center',
+                                border: '1px solid #334155', fontWeight: '500', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                            }}>
+                                <Globe size={12} /> {siteConfig.slug || 'site'}.bayrechnung.com
+                            </div>
+                            <div style={{ width: '40px' }} /> {/* Spacer */}
+                        </div>
+
+                        <div style={{ flex: 1, overflow: 'auto' }}>
+                            <PublicWebsite overrideData={previewOverrideData} />
+                        </div>
+                    </motion.div>
                 </div>
             </div>
 
@@ -604,18 +665,48 @@ const WebsiteEditor = () => {
                                         {activeSection.type === 'FEATURES' && (
                                             <>
                                                 <EditorField label={t('section_title')} value={activeSection.data.title} onChange={v => updateSection(activeSection.id, { title: v })} />
-                                                {(activeSection.data.items || []).map((item, i) => (
-                                                    <div key={i} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px' }}>
-                                                        <EditorField label={`${t('title')} ${i + 1}`} value={item.title} onChange={v => {
-                                                            const newItems = [...activeSection.data.items]; newItems[i] = { ...item, title: v };
-                                                            updateSection(activeSection.id, { items: newItems });
-                                                        }} />
-                                                        <EditorField label="Description" isTextArea value={item.description} onChange={v => {
-                                                            const newItems = [...activeSection.data.items]; newItems[i] = { ...item, description: v };
-                                                            updateSection(activeSection.id, { items: newItems });
-                                                        }} />
-                                                    </div>
-                                                ))}
+                                                <Reorder.Group 
+                                                    axis="y" 
+                                                    values={activeSection.data.items || []} 
+                                                    onReorder={(newItems) => updateSection(activeSection.id, { items: newItems })}
+                                                    style={{ display: 'flex', flexDirection: 'column', gap: '12px', listStyle: 'none', padding: 0 }}
+                                                >
+                                                    {(activeSection.data.items || []).map((item, i) => (
+                                                        <Reorder.Item 
+                                                            key={i} 
+                                                            value={item}
+                                                            style={{ 
+                                                                padding: '14px', background: '#f8fafc', borderRadius: '12px',
+                                                                border: '1px solid #e2e8f0', position: 'relative'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                    <GripHorizontal size={14} style={{ color: '#94a3b8', cursor: 'grab' }} />
+                                                                    <span style={{ fontSize: '0.65rem', fontWeight: 900, color: '#64748b', textTransform: 'uppercase' }}>Item #{i + 1}</span>
+                                                                </div>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const newItems = [...(activeSection.data.items || [])];
+                                                                        newItems.splice(i, 1);
+                                                                        updateSection(activeSection.id, { items: newItems });
+                                                                    }}
+                                                                    style={{ padding: '4px', border: 'none', background: '#fee2e2', color: '#ef4444', borderRadius: '6px', cursor: 'pointer' }}
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                            <EditorField label={`${t('title')} ${i + 1}`} value={item.title} onChange={v => {
+                                                                const newItems = [...activeSection.data.items]; newItems[i] = { ...item, title: v };
+                                                                updateSection(activeSection.id, { items: newItems });
+                                                            }} />
+                                                            <EditorField label="Description" isTextArea value={item.description} onChange={v => {
+                                                                const newItems = [...activeSection.data.items]; newItems[i] = { ...item, description: v };
+                                                                updateSection(activeSection.id, { items: newItems });
+                                                            }} />
+                                                        </Reorder.Item>
+                                                    ))}
+                                                </Reorder.Group>
                                                 <button onClick={() => updateSection(activeSection.id, { items: [...(activeSection.data.items || []), { title: 'New Feature', description: '' }] })} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px dashed #cbd5e1', background: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>+ Add Item</button>
                                             </>
                                         )}
@@ -623,17 +714,85 @@ const WebsiteEditor = () => {
                                         {activeSection.type === 'PRICING' && (
                                             <>
                                                 <EditorField label={t('section_title')} value={activeSection.data.title} onChange={v => updateSection(activeSection.id, { title: v })} />
-                                                {activeSection.data.items.map((plan, i) => (
-                                                    <div key={i} style={{ padding: '20px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #eef2f6', marginBottom: '16px' }}>
-                                                        <div style={{ fontWeight: '900', fontSize: '0.75rem', marginBottom: 12, color: '#3b82f6' }}>{plan.name || `Item ${i + 1}`}</div>
-                                                        <EditorField label="Name" value={plan.name} onChange={v => { const items = [...activeSection.data.items]; items[i] = { ...plan, name: v }; updateSection(activeSection.id, { items }); }} />
-                                                        <EditorField label="Features (One per line)" isTextArea value={plan.features?.join('\n')} onChange={v => { const items = [...activeSection.data.items]; items[i] = { ...plan, features: v.split('\n') }; updateSection(activeSection.id, { items }); }} />
-                                                        <EditorField label="Price" value={plan.price} onChange={v => { const items = [...activeSection.data.items]; items[i] = { ...plan, price: v }; updateSection(activeSection.id, { items }); }} />
-                                                    </div>
-                                                ))}
+                                                <Reorder.Group 
+                                                    axis="y" 
+                                                    values={activeSection.data.items || []} 
+                                                    onReorder={(newItems) => updateSection(activeSection.id, { items: newItems })}
+                                                    style={{ display: 'flex', flexDirection: 'column', gap: '12px', listStyle: 'none', padding: 0 }}
+                                                >
+                                                    {(activeSection.data.items || []).map((plan, i) => (
+                                                        <Reorder.Item 
+                                                            key={i} 
+                                                            value={plan}
+                                                            style={{ 
+                                                                padding: '20px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #eef2f6',
+                                                                position: 'relative'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                    <GripHorizontal size={14} style={{ color: '#94a3b8', cursor: 'grab' }} />
+                                                                    <span style={{ fontWeight: '900', fontSize: '0.75rem', color: '#3b82f6' }}>{plan.name || `Plan ${i + 1}`}</span>
+                                                                </div>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const newItems = [...(activeSection.data.items || [])];
+                                                                        newItems.splice(i, 1);
+                                                                        updateSection(activeSection.id, { items: newItems });
+                                                                    }}
+                                                                    style={{ padding: '4px', border: 'none', background: '#fee2e2', color: '#ef4444', borderRadius: '6px', cursor: 'pointer' }}
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                            <EditorField label="Name" value={plan.name} onChange={v => { const items = [...activeSection.data.items]; items[i] = { ...plan, name: v }; updateSection(activeSection.id, { items }); }} />
+                                                            <EditorField label="Price" value={plan.price} onChange={v => { const items = [...activeSection.data.items]; items[i] = { ...plan, price: v }; updateSection(activeSection.id, { items }); }} />
+                                                            <EditorField label="Features (One per line)" isTextArea value={plan.features?.join('\n')} onChange={v => { const items = [...activeSection.data.items]; items[i] = { ...plan, features: v.split('\n').filter(f => f.trim()) }; updateSection(activeSection.id, { items }); }} />
+                                                        </Reorder.Item>
+                                                    ))}
+                                                </Reorder.Group>
+                                                <button onClick={() => updateSection(activeSection.id, { items: [...(activeSection.data.items || []), { name: 'New Plan', price: '0', features: [] }] })} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px dashed #cbd5e1', background: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>+ Add Plan</button>
                                             </>
                                         )}
 
+                                        {activeSection.type === 'FAQ' && (
+                                            <>
+                                                <EditorField label={t('section_title')} value={activeSection.data.title} onChange={v => updateSection(activeSection.id, { title: v })} />
+                                                <Reorder.Group axis="y" values={activeSection.data.items || []} onReorder={(ni) => updateSection(activeSection.id, { items: ni })} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    {(activeSection.data.items || []).map((faq, i) => (
+                                                        <Reorder.Item key={i} value={faq} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                                                                <GripHorizontal size={14} color="#94a3b8" style={{ cursor: 'grab' }} />
+                                                                <button onClick={() => { const ni = [...activeSection.data.items]; ni.splice(i, 1); updateSection(activeSection.id, { items: ni }); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                                            </div>
+                                                            <EditorField label="Question" value={faq.q} onChange={v => { const ni = [...activeSection.data.items]; ni[i].q = v; updateSection(activeSection.id, { items: ni }); }} />
+                                                            <EditorField label="Answer" isTextArea value={faq.a} onChange={v => { const ni = [...activeSection.data.items]; ni[i].a = v; updateSection(activeSection.id, { items: ni }); }} />
+                                                        </Reorder.Item>
+                                                    ))}
+                                                </Reorder.Group>
+                                                <button onClick={() => updateSection(activeSection.id, { items: [...(activeSection.data.items || []), { q: 'Question?', a: 'Answer...' }] })} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px dashed #cbd5e1', background: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>+ Add FAQ</button>
+                                            </>
+                                        )}
+
+                                        {activeSection.type === 'TESTIMONIALS' && (
+                                            <>
+                                                <EditorField label={t('section_title')} value={activeSection.data.title} onChange={v => updateSection(activeSection.id, { title: v })} />
+                                                <Reorder.Group axis="y" values={activeSection.data.items || []} onReorder={(ni) => updateSection(activeSection.id, { items: ni })} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    {(activeSection.data.items || []).map((tst, i) => (
+                                                        <Reorder.Item key={i} value={tst} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                                                                <GripHorizontal size={14} color="#94a3b8" style={{ cursor: 'grab' }} />
+                                                                <button onClick={() => { const ni = [...activeSection.data.items]; ni.splice(i, 1); updateSection(activeSection.id, { items: ni }); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                                            </div>
+                                                            <EditorField label="Quote" isTextArea value={tst.quote} onChange={v => { const ni = [...activeSection.data.items]; ni[i].quote = v; updateSection(activeSection.id, { items: ni }); }} />
+                                                            <EditorField label="Author" value={tst.author} onChange={v => { const ni = [...activeSection.data.items]; ni[i].author = v; updateSection(activeSection.id, { items: ni }); }} />
+                                                            <EditorField label="Role" value={tst.role} onChange={v => { const ni = [...activeSection.data.items]; ni[i].role = v; updateSection(activeSection.id, { items: ni }); }} />
+                                                        </Reorder.Item>
+                                                    ))}
+                                                </Reorder.Group>
+                                                <button onClick={() => updateSection(activeSection.id, { items: [...(activeSection.data.items || []), { quote: '', author: '', role: '' }] })} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px dashed #cbd5e1', background: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>+ Add Testimonial</button>
+                                            </>
+                                        )}
                                         {['SERVICES', 'PRODUCTS'].includes(activeSection.type) && (
                                             <div style={{ padding: '32px', background: '#f8fafc', borderRadius: '16px', textAlign: 'center', border: '2px dashed #e2e8f0' }}>
                                                 <RefreshCw size={28} color="#3b82f6" style={{ marginBottom: '10px' }} />
@@ -649,7 +808,7 @@ const WebsiteEditor = () => {
                                             </>
                                         )}
 
-                                        {!['HERO', 'FEATURES', 'PRICING', 'SERVICES', 'PRODUCTS', 'CONTACT'].includes(activeSection.type) && (
+                                        {!['HERO', 'FEATURES', 'PRICING', 'SERVICES', 'PRODUCTS', 'CONTACT', 'FAQ', 'TESTIMONIALS'].includes(activeSection.type) && (
                                             <>
                                                 <EditorField label={t('title')} value={activeSection.data.title} onChange={v => updateSection(activeSection.id, { title: v })} />
                                                 <EditorField label={t('content')} isTextArea value={activeSection.data.content || activeSection.data.text} onChange={v => updateSection(activeSection.id, { content: v })} />
@@ -741,6 +900,90 @@ const WebsiteEditor = () => {
 
             {/* Google Fonts Loader */}
             <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${(siteConfig.theme?.fontFamily || 'Inter').replace(/"/g, '').split(',')[0].trim().replace(/ /g, '+')}:wght@300;400;500;600;700;800;900&display=swap`} />
+
+            {/* Add Page Modal */}
+            <AnimatePresence>
+                {isAddPageModalOpen && (
+                    <div style={{
+                        position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+                    }}>
+                        <motion.div 
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            style={{
+                                backgroundColor: 'white', padding: '24px', borderRadius: '16px', 
+                                width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>{t('add_new_page') || 'Yeni Sayfa Oluştur'}</h2>
+                                <button onClick={() => setIsAddPageModalOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            
+                            <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '24px' }}>{t('create_page_desc') || 'Sitenize yeni bir bölüm ekleyin.'}</p>
+                            
+                            <form onSubmit={handleAddPage} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, marginBottom: '4px' }}>{t('page_title') || 'Sayfa Başlığı'}</label>
+                                    <input 
+                                        type="text" 
+                                        value={newPageTitle}
+                                        onChange={(e) => {
+                                            setNewPageTitle(e.target.value);
+                                            if(!newPageSlug) setNewPageSlug('/' + e.target.value.toLowerCase().replace(/\s+/g, '-'));
+                                        }}
+                                        autoFocus
+                                        style={{
+                                            width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0',
+                                            outline: 'none', transition: 'border-color 0.2s'
+                                        }}
+                                        placeholder={t('page_example') || "Örn: Hakkımızda"}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, marginBottom: '4px' }}>{t('page_slug') || 'URL (Slug)'}</label>
+                                    <input 
+                                        type="text" 
+                                        value={newPageSlug}
+                                        onChange={(e) => setNewPageSlug(e.target.value)}
+                                        style={{
+                                            width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0',
+                                            outline: 'none', transition: 'border-color 0.2s', fontSize: '0.85rem'
+                                        }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '12px', paddingTop: '8px' }}>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsAddPageModalOpen(false)}
+                                        style={{
+                                            flex: 1, padding: '12px', background: '#f1f5f9', color: '#64748b',
+                                            border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer'
+                                        }}
+                                    >
+                                        {t('cancel') || 'İptal'}
+                                    </button>
+                                    <button 
+                                        type="submit"
+                                        style={{
+                                            flex: 1, padding: '12px', background: '#3b82f6', color: 'white',
+                                            border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer'
+                                        }}
+                                    >
+                                        {t('create') || 'Oluştur'}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

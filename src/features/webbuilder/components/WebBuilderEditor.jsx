@@ -209,7 +209,7 @@ const WebBuilderEditor = () => {
                                         elements: 'Öğeler',
                                         pages: 'Sayfalar',
                                         styles: 'Stiller',
-                                        ai: 'YZ Araçları',
+
                                         blog: 'Blog',
                                         store: 'Mağaza',
                                         seo: 'SEO',
@@ -223,7 +223,7 @@ const WebBuilderEditor = () => {
                                     {activeTab === 'blog' && (t('manage_blog_desc') || 'İçerik ve makaleleri yönet')}
                                     {activeTab === 'store' && (t('manage_store_desc') || 'Satış ve ürün yönetimi')}
                                     {activeTab === 'seo' && (t('manage_seo_desc') || 'Arama motoru optimizasyonu')}
-                                    {activeTab === 'ai' && (t('manage_ai_desc') || 'Yapay zeka asistanı')}
+
                                     {activeTab === 'more' && (t('manage_more_desc') || 'Ek seçenekler ve ayarlar')}
                                 </div>
                             </div>
@@ -341,27 +341,7 @@ const WebBuilderEditor = () => {
                                 </div>
                             )}
 
-                            {/* ── AI TOOLS PANEL ── */}
-                            {activeTab === 'ai' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <div style={{ padding: '20px', background: 'linear-gradient(135deg, #6C3BFF, #4c28cc)', borderRadius: '20px', color: 'white', marginBottom: '16px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                                            <Sparkles size={24} />
-                                            <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '900' }}>YZ Araçları</h4>
-                                        </div>
-                                        <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: '600', opacity: 0.9 }}>Yapay zeka ile saniyeler içinde sitenizi oluşturun ve geliştirin.</p>
-                                    </div>
-                                    {[
-                                        "YZ Görsel Oluşturucu", "YZ Yazar", "YZ Sayfa Oluşturucu", "YZ Bölüm Oluşturucu",
-                                        "YZ Blog Oluşturucu", "YZ Ürün Bilgisi Üretici", "Yapay Zeka SEO Asistanı", "YZ Logo Oluşturucu"
-                                    ].map((tool, i) => (
-                                        <button key={i} style={{ width: '100%', padding: '16px', textAlign: 'left', background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '16px', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={e => e.currentTarget.style.borderColor = '#6C3BFF'}>
-                                            {tool}
-                                            <ChevronRight size={16} color="#cbd5e1" />
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+
 
                             {/* ── PAGES PANEL ── */}
                             {activeTab === 'pages' && (() => {
@@ -728,7 +708,70 @@ const WebBuilderEditor = () => {
                                             </>
                                         )}
 
-                                        {!['HERO', 'FEATURES', 'PRICING', 'SERVICES', 'PRODUCTS', 'CONTACT'].includes(activeSection.type) && (
+                                        {activeSection.type === 'FAQ' && (
+                                            <>
+                                                <EditorField label={t('section_title')} value={activeSection.data.title} onChange={v => updateSection(activeSection.id, { title: v })} />
+                                                {(activeSection.data.items || []).map((item, i) => (
+                                                    <div key={i} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '10px', border: '1px solid #eef2f6' }}>
+                                                        <EditorField label={`${t('question')} ${i + 1}`} value={item.q} onChange={v => {
+                                                            const newItems = [...activeSection.data.items]; newItems[i] = { ...item, q: v };
+                                                            updateSection(activeSection.id, { items: newItems });
+                                                        }} />
+                                                        <EditorField label={`${t('answer')} ${i + 1}`} isTextArea value={item.a} onChange={v => {
+                                                            const newItems = [...activeSection.data.items]; newItems[i] = { ...item, a: v };
+                                                            updateSection(activeSection.id, { items: newItems });
+                                                        }} />
+                                                        <button 
+                                                            onClick={() => {
+                                                                const newItems = activeSection.data.items.filter((_, idx) => idx !== i);
+                                                                updateSection(activeSection.id, { items: newItems });
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.7rem', fontWeight: '700', cursor: 'pointer', padding: '4px' }}
+                                                        >
+                                                            {t('remove') || 'Sil'}
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <button onClick={() => updateSection(activeSection.id, { items: [...(activeSection.data.items || []), { q: 'Yeni Soru?', a: 'Cevap buraya...' }] })} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px dashed #cbd5e1', background: 'none', cursor: 'pointer', fontWeight: '800', fontSize: '0.8rem', color: '#3b82f6' }}>+ Yeni Soru Ekle</button>
+                                            </>
+                                        )}
+
+                                        {activeSection.type === 'GALLERY' && (
+                                            <>
+                                                <EditorField label={t('section_title')} value={activeSection.data.title} onChange={v => updateSection(activeSection.id, { title: v })} />
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                                                    {(activeSection.data.images || []).map((img, i) => (
+                                                        <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                                                            <img src={img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            <button 
+                                                                onClick={() => {
+                                                                    const newImages = activeSection.data.images.filter((_, idx) => idx !== i);
+                                                                    updateSection(activeSection.id, { images: newImages });
+                                                                }}
+                                                                style={{ position: 'absolute', top: '5px', right: '5px', width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.9)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                                                    <EditorField 
+                                                        label="Yeni Görsel URL Ekle" 
+                                                        placeholder="https://..." 
+                                                        value="" 
+                                                        onChange={v => {
+                                                            if (v.trim()) {
+                                                                updateSection(activeSection.id, { images: [...(activeSection.data.images || []), v] });
+                                                            }
+                                                        }} 
+                                                    />
+                                                    <p style={{ fontSize: '0.7rem', color: '#94a3b8', margin: '4px 0 0' }}>Not: Dosya yükleme özelliği yakında eklenecektir. Şimdilik URL yapıştırabilirsiniz.</p>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {!['HERO', 'FEATURES', 'PRICING', 'SERVICES', 'PRODUCTS', 'CONTACT', 'FAQ', 'GALLERY'].includes(activeSection.type) && (
                                             <>
                                                 <EditorField label={t('title')} value={activeSection.data.title} onChange={v => updateSection(activeSection.id, { title: v })} />
                                                 <EditorField label={t('content')} isTextArea value={activeSection.data.content || activeSection.data.text} onChange={v => updateSection(activeSection.id, { content: v })} />

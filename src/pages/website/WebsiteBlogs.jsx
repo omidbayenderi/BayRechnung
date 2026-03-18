@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    FileText, Plus, Edit3, Trash2, Eye, EyeOff,
-    Calendar, Tag, Search, X, Save, ChevronDown, Globe
+    Calendar, Tag, Search, X, Save, ChevronDown, Globe, Image as ImageIcon,
+    Upload, Loader2, FileText, Plus, Eye, EyeOff, Edit3, Trash2
 } from 'lucide-react';
 
 const EMPTY_POST = {
@@ -16,6 +16,7 @@ const EMPTY_POST = {
     category: '',
     tags: '',
     is_published: false,
+    cover_image: '',
 };
 
 const slugify = (text) =>
@@ -70,6 +71,35 @@ const WebsiteBlogs = () => {
         });
     };
 
+    const handleImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !currentUser) return;
+        
+        setSaving(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `${currentUser.id}/blog-covers/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('website_assets')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('website_assets')
+                .getPublicUrl(filePath);
+
+            setForm(prev => ({ ...prev, cover_image: publicUrl }));
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            alert('Görsel yüklenirken bir hata oluştu. Lütfen "website_assets" storage bucketının mevcut olduğundan emin olun.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleSave = async () => {
         if (!form.title.trim()) return;
         setSaving(true);
@@ -85,11 +115,15 @@ const WebsiteBlogs = () => {
                 setPosts(prev => prev.map(p => p.id === editingPost.id ? { ...p, ...payload } : p));
             } else {
                 payload.created_at = new Date().toISOString();
-                const { data } = await supabase.from('blog_posts').insert([payload]).select().single();
+                const { data, error } = await supabase.from('blog_posts').insert([payload]).select().single();
+                if (error) throw error;
                 if (data) setPosts(prev => [data, ...prev]);
             }
             setEditingPost(null);
-        } catch (e) { console.error('[Blog] Save error:', e); }
+        } catch (e) { 
+            console.error('[Blog] Save error:', e);
+            alert('İçerik kaydedilirken bir hata oluştu. Veritabanı tablolarının mevcut olduğundan emin olun.');
+        }
         setSaving(false);
     };
 
@@ -172,7 +206,30 @@ const WebsiteBlogs = () => {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '24px', borderRadius: '24px', border: '1px solid #1f1f23' }}>
-                                <h3 style={{ fontSize: '1rem', fontWeight: '900', marginBottom: '20px' }}>Yayın Ayarları</h3>
+                                <h3 style={{ fontSize: '1rem', fontWeight: '900', marginBottom: '20px' }}>Kapak Görseli</h3>
+                                {form.cover_image ? (
+                                    <div style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', marginBottom: '16px' }}>
+                                        <img src={form.cover_image} alt="Cover" style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
+                                        <button 
+                                            onClick={() => setForm(prev => ({ ...prev, cover_image: '' }))}
+                                            style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', color: 'white', padding: '6px', cursor: 'pointer' }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{ 
+                                        width: '100%', height: '120px', border: '2px dashed #1f1f23', borderRadius: '14px', 
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+                                        gap: '8px', cursor: 'pointer', marginBottom: '16px', color: '#6b7280'
+                                    }} onClick={() => document.getElementById('cover-upload').click()}>
+                                        <Upload size={24} />
+                                        <span style={{ fontSize: '0.8rem', fontWeight: '700' }}>Görsel Yükle</span>
+                                        <input type="file" id="cover-upload" hidden accept="image/*" onChange={handleImageUpload} />
+                                    </div>
+                                )}
+
+                                <h3 style={{ fontSize: '1rem', fontWeight: '900', marginBottom: '20px', marginTop: '32px' }}>Yayın Ayarları</h3>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                                     <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#fff' }}>Durum</span>
                                     <div onClick={() => handleFormChange('is_published', !form.is_published)}
